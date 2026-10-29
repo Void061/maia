@@ -44,6 +44,11 @@ Set-NetConnectionProfile -InterfaceAlias "Wi-Fi" -NetworkCategory Private
 New-NetFirewallRule -DisplayName "MAIA dev (3001)" -Direction Inbound -Protocol TCP -LocalPort 3001 -Action Allow -Profile Private
 ```
 
+In più, `next dev` blocca gli script di sviluppo per chi arriva da un indirizzo diverso da
+`localhost`: la pagina si vede ma nessun pulsante funziona. Per questo `next.config.ts` ha
+`allowedDevOrigins: ["192.168.1.*"]`. Se la rete di casa cambia sottorete, va aggiornato lì
+(e il server di sviluppo riavviato).
+
 ## Problemi noti
 
 - **Prisma:** non installare `prisma@latest` (punta a una release candidate della 8 che blocca
