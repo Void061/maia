@@ -39,8 +39,6 @@ export default function Player({ title, live }: Props) {
   const [subs, setSubs] = useState<Track[]>([]);
   const [sub, setSub] = useState(-1);
   const [speed, setSpeed] = useState(1);
-  const [sources, setSources] = useState(() => title?.sources ?? [channels.find((c) => c.id === live?.channelId)?.provider ?? ""]);
-  const [toast, setToast] = useState<string | null>(null);
 
   const now = useNow(15_000);
   const channel = channels.find((c) => c.id === channelId);
@@ -115,24 +113,10 @@ export default function Player({ title, live }: Props) {
       const i = channels.findIndex((c) => c.id === channelId);
       const next = channels[(i + dir + channels.length) % channels.length];
       setChannelId(next.id);
-      setSources([next.provider]);
       router.replace(`/guarda/live-${next.id}`, { scroll: false });
     },
     [channelId, router],
   );
-
-  // Simulates the current source failing: MAIA moves to the next one and
-  // carries on from the same second.
-  function failSource() {
-    if (sources.length < 2) {
-      setToast(`${sources[0]} non risponde e non ci sono altre fonti per questo titolo.`);
-    } else {
-      const [failed, ...rest] = sources;
-      setSources([...rest, failed]);
-      setToast(`${failed} non risponde: continui su ${rest[0]} dallo stesso punto.`);
-    }
-    setTimeout(() => setToast(null), 4000);
-  }
 
   // Remote keys while the controls layer is in charge (the settings panel
   // uses the normal arrow navigation instead).
@@ -187,62 +171,96 @@ export default function Player({ title, live }: Props) {
       />
 
       <div
-        className={`pointer-events-none absolute inset-0 flex flex-col justify-between bg-gradient-to-b from-black/70 via-transparent to-black/80 transition-opacity duration-300 ${chrome || panel ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute inset-0 flex flex-col justify-between bg-gradient-to-b from-black/60 via-transparent to-black/70 transition-opacity duration-300 ${chrome || panel ? "opacity-100" : "opacity-0"}`}
       >
-        <div className="pointer-events-auto flex items-start gap-4 p-4 sm:p-8">
-          <button onClick={() => router.back()} className="lamp grid size-12 place-items-center rounded-full bg-black/40" aria-label="Indietro">
+        <div className="pointer-events-auto flex items-center gap-4 p-4 sm:p-10">
+          <button
+            onClick={() => router.back()}
+            className="focusable pill-focus glass grid size-12 place-items-center rounded-full"
+            aria-label="Indietro"
+          >
             <BackIcon />
           </button>
           <div className="min-w-0">
             {live && channel && (
-              <p className="text-moon">
-                {channel.number} {channel.name}
-                {onAir && `, ${hhmm(onAir.start)} – ${hhmm(onAir.end)}`}
+              <p className="text-sm font-medium text-muted sm:text-base">
+                {channel.number} · {channel.name}
+                {onAir && ` · ${hhmm(onAir.start)} – ${hhmm(onAir.end)}`}
               </p>
             )}
-            <h1 className="truncate font-display text-2xl font-semibold sm:text-4xl">{heading}</h1>
-            <p className="mt-1 text-sm text-moon">Da {sources[0]}</p>
+            <h1 className="truncate font-display text-xl font-bold sm:text-3xl">{heading}</h1>
           </div>
         </div>
 
-        <div className="pointer-events-auto p-4 sm:p-8">
-          {!live && (
-            <div className="flex items-center gap-4">
-              <span className="w-16 text-sm text-moon tabular-nums">{fmt(time)}</span>
-              <input
-                type="range"
-                min={0}
-                max={duration || 0}
-                step={1}
-                value={time}
-                onChange={(e) => {
-                  if (video.current) video.current.currentTime = Number(e.target.value);
-                }}
-                aria-label="Posizione"
-                className="h-1.5 flex-1 cursor-pointer accent-[#f5b856]"
-              />
-              <span className="w-16 text-right text-sm text-moon tabular-nums">{fmt(duration)}</span>
-            </div>
-          )}
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button onClick={toggle} className="lamp grid size-14 place-items-center rounded-full bg-lamp text-ink" aria-label={playing ? "Pausa" : "Riproduci"}>
-              {playing ? <PauseIcon /> : <PlayIcon />}
-            </button>
-            {live && (
-              <>
-                <button onClick={() => zap(-1)} className="lamp h-12 rounded-full bg-black/40 px-5">Canale precedente</button>
-                <button onClick={() => zap(1)} className="lamp h-12 rounded-full bg-black/40 px-5">Canale successivo</button>
-              </>
+        {/* Apple TV-style transport: a glass bar with a thin white scrubber. */}
+        <div className="pointer-events-auto p-4 sm:p-10">
+          <div className="glass rounded-[1.75rem] px-5 py-4 sm:px-7 sm:py-5">
+            {!live ? (
+              <div className="flex items-center gap-4">
+                <span className="w-14 text-sm font-medium text-muted tabular-nums">{fmt(time)}</span>
+                <div className="relative h-1.5 flex-1 rounded-full bg-white/25">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-white"
+                    style={{ width: duration ? `${(time / duration) * 100}%` : 0 }}
+                  />
+                  <input
+                    type="range"
+                    min={0}
+                    max={duration || 0}
+                    step={1}
+                    value={time}
+                    onChange={(e) => {
+                      if (video.current) video.current.currentTime = Number(e.target.value);
+                    }}
+                    aria-label="Posizione"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </div>
+                <span className="w-14 text-right text-sm font-medium text-muted tabular-nums">
+                  -{fmt(Math.max(0, duration - time))}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 text-sm font-medium">
+                <span className="rounded-md bg-white px-2 py-0.5 text-xs font-bold text-black">LIVE</span>
+                {onAir && now && (
+                  <span className="relative h-1.5 flex-1 rounded-full bg-white/25">
+                    <span
+                      className="absolute inset-y-0 left-0 rounded-full bg-white"
+                      style={{ width: `${((now - onAir.start) / (onAir.end - onAir.start)) * 100}%` }}
+                    />
+                  </span>
+                )}
+              </div>
             )}
-            <button onClick={() => setPanel(true)} className="lamp flex h-12 items-center gap-2 rounded-full bg-black/40 px-5">
-              <SettingsIcon /> Qualità e sottotitoli
-            </button>
-            <button onClick={failSource} className="lamp h-12 rounded-full border border-paper/20 px-5 text-sm text-moon">
-              Prototipo: simula guasto della fonte
-            </button>
-            <p className="ml-auto hidden text-sm text-moon lg:block">
-              {live ? "Su e giù cambiano canale" : "Frecce: indietro e avanti di 10 secondi. Giù: impostazioni"}
-            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
+              <button
+                onClick={toggle}
+                className="focusable grid size-12 place-items-center rounded-full bg-white text-black"
+                aria-label={playing ? "Pausa" : "Riproduci"}
+              >
+                {playing ? <PauseIcon /> : <PlayIcon />}
+              </button>
+              {live && (
+                <>
+                  <button onClick={() => zap(-1)} className="focusable pill-focus h-12 rounded-full px-5 font-medium">
+                    Canale precedente
+                  </button>
+                  <button onClick={() => zap(1)} className="focusable pill-focus h-12 rounded-full px-5 font-medium">
+                    Canale successivo
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => setPanel(true)}
+                className="focusable pill-focus flex h-12 items-center gap-2 rounded-full px-5 font-medium"
+              >
+                <SettingsIcon /> Audio e sottotitoli
+              </button>
+              <p className="ml-auto hidden text-sm text-muted lg:block">
+                {live ? "Su e giù cambiano canale" : "Frecce: -10 / +10 secondi · Giù: audio e sottotitoli"}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -251,16 +269,10 @@ export default function Player({ title, live }: Props) {
         <button
           onClick={toggle}
           aria-label="Riproduci"
-          className="lamp absolute left-1/2 top-1/2 grid size-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-lamp text-ink [&>svg]:size-10"
+          className="focusable glass absolute left-1/2 top-1/2 grid size-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-white [&>svg]:size-10"
         >
           <PlayIcon />
         </button>
-      )}
-
-      {toast && (
-        <div role="status" className="absolute left-1/2 top-24 -translate-x-1/2 rounded-2xl border border-lamp/40 bg-dusk/95 px-6 py-4 text-lg shadow-[0_18px_50px_-12px_rgb(245_184_86/0.45)]">
-          {toast}
-        </div>
       )}
 
       {panel && (
@@ -312,7 +324,7 @@ function SettingsPanel(props: {
   }, [onClose]);
 
   const chip = (active: boolean) =>
-    `lamp h-11 rounded-full px-4 ${active ? "bg-lamp text-ink font-semibold" : "bg-haze text-paper"}`;
+    `focusable pill-focus h-11 rounded-full px-4 font-medium ${active ? "bg-white text-black" : "bg-white/10 text-label"}`;
 
   return (
     <div
@@ -320,14 +332,14 @@ function SettingsPanel(props: {
       data-focus-trap
       role="dialog"
       aria-label="Impostazioni di riproduzione"
-      className="absolute inset-x-0 bottom-0 max-h-[80dvh] overflow-y-auto rounded-t-3xl border-t border-line bg-dusk/95 p-6 backdrop-blur sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[28rem] sm:rounded-3xl sm:border sm:p-8"
+      className="glass absolute inset-x-0 bottom-0 max-h-[80dvh] overflow-y-auto rounded-t-[2rem] p-6 sm:inset-x-auto sm:right-10 sm:bottom-10 sm:w-[28rem] sm:rounded-[2rem] sm:p-8"
     >
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl font-semibold">Riproduzione</h2>
-        <button onClick={onClose} className="lamp rounded-full px-4 py-2 text-moon">Chiudi</button>
+        <button onClick={onClose} className="focusable rounded-full px-4 py-2 text-muted">Chiudi</button>
       </div>
 
-      <h3 className="mt-6 text-moon">Qualità</h3>
+      <h3 className="mt-6 text-muted">Qualità</h3>
       <div className="mt-3 flex flex-wrap gap-2">
         <button className={chip(props.level === -1)} onClick={() => props.onLevel(-1)}>Automatica</button>
         {props.levels.map((l) => (
@@ -337,7 +349,7 @@ function SettingsPanel(props: {
         ))}
       </div>
 
-      <h3 className="mt-6 text-moon">Sottotitoli</h3>
+      <h3 className="mt-6 text-muted">Sottotitoli</h3>
       <div className="mt-3 flex flex-wrap gap-2">
         <button className={chip(props.sub === -1)} onClick={() => props.onSub(-1)}>Disattivati</button>
         {props.subs.map((t) => (
@@ -346,9 +358,9 @@ function SettingsPanel(props: {
           </button>
         ))}
       </div>
-      {props.subs.length === 0 && <p className="mt-2 text-sm text-moon">Questo contenuto non ha sottotitoli.</p>}
+      {props.subs.length === 0 && <p className="mt-2 text-sm text-muted">Questo contenuto non ha sottotitoli.</p>}
 
-      <h3 className="mt-6 text-moon">Lingua audio</h3>
+      <h3 className="mt-6 text-muted">Lingua audio</h3>
       <div className="mt-3 flex flex-wrap gap-2">
         {props.audio.length > 0 ? (
           props.audio.map((t) => (
@@ -363,7 +375,7 @@ function SettingsPanel(props: {
 
       {!props.live && (
         <>
-          <h3 className="mt-6 text-moon">Velocità</h3>
+          <h3 className="mt-6 text-muted">Velocità</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {SPEEDS.map((s) => (
               <button key={s} className={chip(props.speed === s)} onClick={() => props.onSpeed(s)}>

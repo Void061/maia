@@ -63,6 +63,10 @@ una lista "da associare".
 
 ## Fonti multiple e scelta della migliore
 
+**Le fonti sono invisibili all'utente**: in nessuna schermata compare da quale servizio arriva un
+contenuto, né che ne esistono più di uno, e l'utente non può sceglierle. È MAIA a decidere e a
+cambiarle.
+
 Una `Source` è collegata al **film** o al **singolo episodio** (non alla serie). Un contenuto può
 averne più di una (es. RaiPlay e Pluto TV).
 
@@ -70,15 +74,14 @@ Al play (`GET /playback/:itemId`) il backend ordina le fonti disponibili e non p
 1. stato del servizio (OK prima di DEGRADED; i servizi DOWN sono esclusi),
 2. qualità massima,
 3. presenza di sottotitoli / lingua scelta,
-4. preferenza dell'utente,
-5. tasso di successo recente;
+4. tasso di successo recente;
 
 e prova in ordine finché una risponde. Lo stato dei servizi (`ProviderHealth`) segue il pattern
 *circuit breaker*: dopo più errori di fila il servizio è escluso per un po' e poi riprovato.
 
 **Passaggio a metà visione:** se la riproduzione si interrompe, il player richiede
 `/playback/:itemId?exclude=<servizio>` e riprende dallo stesso punto (`WatchProgress` è legato al
-contenuto, non alla fonte). Nel prototipo è simulato dal tasto "simula guasto della fonte".
+contenuto, non alla fonte), senza avvisi: al massimo un breve caricamento.
 
 ## Riproduzione
 

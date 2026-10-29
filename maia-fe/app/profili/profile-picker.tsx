@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import Avatar from "@/components/avatar";
+import { PlusIcon } from "@/components/icons";
 import Logo from "@/components/logo";
 import { apps, profiles } from "@/lib/mock";
 import { lastApp, rememberApp, selectProfile } from "@/lib/session";
@@ -26,30 +27,29 @@ export default function ProfilePicker() {
   }
 
   return (
-    <main className="relative flex min-h-dvh flex-col items-center justify-center px-6 py-16">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 size-[50rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-lamp/[0.07] blur-[140px]"
-      />
+    <main className="night flex min-h-dvh flex-col items-center justify-center px-6 py-16">
       <div className="absolute left-6 top-8 sm:left-12">
         <Logo size="sm" />
       </div>
-      <h1 className="relative text-center font-display text-4xl font-semibold sm:text-6xl">Chi guarda?</h1>
-      <ul className="relative mt-12 flex flex-wrap justify-center gap-6 sm:gap-10">
+      <h1 className="text-center font-display text-4xl font-bold sm:text-5xl">Chi sta guardando?</h1>
+      <ul className="mt-14 flex flex-wrap justify-center gap-8 sm:gap-12">
         {profiles.map((p, i) => (
           <li key={p.id}>
             <button
               ref={i === 0 ? first : undefined}
               onClick={() => enter(p.id)}
-              className="lamp lamp-lift group flex flex-col items-center gap-4 rounded-[2rem] p-3"
+              className="group flex flex-col items-center gap-4 rounded-full outline-none"
             >
-              <span className="hidden sm:block">
-                <Avatar profile={p} size={150} />
+              {/* The circle itself carries the tvOS lift. */}
+              <span className="focusable lift block rounded-full group-focus-visible:scale-[1.08] group-focus-visible:shadow-[0_0_0_3px_white,0_30px_60px_-15px_black] group-hover:scale-[1.08]">
+                <span className="hidden sm:block">
+                  <Avatar profile={p} size={160} />
+                </span>
+                <span className="sm:hidden">
+                  <Avatar profile={p} size={96} />
+                </span>
               </span>
-              <span className="sm:hidden">
-                <Avatar profile={p} size={104} />
-              </span>
-              <span className="text-xl text-moon group-hover:text-paper group-focus-visible:text-paper">
+              <span className="text-lg text-muted transition-colors group-hover:text-label group-focus-visible:text-label sm:text-xl">
                 {p.name}
               </span>
             </button>
@@ -57,16 +57,16 @@ export default function ProfilePicker() {
         ))}
         {profiles.length < MAX_PROFILES && (
           <li>
-            <button className="lamp lamp-lift group flex flex-col items-center gap-4 rounded-[2rem] p-3">
-              <span className="grid size-[104px] place-items-center rounded-[28%] border-2 border-dashed border-line text-5xl text-moon sm:size-[150px]">
-                +
+            <button className="group flex flex-col items-center gap-4 rounded-full outline-none">
+              <span className="focusable grid size-24 place-items-center rounded-full bg-surface text-muted group-hover:scale-[1.08] group-focus-visible:scale-[1.08] group-focus-visible:bg-white group-focus-visible:text-black sm:size-40 [&>svg]:size-10">
+                <PlusIcon />
               </span>
-              <span className="text-xl text-moon">Aggiungi</span>
+              <span className="text-lg text-muted sm:text-xl">Aggiungi</span>
             </button>
           </li>
         )}
       </ul>
-      <button className="lamp relative mt-14 rounded-xl border border-line px-6 py-3 text-lg text-moon hover:text-paper">
+      <button className="focusable pill-focus mt-16 h-12 rounded-full px-6 text-lg text-muted">
         Gestisci profili
       </button>
     </main>

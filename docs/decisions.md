@@ -57,3 +57,12 @@ Profili bambini e PIN: rimandati. Vedi [access.md](access.md).
 desktop, tablet e telefono. Vedi [ui.md](ui.md).
 
 **Documentazione in `docs/`** nella radice del monorepo, aggiornata a ogni modifica.
+
+**Stile grafico: Apple TV / HBO Max** *(sostituisce lo stile "salotto la sera" con accento ambra
+e barra laterale)*. Nero vero, grigi di sistema Apple, bianco come colore interattivo, materiale
+vetro, menu in alto a pillola, selezione stile tvOS, font Inter. Motivo: lo stile precedente non
+piaceva; questi riferimenti sono familiari per un'app di streaming sulla TV. Vedi [ui.md](ui.md).
+
+**Le fonti non si mostrano e non si scelgono.** L'utente non sa che un contenuto può avere più
+fonti: niente "Disponibile su", niente "Da RaiPlay" nel player, nessun avviso quando MAIA cambia
+fonte. Rimossa la scelta manuale prevista prima. Vedi [tv/catalog.md](tv/catalog.md).

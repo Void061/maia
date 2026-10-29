@@ -9,31 +9,38 @@
    passaggio del mouse.
 2. **Tutto raggiungibile con le frecce** (navigazione spaziale), Invio per attivare,
    Esc/Backspace per tornare indietro.
-3. **Tema scuro**, con un solo colore d'accento.
-4. **Il layout cambia con la larghezza dello schermo**; da `md` (768px) in su c'è la barra
-   laterale, sotto la barra in basso.
+3. **Tema scuro**, con il bianco come unico colore interattivo.
+4. **Il layout cambia con la larghezza dello schermo**: da `md` (768px) in su le voci del menu
+   stanno nella barra in alto, sotto c'è anche la barra in basso del telefono.
 
 ## Design system
 
-Atmosfera: "il salotto la sera". Token in `maia-fe/app/globals.css` (`@theme`).
+Direzione: **Apple TV / HBO Max** (decisa il 2026-10-29, sostituisce il primo stile "salotto la
+sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 
 | Token | Valore | Uso |
 |---|---|---|
-| `ink` | `#120f1c` | sfondo |
-| `dusk` | `#1c1830` | superfici |
-| `haze` | `#2a2542` | superfici in rilievo, voce di menu attiva |
-| `line` | `#3a3456` | bordi |
-| `paper` | `#f4f0fa` | testo |
-| `moon` | `#b7afd3` | testo secondario |
-| `lamp` | `#f5b856` | accento: selezione, pulsante principale |
+| `canvas` | `#000000` | sfondo (nero vero) |
+| `surface` | `#1c1c1e` | superfici (grigio di sistema Apple) |
+| `raised` | `#2c2c2e` | superfici in rilievo |
+| `hairline` | `#38383a` | bordi |
+| `label` | `#f5f5f7` | testo |
+| `muted` | `#a1a1a6` | testo secondario |
+| `faint` | `#6e6e73` | testo terziario, didascalie |
+| `accent` | `#ffffff` | colore interattivo: il pulsante principale è bianco con testo nero |
+| `brand`, `brand-2` | `#3d6bff`, `#8c5bff` | gradiente di marca, solo nel logo e nell'icona delle app |
 
-- **Font:** *Bricolage Grotesque* per i titoli (`font-display`), *Figtree* per il testo
-  (`font-sans`), caricati con `next/font/google`.
-- **"Luce di lampada"**: classe `.lamp` su ogni elemento selezionabile. Con il focus (o il mouse
-  sopra) prende un bordo ambra e un alone caldo; `.lamp-lift` lo ingrandisce leggermente
-  (locandine, profili). È l'unico elemento visivo forte: il resto resta sobrio.
-  Rispetta `prefers-reduced-motion`.
-- **Logo:** "maia" con il punto della *i* come una lampadina accesa (`components/logo.tsx`).
+- **Font:** *Inter* (`next/font/google`), l'alternativa libera più vicina a SF Pro; titoli con
+  spaziatura stretta (`-0.025em`), pesi 700-800.
+- **Materiale vetro** (`.glass`): sfondo grigio traslucido con sfocatura, per menu in alto, barra
+  in basso del telefono, pannelli e comandi del player.
+- **Velo notte** (`.night`): gradiente blu/viola in cima alle pagine senza immagine, alla Max.
+- **Selezione stile tvOS:** l'elemento selezionato si solleva (`.lift`, scala 1.06) con un bordo
+  bianco sottile e un'ombra profonda; i pulsanti e le voci a pillola (`.pill-focus`) diventano
+  bianchi con testo nero. Niente aloni colorati. Rispetta `prefers-reduced-motion`.
+- **Card:** riquadri 16:9 (`Tile`) per *Continua a guardare*, canali live ed episodi; locandine
+  2:3 (`Poster`) per righe di genere e griglie. Il titolo sta **sotto** l'immagine.
+- **Logo:** "maia" in grassetto stretto con il gradiente di marca, seguito da "TV" nella sezione.
 
 ## Navigazione col telecomando
 
@@ -52,20 +59,23 @@ Atmosfera: "il salotto la sera". Token in `maia-fe/app/globals.css` (`@theme`).
 | `/login` | email e password, oppure "Accedi con il telefono" (QR + codice) |
 | `/registrati` | creazione account |
 | `/stato/email`, `/stato/approvazione`, `/stato/sospeso` | account non ancora attivo |
-| `/profili` | "Chi guarda?", massimo 5 profili |
-| `/tv` | Home MAIA TV: titolo in evidenza (lo sfondo segue la locandina selezionata), *Continua a guardare*, *In onda ora*, righe per genere |
+| `/profili` | "Chi sta guardando?", massimo 5 profili |
+| `/tv` | Home MAIA TV: hero a tutto schermo che scorre da sola ogni 8 s (si ferma quando il telecomando è sopra), *Continua a guardare*, *In onda ora*, righe per genere |
 | `/tv/live` | TV/desktop: griglia del palinsesto con linea dell'ora; telefono: lista dei canali |
 | `/tv/film`, `/tv/serie` | griglia con filtri per genere |
-| `/tv/titolo/[id]` | scheda: trama, fonti disponibili, stagioni ed episodi |
+| `/tv/titolo/[id]` | scheda: trama, Guarda/Riprendi, stagioni ed episodi (nessuna indicazione delle fonti) |
 | `/tv/cerca` | ricerca con tastiera a griglia su schermi grandi |
 | `/guarda/[id]`, `/guarda/live-[canale]` | player a schermo intero |
 
-**Menu:** barra laterale stretta con icone, che si allarga con i nomi quando ci entra il focus o
-il mouse. In cima il selettore delle app, in fondo l'avatar (cambia profilo, impostazioni, esci).
-Sul telefono: nome dell'app e avatar in alto, barra con 5 voci in basso.
+**Menu (TV, desktop, tablet):** barra in alto, trasparente sopra l'immagine e in vetro quando si
+scorre. A sinistra "maia TV" (apre il selettore delle app), al centro le voci a pillola (Home,
+Live, Film, Serie), a destra Cerca e l'avatar (cambia profilo, impostazioni, esci).
+**Telefono:** stessa barra in alto, più una barra in vetro in basso con 5 voci, come iOS.
 
-**Player:** comandi che spariscono dopo 3 secondi di riproduzione (restano visibili in pausa),
-pannello "Riproduzione" con qualità, sottotitoli, lingua audio e velocità letti dal flusso.
+**Player:** comandi in una barra di vetro in basso con la barra di avanzamento bianca e il tempo
+rimanente; spariscono dopo 3 secondi di riproduzione (restano visibili in pausa). Pannello
+"Riproduzione" con qualità, sottotitoli, lingua audio e velocità letti dal flusso. Il player non
+mostra mai da quale servizio arriva il video.
 
 ## Note sul prototipo
 

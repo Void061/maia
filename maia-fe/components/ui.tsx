@@ -13,22 +13,27 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm text-moon">{label}</span>
+      <span className="sr-only">{label}</span>
       <input
         name={name}
         type={type}
+        placeholder={label}
         autoComplete={autoComplete}
-        className="lamp h-14 w-full rounded-xl border border-line bg-ink/70 px-4 text-lg text-paper placeholder:text-moon/50 focus:border-transparent"
+        className="focusable h-14 w-full rounded-xl bg-surface px-4 text-lg text-label placeholder:text-faint"
       />
     </label>
   );
 }
 
+// Pill buttons, tvOS style: primary is solid white; secondary is translucent
+// and turns white when focused.
 const variants = {
-  primary: "bg-lamp text-ink font-semibold hover:bg-[#ffc76b]",
-  ghost: "border border-line text-paper hover:bg-haze",
-  quiet: "text-moon hover:text-paper",
+  primary: "bg-accent text-canvas font-semibold",
+  secondary: "glass text-label font-medium pill-focus",
+  quiet: "text-muted hover:text-label",
 };
+
+const shape = "focusable inline-flex h-14 items-center justify-center gap-2 rounded-full px-8 text-lg";
 
 export function Button({
   children,
@@ -44,11 +49,7 @@ export function Button({
   className?: string;
 }) {
   return (
-    <button
-      type={type}
-      onClick={onClick}
-      className={`lamp inline-flex h-14 items-center justify-center gap-2 rounded-xl px-6 text-lg ${variants[variant]} ${className}`}
-    >
+    <button type={type} onClick={onClick} className={`${shape} ${variants[variant]} ${className}`}>
       {children}
     </button>
   );
@@ -66,10 +67,7 @@ export function ButtonLink({
   className?: string;
 }) {
   return (
-    <Link
-      href={href}
-      className={`lamp inline-flex h-14 items-center justify-center gap-2 rounded-xl px-6 text-lg ${variants[variant]} ${className}`}
-    >
+    <Link href={href} className={`${shape} ${variants[variant]} ${className}`}>
       {children}
     </Link>
   );

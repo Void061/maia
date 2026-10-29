@@ -48,18 +48,14 @@ async function StateContent({
   if (!state) notFound();
 
   return (
-    <div className="max-w-md">
-      <span
-        aria-hidden
-        className="mb-8 block size-3 rounded-full bg-lamp shadow-[0_0_24px_6px_rgb(245_184_86/0.5)]"
-      />
-      <h1 className="font-display text-4xl font-semibold">{state.title}</h1>
-      <p className="mt-4 text-lg leading-relaxed text-moon">{state.body}</p>
-      <div className="mt-10 flex flex-wrap gap-3">
+    <div className="text-center">
+      <h1 className="font-display text-4xl font-bold">{state.title}</h1>
+      <p className="mt-4 text-lg leading-relaxed text-muted">{state.body}</p>
+      <div className="mt-10 flex flex-col gap-3">
         {state.action && (
           <ButtonLink href={`/stato/${stato}`}>{state.action}</ButtonLink>
         )}
-        <ButtonLink href="/login" variant="ghost">
+        <ButtonLink href="/login" variant="secondary">
           Torna al login
         </ButtonLink>
       </div>

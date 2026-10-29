@@ -12,23 +12,23 @@ export default function LoginForm() {
   if (mode === "code") {
     return (
       <div>
-        <h1 className="font-display text-4xl font-semibold">Accedi con il telefono</h1>
-        <p className="mt-3 max-w-sm text-lg text-moon">
+        <h1 className="text-center font-display text-4xl font-bold">Accedi con il telefono</h1>
+        <p className="mt-3 text-center text-lg text-muted">
           Inquadra il codice con il telefono su cui hai già fatto l&apos;accesso, oppure apri
           maia.casa/collega e scrivi il codice.
         </p>
-        <div className="mt-8 flex flex-wrap items-center gap-8">
+        <div className="mt-8 flex flex-col items-center gap-6">
           <FakeQr />
-          <div>
-            <p className="text-sm text-moon">Codice</p>
-            <p className="font-display text-5xl font-bold tracking-[0.2em] text-lamp">K7Q-4ZN</p>
-            <p className="mt-2 text-sm text-moon">Scade tra 9 minuti</p>
+          <div className="text-center">
+            <p className="text-sm text-muted">Codice</p>
+            <p className="font-display text-5xl font-bold tracking-[0.2em]">K7Q-4ZN</p>
+            <p className="mt-2 text-sm text-muted">Scade tra 9 minuti</p>
           </div>
         </div>
-        <div className="mt-10 flex flex-wrap gap-3">
+        <div className="mt-10 flex flex-col gap-3">
           {/* Prototype shortcut: pretend the phone confirmed. */}
           <Button onClick={() => router.push("/profili")}>Simula conferma dal telefono</Button>
-          <Button variant="ghost" onClick={() => setMode("password")}>
+          <Button variant="secondary" onClick={() => setMode("password")}>
             Usa email e password
           </Button>
         </div>
@@ -43,9 +43,9 @@ export default function LoginForm() {
         router.push("/profili");
       }}
     >
-      <h1 className="font-display text-4xl font-semibold">Accedi a MAIA</h1>
-      <p className="mt-3 text-lg text-moon">Usa l&apos;email e la password del tuo account.</p>
-      <div className="mt-8 space-y-5">
+      <h1 className="text-center font-display text-4xl font-bold">Accedi</h1>
+      <p className="mt-3 text-center text-lg text-muted">Usa l&apos;email e la password del tuo account.</p>
+      <div className="mt-8 space-y-3">
         <Field label="Email" name="email" type="email" autoComplete="email" />
         <Field label="Password" name="password" type="password" autoComplete="current-password" />
       </div>
@@ -53,13 +53,13 @@ export default function LoginForm() {
         <Button type="submit">
           Accedi
         </Button>
-        <Button variant="ghost" onClick={() => setMode("code")}>
+        <Button variant="secondary" onClick={() => setMode("code")}>
           Accedi con il telefono
         </Button>
       </div>
-      <p className="mt-8 text-moon">
+      <p className="mt-8 text-center text-muted">
         Non hai un account?{" "}
-        <Link href="/registrati" className="lamp rounded text-paper underline underline-offset-4">
+        <Link href="/registrati" className="focusable rounded text-label underline underline-offset-4">
           Registrati
         </Link>
       </p>
@@ -70,16 +70,16 @@ export default function LoginForm() {
 
 function PrototypeLinks() {
   return (
-    <div className="mt-12 border-t border-line pt-5 text-sm text-moon">
+    <div className="mt-12 border-t border-hairline pt-5 text-center text-sm text-muted">
       <p>Prototipo: vedi le schermate per gli account non ancora attivi</p>
-      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
-        <Link className="lamp rounded underline underline-offset-4" href="/stato/email">
+      <div className="mt-2 flex flex-wrap justify-center gap-x-5 gap-y-2">
+        <Link className="focusable rounded underline underline-offset-4" href="/stato/email">
           Email da confermare
         </Link>
-        <Link className="lamp rounded underline underline-offset-4" href="/stato/approvazione">
+        <Link className="focusable rounded underline underline-offset-4" href="/stato/approvazione">
           In attesa di approvazione
         </Link>
-        <Link className="lamp rounded underline underline-offset-4" href="/stato/sospeso">
+        <Link className="focusable rounded underline underline-offset-4" href="/stato/sospeso">
           Account sospeso
         </Link>
       </div>
@@ -100,9 +100,9 @@ function FakeQr() {
     return ((x * 7 + y * 13 + x * y) % 5) < 2;
   });
   return (
-    <div className="grid size-44 grid-cols-[repeat(21,1fr)] rounded-xl bg-paper p-3" aria-label="Codice QR">
+    <div className="grid size-48 grid-cols-[repeat(21,1fr)] rounded-2xl bg-white p-3" aria-label="Codice QR">
       {cells.map((on, i) => (
-        <span key={i} className={on ? "bg-ink" : ""} />
+        <span key={i} className={on ? "bg-black" : ""} />
       ))}
     </div>
   );
