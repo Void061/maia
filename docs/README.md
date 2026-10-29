@@ -1,0 +1,23 @@
+# Documentazione di MAIA
+
+*My Assistant In the Apartment*: hub per la casa che gira su TV, desktop, tablet e telefono.
+La prima app dentro MAIA è **MAIA TV** (streaming dei servizi gratuiti con player integrato).
+
+Questa cartella descrive cosa è stato implementato e **perché**. Va aggiornata nello stesso
+commit di ogni modifica che cambia comportamento, struttura o decisioni (vedi `CLAUDE.md`).
+
+| Documento | Contenuto |
+|---|---|
+| [decisions.md](decisions.md) | Registro delle decisioni, in ordine cronologico, con il motivo |
+| [architecture.md](architecture.md) | Monorepo, stack, app di MAIA come moduli, tipi FE generati dal BE |
+| [access.md](access.md) | Account, stati, amministratori, profili, permessi sulle app, login |
+| [tv/catalog.md](tv/catalog.md) | MAIA TV: catalogo unico, generi, menu, fonti multiple e fallback, riproduzione |
+| [ui.md](ui.md) | Design system, navigazione per dispositivo, schermate, telecomando |
+| [dev.md](dev.md) | Ambiente locale, Docker, porte, comandi, problemi noti |
+| [deploy.md](deploy.md) | Deploy su Coolify (VPS) |
+
+## Stato attuale
+
+- **Fatto:** scheletro del monorepo, Dockerfile, docker-compose locale, prototipo UI con dati finti
+  (branch `feature/ui-prototype`).
+- **Non ancora fatto:** autenticazione, API del backend, schema Prisma del catalogo, adapter dei servizi.
