@@ -1,0 +1,44 @@
+# Local environment. Day-to-day development: `docker compose up -d postgres`
+# and run the apps with `npm run start:dev` / `npm run dev` (hot reload).
+# Full stack in containers, as on Coolify: `docker compose up --build`.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-maia}
+      POSTGRES_USER: ${POSTGRES_USER:-maia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-maia}
+    # 5433 on the host so it can run alongside Yuma's postgres (5432).
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-maia} -d ${POSTGRES_DB:-maia}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  maia-be:
+    build: ./maia-be
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-maia}:${POSTGRES_PASSWORD:-maia}@postgres:5432/${POSTGRES_DB:-maia}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  maia-fe:
+    build:
+      context: ./maia-fe
+      # NEXT_PUBLIC_* vars are inlined at build time (see Dockerfile).
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      - maia-be
+
+volumes:
+  postgres_data:
