@@ -3,7 +3,7 @@
 import type Hls from "hls.js";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BackIcon, PauseIcon, PlayIcon, SettingsIcon } from "@/components/icons";
+import { BackIcon, ExitFullscreenIcon, FullscreenIcon, PauseIcon, PlayIcon, SettingsIcon } from "@/components/icons";
 import { channels, demoStream, scheduleAround, type Title } from "@/lib/mock";
 import { hhmm, useNow } from "@/lib/use-now";
 
@@ -39,6 +39,7 @@ export default function Player({ title, live }: Props) {
   const [subs, setSubs] = useState<Track[]>([]);
   const [sub, setSub] = useState(-1);
   const [speed, setSpeed] = useState(1);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const now = useNow(15_000);
   const channel = channels.find((c) => c.id === channelId);
@@ -96,6 +97,33 @@ export default function Player({ title, live }: Props) {
     return () => clearTimeout(hideTimer.current);
   }, []);
 
+  // Track fullscreen however it was entered or left (button, F key, Esc, OS gesture).
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === root.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  // The whole player goes fullscreen so the controls stay visible. iPhone
+  // Safari cannot fullscreen a page element: there the video's native
+  // fullscreen is used instead. On phones we also try to turn to landscape.
+  const toggleFullscreen = useCallback(async () => {
+    const el = root.current;
+    const v = video.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+    if (!el || !v) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+      return;
+    }
+    if (el.requestFullscreen) {
+      await el.requestFullscreen().catch(() => {});
+      const orientation = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+      await orientation.lock?.("landscape").catch(() => {});
+    } else {
+      v.webkitEnterFullscreen?.();
+    }
+  }, []);
+
   const toggle = useCallback(() => {
     const v = video.current;
     if (!v) return;
@@ -103,10 +131,17 @@ export default function Player({ title, live }: Props) {
     else v.pause();
   }, []);
 
-  const seek = useCallback((delta: number) => {
+  // Jumps to an absolute position. The UI moves at once instead of waiting
+  // for the next timeupdate, which only arrives after the seek completes.
+  const seekTo = useCallback((t: number) => {
     const v = video.current;
-    if (v) v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + delta));
+    if (!v) return;
+    const target = Math.max(0, Math.min(v.duration || 0, t));
+    v.currentTime = target;
+    setTime(target);
   }, []);
+
+  const seek = useCallback((delta: number) => seekTo((video.current?.currentTime ?? 0) + delta), [seekTo]);
 
   const zap = useCallback(
     (dir: 1 | -1) => {
@@ -128,6 +163,9 @@ export default function Player({ title, live }: Props) {
       if (onButton) return;
       e.preventDefault();
       toggle();
+    } else if (e.key === "f" || e.key === "F") {
+      e.preventDefault();
+      toggleFullscreen();
     } else if (e.key === "ArrowLeft" && !live) {
       e.preventDefault();
       seek(-10);
@@ -196,30 +234,7 @@ export default function Player({ title, live }: Props) {
         <div className="pointer-events-auto p-4 sm:p-10">
           <div className="glass rounded-[1.75rem] px-5 py-4 sm:px-7 sm:py-5">
             {!live ? (
-              <div className="flex items-center gap-4">
-                <span className="w-14 text-sm font-medium text-muted tabular-nums">{fmt(time)}</span>
-                <div className="relative h-1.5 flex-1 rounded-full bg-white/25">
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full bg-white"
-                    style={{ width: duration ? `${(time / duration) * 100}%` : 0 }}
-                  />
-                  <input
-                    type="range"
-                    min={0}
-                    max={duration || 0}
-                    step={1}
-                    value={time}
-                    onChange={(e) => {
-                      if (video.current) video.current.currentTime = Number(e.target.value);
-                    }}
-                    aria-label="Posizione"
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                  />
-                </div>
-                <span className="w-14 text-right text-sm font-medium text-muted tabular-nums">
-                  -{fmt(Math.max(0, duration - time))}
-                </span>
-              </div>
+              <Scrubber time={time} duration={duration} onSeek={seekTo} onActivity={poke} />
             ) : (
               <div className="flex items-center gap-3 text-sm font-medium">
                 <span className="rounded-md bg-white px-2 py-0.5 text-xs font-bold text-black">LIVE</span>
@@ -260,6 +275,13 @@ export default function Player({ title, live }: Props) {
               <p className="ml-auto hidden text-sm text-muted lg:block">
                 {live ? "Su e giù cambiano canale" : "Frecce: -10 / +10 secondi · Giù: audio e sottotitoli"}
               </p>
+              <button
+                onClick={toggleFullscreen}
+                aria-label={fullscreen ? "Esci da schermo intero" : "Schermo intero"}
+                className="focusable pill-focus ml-auto grid size-12 place-items-center rounded-full lg:ml-0"
+              >
+                {fullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+              </button>
             </div>
           </div>
         </div>
@@ -385,6 +407,84 @@ function SettingsPanel(props: {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// Seek bar with a knob. While dragging, the bar and the time follow the
+// finger/mouse immediately and a bubble shows the target time; the video
+// jumps only on release, so a slow seek never makes the knob lag behind.
+function Scrubber({
+  time,
+  duration,
+  onSeek,
+  onActivity,
+}: {
+  time: number;
+  duration: number;
+  onSeek: (t: number) => void;
+  onActivity: () => void;
+}) {
+  const track = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<number | null>(null);
+  const shown = drag ?? time;
+  const pct = duration ? Math.min(100, (shown / duration) * 100) : 0;
+
+  const at = (clientX: number) => {
+    const r = track.current!.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * duration;
+  };
+
+  return (
+    <div className="flex items-center gap-4">
+      <span className="w-14 text-sm font-medium text-label tabular-nums">{fmt(shown)}</span>
+      <div
+        ref={track}
+        role="slider"
+        aria-label="Posizione"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(shown)}
+        aria-valuetext={fmt(shown)}
+        className="group relative flex h-8 flex-1 cursor-pointer touch-none items-center"
+        onPointerDown={(e) => {
+          if (!duration) return;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          setDrag(at(e.clientX));
+          onActivity();
+        }}
+        onPointerMove={(e) => {
+          if (drag === null) return;
+          setDrag(at(e.clientX));
+          onActivity();
+        }}
+        onPointerUp={() => {
+          if (drag !== null) onSeek(drag);
+          setDrag(null);
+        }}
+        onPointerCancel={() => setDrag(null)}
+      >
+        <div className="relative h-1.5 w-full rounded-full bg-white/25">
+          <div className="absolute inset-y-0 left-0 rounded-full bg-white" style={{ width: `${pct}%` }} />
+        </div>
+        <div
+          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_2px_10px_rgb(0_0_0/0.5)] transition-[width,height] duration-150 ${
+            drag !== null ? "size-6" : "size-4 group-hover:size-5"
+          }`}
+          style={{ left: `${pct}%` }}
+        />
+        {drag !== null && (
+          <div
+            className="pointer-events-none absolute bottom-full mb-3 -translate-x-1/2 rounded-lg bg-white px-2.5 py-1 text-sm font-semibold text-black tabular-nums"
+            style={{ left: `${pct}%` }}
+          >
+            {fmt(drag)}
+          </div>
+        )}
+      </div>
+      <span className="w-14 text-right text-sm font-medium text-muted tabular-nums">
+        {fmt(Math.max(0, duration - shown))}
+      </span>
     </div>
   );
 }

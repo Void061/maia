@@ -52,3 +52,9 @@ export const TvGlyph = () => (
 export const HouseGlyph = () => (
   <svg {...base}><path d="M4 11 12 4.5 20 11M6.5 9v10.5h11V9" /><path d="M10.5 19.5v-5h3v5" /></svg>
 );
+export const FullscreenIcon = () => (
+  <svg {...base}><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4" /></svg>
+);
+export const ExitFullscreenIcon = () => (
+  <svg {...base}><path d="M9 4v4a1 1 0 0 1-1 1H4M20 9h-4a1 1 0 0 1-1-1V4M15 20v-4a1 1 0 0 1 1-1h4M4 15h4a1 1 0 0 1 1 1v4" /></svg>
+);

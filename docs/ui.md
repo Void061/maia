@@ -84,8 +84,16 @@ Live, Film, Serie), a destra Cerca e l'avatar (cambia profilo, impostazioni, esc
 è **quasi opaca** (`bg-black/90` + sfocatura) e le voci non attive sono grigio chiaro (`muted`):
 con il vetro trasparente e il grigio scuro non si leggeva sopra le immagini chiare.
 
-**Player:** comandi in una barra di vetro in basso con la barra di avanzamento bianca e il tempo
-rimanente; spariscono dopo 3 secondi di riproduzione (restano visibili in pausa). Pannello
+**Player:** comandi in una barra di vetro in basso; spariscono dopo 3 secondi di riproduzione
+(restano visibili in pausa).
+- **Barra di avanzamento** (`Scrubber`) con **perno** bianco, tempo trascorso a sinistra e tempo
+  **rimanente in positivo** a destra. Mentre la trascini (mouse o dito, area di tocco alta 32px)
+  perno e tempi seguono subito il puntatore e sopra il perno compare il tempo di arrivo; il video
+  salta solo al rilascio, così un salto lento non fa restare indietro la barra. Anche i salti di
+  ±10 secondi (frecce, doppio tocco) aggiornano la barra subito.
+- **Schermo intero:** tasto in fondo a destra della barra e tasto **F**. Va a schermo intero
+  l'intero player (non solo il video), così i comandi restano; sul telefono prova a ruotare in
+  orizzontale. Su iPhone, dove Safari non lo permette, usa lo schermo intero nativo del video. Pannello
 "Riproduzione" con qualità, sottotitoli, lingua audio e velocità letti dal flusso. Il player non
 mostra mai da quale servizio arriva il video.
 
