@@ -18,6 +18,7 @@ import {
   RewindIcon,
   SubtitlesIcon,
   VolumeIcon,
+  VolumeLowIcon,
 } from "@/components/icons";
 import { channels, demoStream, scheduleAround, type Title } from "@/lib/mock";
 import { hhmm, useNow } from "@/lib/use-now";
@@ -57,6 +58,9 @@ export default function Player({ title, live }: Props) {
   const [fullscreen, setFullscreen] = useState(false);
   const [buffering, setBuffering] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [volume, setVolumeState] = useState(1);
+  const [volHint, setVolHint] = useState<number | null>(null);
+  const volHintTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Side indicator for ±10 s jumps; consecutive jumps on the same side add up.
   const [seekHint, setSeekHint] = useState<{ dir: 1 | -1; secs: number; n: number } | null>(null);
   const seekHintTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -186,11 +190,31 @@ export default function Player({ title, live }: Props) {
     [seekTo],
   );
 
+  // Volume like YouTube/Netflix: the icon mutes/unmutes, the slider and the
+  // up/down keys set the level; level 0 counts as muted, and unmuting from 0
+  // brings the sound back at half volume.
+  const setVolume = useCallback((value: number, hint = false) => {
+    const v = video.current;
+    if (!v) return;
+    const level = Math.round(Math.max(0, Math.min(1, value)) * 100) / 100;
+    v.volume = level;
+    v.muted = level === 0;
+    if (hint) {
+      setVolHint(level);
+      clearTimeout(volHintTimer.current);
+      volHintTimer.current = setTimeout(() => setVolHint(null), 800);
+    }
+  }, []);
+
   const toggleMute = useCallback(() => {
     const v = video.current;
     if (!v) return;
-    v.muted = !v.muted;
-    setMuted(v.muted);
+    if (v.muted || v.volume === 0) {
+      v.muted = false;
+      if (v.volume === 0) v.volume = 0.5;
+    } else {
+      v.muted = true;
+    }
   }, []);
 
   const zap = useCallback(
@@ -226,13 +250,15 @@ export default function Player({ title, live }: Props) {
     } else if ((k === "ArrowRight" || k === "l") && !live) {
       e.preventDefault();
       seek(10);
-    } else if (e.key === "ArrowUp" && live) {
+    } else if (k === "c") {
       e.preventDefault();
-      zap(-1);
-    } else if (e.key === "ArrowDown") {
+      setPanel(true);
+    } else if (k === "ArrowUp" || k === "ArrowDown") {
       e.preventDefault();
-      if (live) zap(1);
-      else setPanel(true);
+      const dir = k === "ArrowUp" ? 1 : -1;
+      // Live channels zap like a TV; on demand the arrows set the volume.
+      if (live) zap(dir === 1 ? -1 : 1);
+      else setVolume((muted ? 0 : volume) + dir * 0.1, true);
     }
   }
 
@@ -282,7 +308,10 @@ export default function Player({ title, live }: Props) {
         onPlaying={() => setBuffering(false)}
         onSeeked={() => setBuffering(false)}
         onCanPlay={() => setBuffering(false)}
-        onVolumeChange={(e) => setMuted(e.currentTarget.muted)}
+        onVolumeChange={(e) => {
+          setMuted(e.currentTarget.muted);
+          setVolumeState(e.currentTarget.volume);
+        }}
         onPlay={() => { setPlaying(true); poke(); }}
         onPause={() => { setPlaying(false); setChrome(true); }}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
@@ -292,7 +321,7 @@ export default function Player({ title, live }: Props) {
       {/* Controls, Netflix/YouTube layout: no box, just scrims top and bottom.
           Small icon buttons with tooltips, grouped left / centre / right. */}
       <div
-        className={`pointer-events-none absolute inset-0 flex flex-col justify-between transition-opacity duration-300 ${chrome || panel ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute inset-0 flex flex-col justify-between transition-opacity duration-300 ${chrome && !panel ? "opacity-100" : "pointer-events-none opacity-0"}`}
       >
         <div className="pointer-events-auto flex items-center gap-3 bg-gradient-to-b from-black/75 to-transparent px-3 pb-12 pt-3 sm:gap-4 sm:px-8 sm:pt-6">
           <Ctl label="Indietro" onClick={() => router.back()}>
@@ -346,9 +375,12 @@ export default function Player({ title, live }: Props) {
                   </>
                 )}
               </span>
-              <Ctl label={muted ? "Attiva audio" : "Disattiva audio"} onClick={toggleMute}>
-                {muted ? <MutedIcon /> : <VolumeIcon />}
-              </Ctl>
+              <VolumeControl
+                level={muted ? 0 : volume}
+                onToggle={toggleMute}
+                onChange={(l) => setVolume(l)}
+                onActivity={poke}
+              />
             </div>
 
             {/* Centre: what is playing. */}
@@ -376,7 +408,7 @@ export default function Player({ title, live }: Props) {
       </div>
 
       {/* Phone: transport in the middle of the screen, like the streaming apps. */}
-      {(chrome || panel) && !buffering && (
+      {chrome && !panel && !buffering && (
         <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-10 sm:hidden">
           <Ctl
             label={live ? "Canale precedente" : "Indietro di 10 secondi"}
@@ -424,6 +456,26 @@ export default function Player({ title, live }: Props) {
         </div>
       )}
 
+      {volHint !== null && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-[18%] flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm [&>svg]:size-5"
+        >
+          {volHint === 0 ? <MutedIcon /> : volHint < 0.5 ? <VolumeLowIcon /> : <VolumeIcon />}
+          {Math.round(volHint * 100)}%
+        </div>
+      )}
+
+      {panel && (
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-black/75"
+          onClick={() => {
+            setPanel(false);
+            root.current?.focus();
+          }}
+        />
+      )}
       {panel && (
         <SettingsPanel
           onClose={() => { setPanel(false); root.current?.focus(); }}
@@ -481,7 +533,7 @@ function SettingsPanel(props: {
       data-focus-trap
       role="dialog"
       aria-label="Impostazioni di riproduzione"
-      className="glass absolute inset-x-0 bottom-0 max-h-[80dvh] overflow-y-auto rounded-t-[2rem] p-6 sm:inset-x-auto sm:right-10 sm:bottom-10 sm:w-[28rem] sm:rounded-[2rem] sm:p-8"
+      className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[2rem] bg-surface p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_rgb(0_0_0/0.6)] sm:inset-x-auto sm:right-10 sm:bottom-10 sm:w-[28rem] sm:rounded-[2rem] sm:p-8"
     >
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl font-semibold">Riproduzione</h2>
@@ -646,5 +698,82 @@ function Ctl({
     >
       {children}
     </button>
+  );
+}
+
+// Volume, YouTube-style: click the icon to mute/unmute; the slider next to it
+// slides open on hover/focus with a mouse or remote, and is always shown on
+// phones. Dragging follows the pointer immediately.
+function VolumeControl({
+  level,
+  onToggle,
+  onChange,
+  onActivity,
+}: {
+  level: number;
+  onToggle: () => void;
+  onChange: (level: number) => void;
+  onActivity: () => void;
+}) {
+  const track = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState(false);
+  const at = (clientX: number) => {
+    const r = track.current!.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+  };
+  const pct = Math.round(level * 100);
+
+  return (
+    <div className="group/vol flex items-center">
+      <Ctl label={level === 0 ? "Attiva audio" : "Disattiva audio"} onClick={onToggle}>
+        {level === 0 ? <MutedIcon /> : level < 0.5 ? <VolumeLowIcon /> : <VolumeIcon />}
+      </Ctl>
+      <div
+        className={`overflow-hidden transition-[width,opacity] duration-200 ${
+          drag ? "w-24 opacity-100" : "w-20 opacity-100 sm:w-0 sm:opacity-0 sm:group-hover/vol:w-24 sm:group-hover/vol:opacity-100 sm:group-focus-within/vol:w-24 sm:group-focus-within/vol:opacity-100"
+        }`}
+      >
+        <div
+          ref={track}
+          role="slider"
+          tabIndex={0}
+          aria-label="Volume"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={pct}
+          aria-valuetext={`${pct}%`}
+          className="relative mx-2 flex h-8 cursor-pointer touch-none items-center outline-none"
+          onKeyDown={(e) => {
+            // Left/right on the focused slider change the volume instead of seeking.
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange(level + (e.key === "ArrowRight" ? 0.1 : -0.1));
+            }
+          }}
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setDrag(true);
+            onChange(at(e.clientX));
+            onActivity();
+          }}
+          onPointerMove={(e) => {
+            if (!drag) return;
+            onChange(at(e.clientX));
+            onActivity();
+          }}
+          onPointerUp={() => setDrag(false)}
+          onPointerCancel={() => setDrag(false)}
+        >
+          <div className="relative h-1 w-full rounded-full bg-white/30">
+            <div className="absolute inset-y-0 left-0 rounded-full bg-white" style={{ width: `${pct}%` }} />
+          </div>
+          <div
+            className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow"
+            style={{ left: `${pct}%` }}
+          />
+        </div>
+      </div>
+    </div>
   );
 }

@@ -94,6 +94,14 @@ in pausa).
   orario nei live); a destra audio e sottotitoli, schermo intero.
 - **Telefono:** −10 / play-pausa / +10 al centro dello schermo, come nelle app; in basso restano
   barra, volume, sottotitoli e schermo intero.
+- **Volume** (`VolumeControl`), come YouTube: click sull'icona = muto/audio (se il volume era a 0
+  torna al 50%); accanto un cursore con perno che si apre al passaggio del mouse o col focus del
+  telecomando, ed è sempre visibile sul telefono. L'icona cambia con il livello (muto, basso,
+  alto). Nota: su iPhone il volume si regola solo con i tasti fisici (Safari ignora il volume
+  impostato dalla pagina); il muto funziona.
+- **Pannello "Audio e sottotitoli"**: quando è aperto spariscono tutti i comandi e il video si
+  scurisce; il pannello è opaco (`surface`), non in vetro, così si legge sopra qualunque immagine.
+  Si chiude con Chiudi, Esc/Indietro o toccando fuori.
 - **Barra di avanzamento** (`Scrubber`) con **perno** bianco, tempo trascorso a sinistra e tempo
   **rimanente in positivo** a destra. Mentre la trascini (mouse o dito, area di tocco alta 32px)
   perno e tempi seguono subito il puntatore e sopra il perno compare il tempo di arrivo; il video
@@ -116,9 +124,11 @@ in pausa).
   | Doppio click (mouse) | schermo intero |
   | Spazio / K / Invio | play/pausa |
   | F | schermo intero |
-  | M | audio sì/no (anche dal tasto volume nella barra) |
+  | M | audio sì/no |
+  | ↑ / ↓ | volume ±10%, con l'indicatore della percentuale in alto (titoli on demand) |
+  | C | apre "Audio e sottotitoli" |
   | Esc / Indietro | a schermo intero esce dallo schermo intero; altrimenti torna alla pagina precedente |
-  | ↓ | apre "Audio e sottotitoli" (titoli on demand); nei live ↑/↓ cambiano canale |
+  | ↑ / ↓ nei live | cambiano canale, come in TV |
 
   Con il mouse i comandi ricompaiono anche muovendolo; sul touch no, così un tocco non li
   riaccende per sbaglio.
