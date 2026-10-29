@@ -17,6 +17,7 @@ import {
   Replay10Icon,
   RewindIcon,
   RotateIcon,
+  SettingsIcon,
   SubtitlesIcon,
   VolumeIcon,
   VolumeLowIcon,
@@ -54,7 +55,8 @@ export default function Player({ title, live }: Props) {
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [chrome, setChrome] = useState(true);
-  const [panel, setPanel] = useState(false);
+  // Which sheet is open: audio & subtitles, or settings (quality, speed).
+  const [panel, setPanel] = useState<"subs" | "settings" | null>(null);
   const [levels, setLevels] = useState<Level[]>([]);
   const [level, setLevel] = useState(-1); // -1 = auto
   const [audio, setAudio] = useState<Track[]>([]);
@@ -280,7 +282,7 @@ export default function Player({ title, live }: Props) {
       seek(10);
     } else if (k === "c") {
       e.preventDefault();
-      setPanel(true);
+      setPanel("subs");
     } else if (k === "ArrowUp" || k === "ArrowDown") {
       e.preventDefault();
       const dir = k === "ArrowUp" ? 1 : -1;
@@ -427,8 +429,11 @@ export default function Player({ title, live }: Props) {
               <Ctl label="Ruota schermo" onClick={rotate} className="hidden pointer-coarse:grid">
                 <RotateIcon />
               </Ctl>
-              <Ctl label="Audio e sottotitoli" onClick={() => setPanel(true)}>
+              <Ctl label="Audio e sottotitoli" onClick={() => setPanel("subs")}>
                 <SubtitlesIcon />
+              </Ctl>
+              <Ctl label="Impostazioni" onClick={() => setPanel("settings")}>
+                <SettingsIcon />
               </Ctl>
               <Ctl label={fullscreen ? "Esci da schermo intero" : "Schermo intero"} onClick={toggleFullscreen}>
                 {fullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
@@ -505,14 +510,15 @@ export default function Player({ title, live }: Props) {
           aria-hidden
           className="absolute inset-0 bg-black/75"
           onClick={() => {
-            setPanel(false);
+            setPanel(null);
             root.current?.focus();
           }}
         />
       )}
       {panel && (
         <SettingsPanel
-          onClose={() => { setPanel(false); root.current?.focus(); }}
+          mode={panel}
+          onClose={() => { setPanel(null); root.current?.focus(); }}
           levels={levels}
           level={level}
           onLevel={(i) => { setLevel(i); if (hls.current) hls.current.currentLevel = i; }}
@@ -530,7 +536,17 @@ export default function Player({ title, live }: Props) {
   );
 }
 
+// Check mark beside the selected row in the audio/subtitles and settings sheets.
+function Check({ on }: { on: boolean }) {
+  return (
+    <span className={`w-4 text-sm ${on ? "opacity-100" : "opacity-0"}`} aria-hidden>
+      ✓
+    </span>
+  );
+}
+
 function SettingsPanel(props: {
+  mode: "subs" | "settings";
   onClose: () => void;
   levels: Level[];
   level: number;
@@ -558,67 +574,91 @@ function SettingsPanel(props: {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const chip = (active: boolean) =>
-    `focusable pill-focus h-11 rounded-full px-4 font-medium ${active ? "bg-white text-black" : "bg-white/10 text-label"}`;
+  // List rows with a check mark, like the Netflix/YouTube menus.
+  const row = (active: boolean) =>
+    `focusable pill-focus flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-base ${
+      active ? "font-semibold text-white" : "text-muted"
+    }`;
+  const title = props.mode === "subs" ? "Audio e sottotitoli" : "Impostazioni";
 
   return (
     <div
       ref={ref}
       data-focus-trap
       role="dialog"
-      aria-label="Impostazioni di riproduzione"
-      className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[2rem] bg-surface p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_rgb(0_0_0/0.6)] sm:inset-x-auto sm:right-10 sm:bottom-10 sm:w-[28rem] sm:rounded-[2rem] sm:p-8"
+      aria-label={title}
+      className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[2rem] bg-surface p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_rgb(0_0_0/0.6)] sm:inset-x-auto sm:right-10 sm:bottom-24 sm:w-auto sm:min-w-[22rem] sm:rounded-3xl sm:p-6"
     >
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-2xl font-semibold">Riproduzione</h2>
-        <button onClick={onClose} className="focusable rounded-full px-4 py-2 text-muted">Chiudi</button>
+      <div className="flex items-center justify-between gap-6">
+        <h2 className="font-display text-xl font-bold">{title}</h2>
+        <button onClick={onClose} className="focusable pill-focus rounded-full px-4 py-1.5 text-sm text-muted">
+          Chiudi
+        </button>
       </div>
 
-      <h3 className="mt-6 text-muted">Qualità</h3>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button className={chip(props.level === -1)} onClick={() => props.onLevel(-1)}>Automatica</button>
-        {props.levels.map((l) => (
-          <button key={l.index} className={chip(props.level === l.index)} onClick={() => props.onLevel(l.index)}>
-            {l.height}p
-          </button>
-        ))}
-      </div>
-
-      <h3 className="mt-6 text-muted">Sottotitoli</h3>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button className={chip(props.sub === -1)} onClick={() => props.onSub(-1)}>Disattivati</button>
-        {props.subs.map((t) => (
-          <button key={t.index} className={chip(props.sub === t.index)} onClick={() => props.onSub(t.index)}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {props.subs.length === 0 && <p className="mt-2 text-sm text-muted">Questo contenuto non ha sottotitoli.</p>}
-
-      <h3 className="mt-6 text-muted">Lingua audio</h3>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {props.audio.length > 0 ? (
-          props.audio.map((t) => (
-            <button key={t.index} className={chip(false)} onClick={() => props.onAudio(t.index)}>
-              {t.label}
-            </button>
-          ))
-        ) : (
-          <button className={chip(true)}>Originale</button>
-        )}
-      </div>
-
-      {!props.live && (
-        <>
-          <h3 className="mt-6 text-muted">Velocità</h3>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {SPEEDS.map((s) => (
-              <button key={s} className={chip(props.speed === s)} onClick={() => props.onSpeed(s)}>
-                {s === 1 ? "Normale" : `${s}×`}
+      {props.mode === "subs" ? (
+        <div className="mt-4 grid gap-6 sm:grid-cols-2">
+          <section>
+            <h3 className="px-3 text-sm font-semibold text-faint">Audio</h3>
+            <div className="mt-1">
+              {props.audio.length > 0 ? (
+                props.audio.map((t, i) => (
+                  <button key={t.index} className={row(i === 0)} onClick={() => props.onAudio(t.index)}>
+                    <Check on={i === 0} /> {t.label}
+                  </button>
+                ))
+              ) : (
+                <button className={row(true)}>
+                  <Check on /> Originale
+                </button>
+              )}
+            </div>
+          </section>
+          <section>
+            <h3 className="px-3 text-sm font-semibold text-faint">Sottotitoli</h3>
+            <div className="mt-1">
+              <button className={row(props.sub === -1)} onClick={() => props.onSub(-1)}>
+                <Check on={props.sub === -1} /> Disattivati
               </button>
-            ))}
-          </div>
-        </>
+              {props.subs.map((t) => (
+                <button key={t.index} className={row(props.sub === t.index)} onClick={() => props.onSub(t.index)}>
+                  <Check on={props.sub === t.index} /> {t.label}
+                </button>
+              ))}
+              {props.subs.length === 0 && (
+                <p className="px-3 pt-1 text-sm text-faint">Nessun sottotitolo per questo contenuto.</p>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-6 sm:grid-cols-2">
+          <section>
+            <h3 className="px-3 text-sm font-semibold text-faint">Qualità</h3>
+            <div className="mt-1">
+              <button className={row(props.level === -1)} onClick={() => props.onLevel(-1)}>
+                <Check on={props.level === -1} /> Automatica
+              </button>
+              {props.levels.map((l) => (
+                <button key={l.index} className={row(props.level === l.index)} onClick={() => props.onLevel(l.index)}>
+                  <Check on={props.level === l.index} /> {l.height}p
+                </button>
+              ))}
+            </div>
+          </section>
+          {!props.live && (
+            <section>
+              <h3 className="px-3 text-sm font-semibold text-faint">Velocità</h3>
+              <div className="mt-1">
+                {SPEEDS.map((sp) => (
+                  <button key={sp} className={row(props.speed === sp)} onClick={() => props.onSpeed(sp)}>
+                    <Check on={props.speed === sp} /> {sp === 1 ? "Normale" : `${sp}×`}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       )}
     </div>
   );
@@ -737,9 +777,10 @@ function Ctl({
   );
 }
 
-// Volume, YouTube-style: click the icon to mute/unmute; the slider next to it
-// slides open on hover/focus with a mouse or remote, and is always shown on
-// phones. Dragging follows the pointer immediately.
+// Volume, Netflix-style: the icon opens a small vertical popover (closed by
+// default) with the level, a vertical slider and a mute button. It closes on
+// a second press, a tap outside or Back/Esc. Up/down keys still change the
+// volume from anywhere in the player.
 function VolumeControl({
   level,
   onToggle,
@@ -751,65 +792,103 @@ function VolumeControl({
   onChange: (level: number) => void;
   onActivity: () => void;
 }) {
+  const box = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
   const [drag, setDrag] = useState(false);
-  const at = (clientX: number) => {
-    const r = track.current!.getBoundingClientRect();
-    return Math.max(0, Math.min(1, (clientX - r.left) / r.width));
-  };
   const pct = Math.round(level * 100);
+  const at = (clientY: number) => {
+    const r = track.current!.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (r.bottom - clientY) / r.height));
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    track.current?.focus();
+    const outside = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key === "Backspace") {
+        e.preventDefault();
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const icon = level === 0 ? <MutedIcon /> : level < 0.5 ? <VolumeLowIcon /> : <VolumeIcon />;
 
   return (
-    <div className="group/vol flex items-center">
-      <Ctl label={level === 0 ? "Attiva audio" : "Disattiva audio"} onClick={onToggle}>
-        {level === 0 ? <MutedIcon /> : level < 0.5 ? <VolumeLowIcon /> : <VolumeIcon />}
-      </Ctl>
-      <div
-        className={`overflow-hidden transition-[width,opacity] duration-200 ${
-          drag ? "w-24 opacity-100" : "w-20 opacity-100 sm:w-0 sm:opacity-0 sm:group-hover/vol:w-24 sm:group-hover/vol:opacity-100 sm:group-focus-within/vol:w-24 sm:group-focus-within/vol:opacity-100"
-        }`}
+    <div ref={box} className="relative" {...(open ? { "data-focus-trap": "" } : {})}>
+      <Ctl
+        label={open ? "Chiudi volume" : "Volume"}
+        onClick={() => {
+          setOpen((o) => !o);
+          onActivity();
+        }}
       >
-        <div
-          ref={track}
-          role="slider"
-          tabIndex={0}
-          aria-label="Volume"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={pct}
-          aria-valuetext={`${pct}%`}
-          className="relative mx-2 flex h-8 cursor-pointer touch-none items-center outline-none"
-          onKeyDown={(e) => {
-            // Left/right on the focused slider change the volume instead of seeking.
-            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-              e.preventDefault();
-              e.stopPropagation();
-              onChange(level + (e.key === "ArrowRight" ? 0.1 : -0.1));
-            }
-          }}
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId);
-            setDrag(true);
-            onChange(at(e.clientX));
-            onActivity();
-          }}
-          onPointerMove={(e) => {
-            if (!drag) return;
-            onChange(at(e.clientX));
-            onActivity();
-          }}
-          onPointerUp={() => setDrag(false)}
-          onPointerCancel={() => setDrag(false)}
-        >
-          <div className="relative h-1 w-full rounded-full bg-white/30">
-            <div className="absolute inset-y-0 left-0 rounded-full bg-white" style={{ width: `${pct}%` }} />
-          </div>
+        {icon}
+      </Ctl>
+      {open && (
+        <div className="absolute bottom-full left-1/2 mb-3 flex w-14 -translate-x-1/2 flex-col items-center gap-3 rounded-full bg-surface/95 py-4 shadow-[0_10px_30px_rgb(0_0_0/0.6)]">
+          <span className="text-xs font-semibold tabular-nums text-label">{pct}%</span>
           <div
-            className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow"
-            style={{ left: `${pct}%` }}
-          />
+            ref={track}
+            role="slider"
+            tabIndex={0}
+            aria-label="Volume"
+            aria-orientation="vertical"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+            aria-valuetext={`${pct}%`}
+            className="focusable relative flex h-32 w-8 cursor-pointer touch-none justify-center rounded-full"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                e.preventDefault();
+                e.stopPropagation();
+                onChange(level + (e.key === "ArrowUp" ? 0.1 : -0.1));
+                onActivity();
+              }
+            }}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              setDrag(true);
+              onChange(at(e.clientY));
+              onActivity();
+            }}
+            onPointerMove={(e) => {
+              if (!drag) return;
+              onChange(at(e.clientY));
+              onActivity();
+            }}
+            onPointerUp={() => setDrag(false)}
+            onPointerCancel={() => setDrag(false)}
+          >
+            <div className="relative h-full w-1 rounded-full bg-white/30">
+              <div className="absolute inset-x-0 bottom-0 rounded-full bg-white" style={{ height: `${pct}%` }} />
+            </div>
+            <div
+              className="absolute left-1/2 size-3.5 -translate-x-1/2 translate-y-1/2 rounded-full bg-white shadow"
+              style={{ bottom: `${pct}%` }}
+            />
+          </div>
+          <button
+            onClick={onToggle}
+            aria-label={level === 0 ? "Attiva audio" : "Disattiva audio"}
+            title={level === 0 ? "Attiva audio" : "Disattiva audio"}
+            className="focusable pill-focus grid size-9 place-items-center rounded-full text-white [&>svg]:size-5"
+          >
+            {level === 0 ? <VolumeIcon /> : <MutedIcon />}
+          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
