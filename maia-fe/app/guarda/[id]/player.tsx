@@ -48,6 +48,8 @@ type OrientationWithLock = ScreenOrientation & {
 type Track = { index: number; label: string };
 
 const SPEEDS = [0.75, 1, 1.25, 1.5];
+// The "Prossimo episodio" card shows up this many seconds before the end.
+const UP_NEXT_SECS = 15;
 const fmt = (s: number) => {
   if (!Number.isFinite(s)) return "0:00";
   const h = Math.floor(s / 3600);
@@ -93,6 +95,8 @@ export default function Player({ title, live }: Props) {
   const [volHint, setVolHint] = useState<number | null>(null);
   const volHintTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Side indicator for ±10 s jumps; consecutive jumps on the same side add up.
+  // The up-next card can be dismissed for the current episode.
+  const [upNextHidden, setUpNextHidden] = useState(false);
   const [seekHint, setSeekHint] = useState<{ dir: 1 | -1; secs: number; n: number } | null>(null);
   const seekHintTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastTap = useRef(0);
@@ -277,6 +281,7 @@ export default function Player({ title, live }: Props) {
       if (!title) return;
       setEpisode(ep);
       setPanel(null);
+      setUpNextHidden(false);
       root.current?.focus(); // keep the remote/keyboard shortcuts working
       seekTo(0);
       video.current?.play().catch(() => {});
@@ -337,7 +342,7 @@ export default function Player({ title, live }: Props) {
   const subheading = episode ? `S${episode.season}:E${episode.number} · ${episode.name}` : null;
   // "Prossimo episodio" card in the last seconds, Netflix-style; plays on its own at the end.
   const remaining = duration ? duration - time : Infinity;
-  const showUpNext = !!upNext && remaining <= 15 && !panel;
+  const showUpNext = !!upNext && remaining <= UP_NEXT_SECS && !panel && !upNextHidden;
 
   return (
     <div
@@ -565,29 +570,53 @@ export default function Player({ title, live }: Props) {
         </div>
       )}
 
+      {/* Up next, Netflix/Prime-style: a compact card above the controls. The bar
+          under the thumbnail fills as the countdown runs out; at the end the next
+          episode starts on its own. */}
       {showUpNext && upNext && title && (
-        <div className="absolute bottom-28 right-3 w-72 overflow-hidden rounded-2xl bg-surface shadow-[0_20px_50px_rgb(0_0_0/0.6)] sm:bottom-32 sm:right-8 sm:w-80">
-          <div className="relative aspect-video">
-            <Image
-              src={`https://picsum.photos/seed/maia-${title.id}-s${upNext.season}e${upNext.number}/640/360`}
-              alt=""
-              fill
-              unoptimized
-              className="object-cover"
-            />
-          </div>
-          <div className="p-4">
-            <p className="text-xs font-semibold text-muted">Prossimo episodio tra {Math.max(0, Math.ceil(remaining))} s</p>
-            <p className="mt-1 truncate text-base font-semibold">
-              S{upNext.season}:E{upNext.number} · {upNext.name}
-            </p>
-            <button
-              onClick={() => playEpisode(upNext)}
-              className="focusable mt-3 inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black [&>svg]:size-4"
-            >
-              <PlayIcon /> Guarda ora
-            </button>
-          </div>
+        <div className="absolute bottom-28 right-3 flex items-center gap-1 sm:bottom-32 sm:right-8">
+          <button
+            onClick={() => playEpisode(upNext)}
+            className="focusable pill-focus group flex w-72 items-center gap-3 rounded-xl bg-black/80 p-2 pr-3 text-left sm:w-80"
+          >
+            <span className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-raised">
+              <Image
+                src={`https://picsum.photos/seed/maia-${title.id}-s${upNext.season}e${upNext.number}/320/180`}
+                alt=""
+                fill
+                unoptimized
+                className="object-cover"
+              />
+              <span className="absolute inset-0 grid place-items-center bg-black/30 [&>svg]:size-6">
+                <PlayIcon />
+              </span>
+              <span className="absolute inset-x-0 bottom-0 h-1 bg-white/25">
+                <span
+                  className="block h-full bg-white"
+                  style={{ width: `${Math.min(100, (1 - Math.max(0, remaining) / UP_NEXT_SECS) * 100)}%` }}
+                />
+              </span>
+            </span>
+            <span className="min-w-0">
+              <span className="block text-xs font-medium text-muted group-focus-visible:text-black/60">
+                Prossimo episodio · {Math.max(0, Math.ceil(remaining))} s
+              </span>
+              <span className="block truncate text-sm font-semibold">
+                E{upNext.number} · {upNext.name}
+              </span>
+              {upNext.season !== episode?.season && (
+                <span className="block text-xs text-faint group-focus-visible:text-black/60">Stagione {upNext.season}</span>
+              )}
+            </span>
+          </button>
+          <button
+            onClick={() => setUpNextHidden(true)}
+            aria-label="Nascondi"
+            title="Nascondi"
+            className="focusable pill-focus grid size-8 place-items-center self-start rounded-full bg-black/70 text-sm text-white"
+          >
+            ✕
+          </button>
         </div>
       )}
 

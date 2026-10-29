@@ -105,7 +105,7 @@ Title (kind, name, year, tmdbId, overview, posterUrl) ─┬─ TitleGenre ─ G
                                                          └─ Source (provider, externalId, drm,
                                                                     available, maxHeight,
                                                                     audioLangs, subLangs, failCount)
-Channel (provider, externalId, name, number) ─ Program (title, startsAt, endsAt)
+Channel (provider, externalId, name, number, category, logoUrl) ─ Program (title, description, startsAt, endsAt)
 MenuEntry (label, parentId, position, kind?, genreId?)
 ProviderHealth (provider, status, failStreak, retryAfter)
 WatchProgress / Favorite → per Profile

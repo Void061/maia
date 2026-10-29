@@ -69,7 +69,7 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 | `/stato/email`, `/stato/approvazione`, `/stato/sospeso` | account non ancora attivo |
 | `/profili` | "Chi sta guardando?", massimo 5 profili |
 | `/tv` | Home, organizzata come HBO Max: hero a carosello (8 s, si ferma col telecomando sopra), *Continua a guardare*, *Top 10 di oggi*, *In onda ora*, *Esplora* (riquadri dei generi), *Novità*, riga *In primo piano*, poi una riga per genere |
-| `/tv/live` | TV/desktop: griglia del palinsesto con linea dell'ora; telefono: lista dei canali |
+| `/tv/live` | come Pluto TV / Samsung TV Plus: in alto anteprima dal vivo (muta) del canale selezionato con programma, orario, avanzamento, "Dopo" e Guarda; filtri per categoria (Tutti, Generalisti, Film e serie, Lifestyle, Bambini); TV/desktop: guida con colonna canali fissa, riga orari e "Ora", linea dell'ora dietro i programmi (si vede solo negli spazi); muovendosi nella guida l'anteprima e i dettagli seguono il programma selezionato (l'anteprima cambia canale dopo una breve pausa). Telefono: per ogni canale *Ora* con avanzamento e *Dopo*; toccando un canale va nell'anteprima in alto |
 | `/tv/film`, `/tv/serie` | mini-Home del tipo: hero, Top dei film/serie, *Esplora per genere*, una riga per genere |
 | `/tv/film/[genere]`, `/tv/serie/[genere]` | pagina del genere: hero corto e griglia completa |
 | `/tv/genere/[genere]` | scorciatoia su film **e** serie insieme (es. "Commedie") |
@@ -125,8 +125,10 @@ in pausa).
     successiva; il tasto non c'è sull'ultima puntata;
   - **Episodi** apre un pannello con le stagioni e l'elenco delle puntate (miniatura, numero,
     titolo, durata); quella in corso è segnata "In riproduzione"; sceglierne una la fa partire;
-  - negli **ultimi 15 secondi** compare in basso a destra la scheda *Prossimo episodio tra N s*
-    con *Guarda ora*; a fine puntata la successiva parte da sola.
+  - negli **ultimi 15 secondi** compare in basso a destra, sopra i comandi, una scheda compatta
+    alla Netflix/Prime: miniatura con play e barra che si riempie col conto alla rovescia,
+    *Prossimo episodio · N s* e il titolo; toccarla fa partire la puntata, la ✕ la nasconde;
+    a fine puntata la successiva parte da sola.
 
 - **Comportamento identico ai grandi servizi** (Netflix, YouTube, Prime Video): prevedibile,
   nessuna invenzione.

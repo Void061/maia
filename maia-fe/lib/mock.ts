@@ -118,18 +118,43 @@ export const posterUrl = (id: string) => `https://picsum.photos/seed/maia-${id}/
 export const backdropUrl = (id: string) => `https://picsum.photos/seed/maia-${id}-bg/1600/900`;
 export const genreArtUrl = (slug: string) => `https://picsum.photos/seed/maia-genre-${slug}/800/450`;
 
-export type Channel = { id: string; number: number; name: string; provider: string };
-export type Program = { channelId: string; title: string; start: number; end: number };
+export type ChannelCategory = "generalisti" | "film-serie" | "lifestyle" | "bambini";
+export type Channel = {
+  id: string;
+  number: number;
+  name: string;
+  provider: string;
+  category: ChannelCategory;
+  hue: number; // colour of the channel's monogram tile until real logos arrive
+};
+
+export const channelCategories: { key: ChannelCategory | "tutti"; name: string }[] = [
+  { key: "tutti", name: "Tutti" },
+  { key: "generalisti", name: "Generalisti" },
+  { key: "film-serie", name: "Film e serie" },
+  { key: "lifestyle", name: "Lifestyle" },
+  { key: "bambini", name: "Bambini" },
+];
+export type Program = { channelId: string; title: string; start: number; end: number; description: string };
+
+const showBlurbs: Record<string, string> = {
+  Telegiornale: "Le notizie del giorno dall'Italia e dal mondo.",
+  "Linea verde": "Viaggio tra campagne, mercati e prodotti del territorio italiano.",
+  Meteo: "Le previsioni per le prossime ore e per il fine settimana.",
+  Documentario: "Natura, storia e scienza raccontate da vicino.",
+  "Film della sera": "Il grande cinema in prima serata.",
+  "Rassegna stampa": "Le prime pagine dei giornali, commentate in studio.",
+};
 
 export const channels: Channel[] = [
-  { id: "c1", number: 1, name: "Rai 1", provider: "RaiPlay" },
-  { id: "c2", number: 2, name: "Rai 2", provider: "RaiPlay" },
-  { id: "c3", number: 3, name: "Rai 3", provider: "RaiPlay" },
-  { id: "c7", number: 7, name: "La7", provider: "La7" },
-  { id: "c20", number: 20, name: "Pluto Cinema", provider: "Pluto TV" },
-  { id: "c21", number: 21, name: "Pluto Gialli", provider: "Pluto TV" },
-  { id: "c22", number: 22, name: "Pluto Cucina", provider: "Pluto TV" },
-  { id: "c23", number: 23, name: "Pluto Animazione", provider: "Pluto TV" },
+  { id: "c1", number: 1, name: "Rai 1", provider: "RaiPlay", category: "generalisti", hue: 212 },
+  { id: "c2", number: 2, name: "Rai 2", provider: "RaiPlay", category: "generalisti", hue: 2 },
+  { id: "c3", number: 3, name: "Rai 3", provider: "RaiPlay", category: "generalisti", hue: 145 },
+  { id: "c7", number: 7, name: "La7", provider: "La7", category: "generalisti", hue: 330 },
+  { id: "c20", number: 20, name: "Pluto Cinema", provider: "Pluto TV", category: "film-serie", hue: 45 },
+  { id: "c21", number: 21, name: "Pluto Gialli", provider: "Pluto TV", category: "film-serie", hue: 268 },
+  { id: "c22", number: 22, name: "Pluto Cucina", provider: "Pluto TV", category: "lifestyle", hue: 24 },
+  { id: "c23", number: 23, name: "Pluto Animazione", provider: "Pluto TV", category: "bambini", hue: 190 },
 ];
 
 const showNames = [
@@ -150,7 +175,10 @@ export function scheduleAround(now: number): Program[] {
     let i = ci * 3;
     while (t < to) {
       const len = [30, 45, 60, 90, 120][(i + ci) % 5] * 60 * 1000;
-      out.push({ channelId: ch.id, title: showNames[i % showNames.length], start: t, end: t + len });
+      const name = showNames[i % showNames.length];
+      const description =
+        showBlurbs[name] ?? titles.find((x) => x.name === name)?.overview ?? "Un appuntamento fisso del palinsesto.";
+      out.push({ channelId: ch.id, title: name, start: t, end: t + len, description });
       t += len;
       i++;
     }
