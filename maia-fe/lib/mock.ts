@@ -90,6 +90,13 @@ export function nextEpisode(t: Title, season: number, number: number): Episode |
   return null;
 }
 
+// The episode before S/E, going back to the previous season's last one; null at S1:E1.
+export function previousEpisode(season: number, number: number): Episode | null {
+  if (number > 1) return episodeAt(season, number - 1);
+  if (season > 1) return episodeAt(season - 1, EPISODES_PER_SEASON);
+  return null;
+}
+
 // Where "Riprendi" lands for a series in progress (prototype: S1:E3).
 export const resumeEpisode = (t: Title) => (t.progress !== undefined ? episodeAt(1, 3) : episodeAt(1, 1));
 

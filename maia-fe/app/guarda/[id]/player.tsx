@@ -17,6 +17,7 @@ import {
   NextEpisodeIcon,
   PauseIcon,
   PlayIcon,
+  PreviousEpisodeIcon,
   Replay10Icon,
   RewindIcon,
   RotateIcon,
@@ -31,6 +32,7 @@ import {
   episodeAt,
   episodesOf,
   nextEpisode,
+  previousEpisode,
   resumeEpisode,
   scheduleAround,
   type Episode,
@@ -76,6 +78,7 @@ export default function Player({ title, live }: Props) {
     return s && e ? (episodeAt(s, e) ?? resumeEpisode(title)) : resumeEpisode(title);
   });
   const upNext = title && episode ? nextEpisode(title, episode.season, episode.number) : null;
+  const previous = episode ? previousEpisode(episode.season, episode.number) : null;
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -323,6 +326,9 @@ export default function Player({ title, live }: Props) {
     } else if ((k === "ArrowRight" || k === "l") && !live) {
       e.preventDefault();
       seek(10);
+    } else if (k === "p" && previous) {
+      e.preventDefault();
+      playEpisode(previous);
     } else if (k === "n" && upNext) {
       e.preventDefault();
       playEpisode(upNext);
@@ -481,6 +487,11 @@ export default function Player({ title, live }: Props) {
 
             {/* Right: audio/subtitles, fullscreen. */}
             <div className="flex items-center justify-end gap-1 sm:gap-2">
+              {previous && (
+                <Ctl label="Episodio precedente" onClick={() => playEpisode(previous)}>
+                  <PreviousEpisodeIcon />
+                </Ctl>
+              )}
               {upNext && (
                 <Ctl label="Episodio successivo" onClick={() => playEpisode(upNext)}>
                   <NextEpisodeIcon />
@@ -979,7 +990,7 @@ function Ctl({
     ? strong
       ? "size-16 [&>svg]:size-8"
       : "size-12 [&>svg]:size-8"
-    : "size-10 [&>svg]:size-6 sm:size-11";
+    : "size-9 [&>svg]:size-5 sm:size-11 sm:[&>svg]:size-6";
   const look = strong ? "bg-white text-black" : big ? "bg-black/35 text-white" : "pill-focus text-white";
   return (
     <button
