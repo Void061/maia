@@ -95,12 +95,25 @@ con il vetro trasparente e il grigio scuro non si leggeva sopra le immagini chia
   l'intero player (non solo il video), così i comandi restano. **Non forza la rotazione**:
   l'orientamento resta come lo tiene l'utente. Su iPhone, dove Safari non lo permette, usa lo
   schermo intero nativo del video.
-- **Tocco sull'immagine** (fuori dai comandi): nasconde subito barra e comandi; un altro tocco li
-  fa ricomparire. Non mette in pausa: play/pausa è sul suo tasto (o OK/Invio). Il doppio tocco ai
-  lati resta per ±10 secondi. Con il mouse i comandi ricompaiono anche muovendolo; sul touch no,
-  così un tocco non li riaccende per sbaglio. Pannello
-"Riproduzione" con qualità, sottotitoli, lingua audio e velocità letti dal flusso. Il player non
-mostra mai da quale servizio arriva il video.
+- **Comportamento identico ai grandi servizi** (Netflix, YouTube, Prime Video): prevedibile,
+  nessuna invenzione.
+
+  | Azione | Effetto |
+  |---|---|
+  | Video in caricamento (buffering o salto) | rotellina al centro su un disco scuro; il Play centrale non compare |
+  | ← / → oppure J / L | −10 / +10 s, con l'icona trasparente sul lato; pressioni ravvicinate si sommano ("30 secondi") |
+  | Doppio tocco a sinistra/destra (touch) | −10 / +10 s con la stessa icona; ogni tocco successivo aggiunge 10 s |
+  | Tocco singolo (touch) | mostra/nasconde i comandi (non mette in pausa) |
+  | Click (mouse) | play/pausa |
+  | Doppio click (mouse) | schermo intero |
+  | Spazio / K / Invio | play/pausa |
+  | F | schermo intero |
+  | M | audio sì/no (anche dal tasto volume nella barra) |
+  | Esc / Indietro | a schermo intero esce dallo schermo intero; altrimenti torna alla pagina precedente |
+  | ↓ | apre "Audio e sottotitoli" (titoli on demand); nei live ↑/↓ cambiano canale |
+
+  Con il mouse i comandi ricompaiono anche muovendolo; sul touch no, così un tocco non li
+  riaccende per sbaglio.
 
 ## Note sul prototipo
 

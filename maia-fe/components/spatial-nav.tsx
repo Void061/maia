@@ -59,6 +59,11 @@ export default function SpatialNav() {
       if ((e.key === "Backspace" && !typing) || e.key === "Escape") {
         if (document.querySelector("[data-focus-trap]")) return; // the layer closes itself
         e.preventDefault();
+        // In fullscreen, Back/Esc leaves fullscreen first, like every player.
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+          return;
+        }
         router.back();
         return;
       }

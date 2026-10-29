@@ -3,7 +3,18 @@
 import type Hls from "hls.js";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BackIcon, ExitFullscreenIcon, FullscreenIcon, PauseIcon, PlayIcon, SettingsIcon } from "@/components/icons";
+import {
+  BackIcon,
+  ExitFullscreenIcon,
+  ForwardIcon,
+  FullscreenIcon,
+  MutedIcon,
+  PauseIcon,
+  PlayIcon,
+  RewindIcon,
+  SettingsIcon,
+  VolumeIcon,
+} from "@/components/icons";
 import { channels, demoStream, scheduleAround, type Title } from "@/lib/mock";
 import { hhmm, useNow } from "@/lib/use-now";
 
@@ -40,6 +51,14 @@ export default function Player({ title, live }: Props) {
   const [sub, setSub] = useState(-1);
   const [speed, setSpeed] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
+  const [buffering, setBuffering] = useState(false);
+  const [muted, setMuted] = useState(false);
+  // Side indicator for ±10 s jumps; consecutive jumps on the same side add up.
+  const [seekHint, setSeekHint] = useState<{ dir: 1 | -1; secs: number; n: number } | null>(null);
+  const seekHintTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const lastTap = useRef(0);
+  const lastPointer = useRef<string>("mouse");
+  const singleTapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const now = useNow(15_000);
   const channel = channels.find((c) => c.id === channelId);
@@ -122,9 +141,9 @@ export default function Player({ title, live }: Props) {
     }
   }, []);
 
-  // A tap on the picture (outside the controls) hides the controls at once;
-  // the next tap brings them back. Play/pause stays on its own button.
-  const onSurfaceTap = useCallback(() => {
+  // Touch on the picture: one tap shows/hides the controls; a double tap on
+  // the left or right half jumps ±10 s, and further taps keep adding (YouTube).
+  const toggleChrome = useCallback(() => {
     if (chrome) {
       clearTimeout(hideTimer.current);
       setChrome(false);
@@ -150,7 +169,25 @@ export default function Player({ title, live }: Props) {
     setTime(target);
   }, []);
 
-  const seek = useCallback((delta: number) => seekTo((video.current?.currentTime ?? 0) + delta), [seekTo]);
+  const seek = useCallback(
+    (delta: number) => {
+      seekTo((video.current?.currentTime ?? 0) + delta);
+      const dir = delta > 0 ? 1 : -1;
+      setSeekHint((h) =>
+        h && h.dir === dir ? { dir, secs: h.secs + Math.abs(delta), n: h.n + 1 } : { dir, secs: Math.abs(delta), n: 0 },
+      );
+      clearTimeout(seekHintTimer.current);
+      seekHintTimer.current = setTimeout(() => setSeekHint(null), 800);
+    },
+    [seekTo],
+  );
+
+  const toggleMute = useCallback(() => {
+    const v = video.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  }, []);
 
   const zap = useCallback(
     (dir: 1 | -1) => {
@@ -168,17 +205,21 @@ export default function Player({ title, live }: Props) {
     if (panel) return;
     poke();
     const onButton = (e.target as HTMLElement).tagName === "BUTTON";
-    if (e.key === "Enter" || e.key === " ") {
-      if (onButton) return;
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (k === "Enter" || k === " " || k === "k") {
+      if (onButton && k !== "k") return;
       e.preventDefault();
       toggle();
-    } else if (e.key === "f" || e.key === "F") {
+    } else if (k === "f") {
       e.preventDefault();
       toggleFullscreen();
-    } else if (e.key === "ArrowLeft" && !live) {
+    } else if (k === "m") {
+      e.preventDefault();
+      toggleMute();
+    } else if ((k === "ArrowLeft" || k === "j") && !live) {
       e.preventDefault();
       seek(-10);
-    } else if (e.key === "ArrowRight" && !live) {
+    } else if ((k === "ArrowRight" || k === "l") && !live) {
       e.preventDefault();
       seek(10);
     } else if (e.key === "ArrowUp" && live) {
@@ -209,11 +250,35 @@ export default function Player({ title, live }: Props) {
         ref={video}
         playsInline
         className="absolute inset-0 size-full"
-        onClick={onSurfaceTap}
-        onDoubleClick={(e) => {
+        onPointerUp={(e) => {
+          lastPointer.current = e.pointerType;
+          // Mouse: click = play/pause, like Netflix and YouTube on the web.
+          if (e.pointerType === "mouse") {
+            if (e.button === 0) toggle();
+            return;
+          }
+          const t = Date.now();
           const r = e.currentTarget.getBoundingClientRect();
-          if (!live) seek(e.clientX < r.left + r.width / 2 ? -10 : 10);
+          const side = e.clientX < r.left + r.width / 2 ? -10 : 10;
+          if (!live && t - lastTap.current < 300) {
+            clearTimeout(singleTapTimer.current);
+            seek(side);
+          } else {
+            singleTapTimer.current = setTimeout(toggleChrome, 280);
+          }
+          lastTap.current = t;
         }}
+        onDoubleClick={() => {
+          // Mouse: double click = fullscreen. (Touch double taps seek, above.)
+          // Mobile browsers also emit dblclick after a double tap: only a mouse counts.
+          if (lastPointer.current === "mouse") toggleFullscreen();
+        }}
+        onWaiting={() => setBuffering(true)}
+        onSeeking={() => setBuffering(true)}
+        onPlaying={() => setBuffering(false)}
+        onSeeked={() => setBuffering(false)}
+        onCanPlay={() => setBuffering(false)}
+        onVolumeChange={(e) => setMuted(e.currentTarget.muted)}
         onPlay={() => { setPlaying(true); poke(); }}
         onPause={() => { setPlaying(false); setChrome(true); }}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
@@ -279,6 +344,13 @@ export default function Player({ title, live }: Props) {
                 </>
               )}
               <button
+                onClick={toggleMute}
+                aria-label={muted ? "Attiva audio" : "Disattiva audio"}
+                className="focusable pill-focus grid size-12 place-items-center rounded-full"
+              >
+                {muted ? <MutedIcon /> : <VolumeIcon />}
+              </button>
+              <button
                 onClick={() => setPanel(true)}
                 className="focusable pill-focus flex h-12 items-center gap-2 rounded-full px-5 font-medium"
               >
@@ -299,7 +371,33 @@ export default function Player({ title, live }: Props) {
         </div>
       </div>
 
-      {!playing && !panel && chrome && (
+      {buffering && (
+        <div role="status" aria-label="Caricamento" className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          {/* Dark disc behind the ring so it reads on bright frames too. */}
+          <div className="grid size-24 place-items-center rounded-full bg-black/60 backdrop-blur-sm">
+            <div className="size-14 animate-spin rounded-full border-4 border-white/25 border-t-white" />
+          </div>
+        </div>
+      )}
+
+      {seekHint && (
+        <div
+          key={seekHint.n === 0 ? `${seekHint.dir}` : `${seekHint.dir}-${seekHint.n}`}
+          aria-hidden
+          className={`pointer-events-none absolute top-1/2 flex -translate-y-1/2 animate-[fade_200ms_ease-out] flex-col items-center gap-2 ${
+            seekHint.dir < 0 ? "left-[14%]" : "right-[14%]"
+          }`}
+        >
+          <span className="grid size-20 place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm [&>svg]:size-9">
+            {seekHint.dir < 0 ? <RewindIcon /> : <ForwardIcon />}
+          </span>
+          <span className="rounded-full bg-black/45 px-3 py-1 text-sm font-semibold text-white backdrop-blur-sm">
+            {seekHint.secs} secondi
+          </span>
+        </div>
+      )}
+
+      {!playing && !panel && chrome && !buffering && (
         <button
           onClick={toggle}
           aria-label="Riproduci"

@@ -58,3 +58,15 @@ export const FullscreenIcon = () => (
 export const ExitFullscreenIcon = () => (
   <svg {...base}><path d="M9 4v4a1 1 0 0 1-1 1H4M20 9h-4a1 1 0 0 1-1-1V4M15 20v-4a1 1 0 0 1 1-1h4M4 15h4a1 1 0 0 1 1 1v4" /></svg>
 );
+export const VolumeIcon = () => (
+  <svg {...base}><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" /></svg>
+);
+export const MutedIcon = () => (
+  <svg {...base}><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><path d="m16 9.5 5 5M21 9.5l-5 5" /></svg>
+);
+export const RewindIcon = () => (
+  <svg {...base}><path d="M11.5 7 6 12l5.5 5M18 7l-5.5 5 5.5 5" /></svg>
+);
+export const ForwardIcon = () => (
+  <svg {...base}><path d="m12.5 7 5.5 5-5.5 5M6 7l5.5 5L6 17" /></svg>
+);
