@@ -106,6 +106,9 @@ export const PreviousEpisodeIcon = () => (
 export const EpisodesIcon = () => (
   <svg {...base}><rect x="3" y="8" width="14" height="11" rx="2" /><path d="M7 5h11a2 2 0 0 1 2 2v9" /></svg>
 );
+export const PencilIcon = () => (
+  <svg {...base}><path d="M14.5 5.5 18.5 9.5M4 20l1-4.5L15.8 4.7a1.4 1.4 0 0 1 2 0l1.5 1.5a1.4 1.4 0 0 1 0 2L8.5 19 4 20Z" /></svg>
+);
 export const ChevronUpIcon = () => (
   <svg {...base}><path d="m6 15 6-6 6 6" /></svg>
 );

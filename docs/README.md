@@ -18,6 +18,8 @@ commit di ogni modifica che cambia comportamento, struttura o decisioni (vedi `C
 
 ## Stato attuale
 
-- **Fatto:** scheletro del monorepo, Dockerfile, docker-compose locale, prototipo UI con dati finti
-  (branch `feature/ui-prototype`).
-- **Non ancora fatto:** autenticazione, API del backend, schema Prisma del catalogo, adapter dei servizi.
+- **Fatto:** scheletro del monorepo, Dockerfile, docker-compose locale; prototipo UI di MAIA TV con
+  dati finti; **account e profili veri** (registrazione, conferma email, approvazione da terminale,
+  login con sessioni, password dimenticata, guida iniziale, profili, impostazioni account).
+- **Non ancora fatto:** pannello admin, permessi sulle app, login TV con codice, schema Prisma del
+  catalogo, adapter dei servizi (MAIA TV usa ancora i dati finti).

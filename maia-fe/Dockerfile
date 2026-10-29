@@ -12,11 +12,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, not
-# read at runtime: on Coolify they must be set as *build* variables.
-# Every new NEXT_PUBLIC_* var needs its ARG + ENV pair added here.
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# No NEXT_PUBLIC_* variables: the browser talks only to maia-fe, which proxies
+# /api/* to maia-be using API_URL read at runtime (app/api/[...path]/route.ts).
+# If a NEXT_PUBLIC_* var is ever needed, it must be an ARG + ENV pair here and a
+# *build* variable on Coolify, because Next inlines it at build time.
 
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
@@ -31,6 +30,8 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3001
 ENV HOSTNAME=0.0.0.0
+# Where maia-be answers, from inside the container network (override on Coolify).
+ENV API_URL=http://maia-be:3000
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

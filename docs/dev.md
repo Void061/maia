@@ -11,10 +11,21 @@
 Sviluppo di tutti i giorni: database in Docker, app in locale con ricaricamento automatico.
 
 ```bash
-docker compose up -d postgres      # Postgres su localhost:5433
-cd maia-be && npm run start:dev    # http://localhost:3000
-cd maia-fe && npm run dev          # http://localhost:3001
+docker compose up -d postgres mailpit   # Postgres su :5433, Mailpit su :8025 (web) e :1025 (SMTP)
+cd maia-be && npm run start:dev         # http://localhost:3000 (Swagger su /docs)
+cd maia-fe && npm run dev               # http://localhost:3001
 ```
+
+**Email in sviluppo:** tutte le email inviate dal backend finiscono in Mailpit, visibile su
+**http://localhost:8025** (non escono verso internet).
+
+**Primo account:** registrati dall'app, apri il link di conferma in Mailpit, poi da `maia-be/`:
+`npm run account:approve -- tua@email.it --admin`.
+
+**Database:** dopo una modifica a `prisma/schema.prisma`, `npm run db:migrate` (crea la migrazione
+e rigenera il client Prisma).
+
+**Tipi del frontend:** dopo una modifica alle API, con maia-be acceso, `npm run gen:api` in maia-fe.
 
 Tutto in container, come in produzione: `docker compose up --build`.
 Spegnere: `docker compose down` (con `-v` cancella anche i dati del database).
@@ -26,8 +37,8 @@ le due modalità insieme.
 
 | File | Contenuto |
 |---|---|
-| `maia-be/.env` | `DATABASE_URL` (verso `localhost:5433`) |
-| `maia-fe/.env.local` | `NEXT_PUBLIC_API_URL=http://localhost:3000` |
+| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (per i link nelle email), `SMTP_*`, `MAIL_FROM`, `ADMIN_EMAIL`, `COOKIE_SECURE` |
+| `maia-fe/.env.local` | `API_URL=http://localhost:3000` (dove il gateway `/api` trova maia-be) |
 
 Sono ignorati da git; i modelli sono i rispettivi `.env.example`.
 

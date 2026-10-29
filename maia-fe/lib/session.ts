@@ -1,26 +1,30 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { profiles, type Profile } from "./mock";
+import type { Profile } from "./api";
+import { useMe } from "./account";
 
-// Prototype-only session: the chosen profile and last app live in
-// localStorage. Real auth comes from maia-be.
+// The profile chosen on this device lives in localStorage (each device can be
+// on a different profile of the same account). Profiles themselves come from
+// maia-be via useMe().
 
 const PROFILE_KEY = "maia.profile";
-const APP_KEY = "maia.lastApp";
+const EMAIL_KEY = "maia.pendingEmail";
 const listeners = new Set<() => void>();
 
-function read(key: string) {
+function read(key: string, storage: "local" | "session" = "local") {
   try {
-    return localStorage.getItem(key);
+    return (storage === "local" ? localStorage : sessionStorage).getItem(key);
   } catch {
     return null;
   }
 }
 
-function write(key: string, value: string) {
+function write(key: string, value: string | null, storage: "local" | "session" = "local") {
   try {
-    localStorage.setItem(key, value);
+    const s = storage === "local" ? localStorage : sessionStorage;
+    if (value === null) s.removeItem(key);
+    else s.setItem(key, value);
   } catch {}
   listeners.forEach((l) => l());
 }
@@ -30,11 +34,21 @@ function subscribe(l: () => void) {
   return () => listeners.delete(l);
 }
 
-export function useProfile(): Profile | null {
-  const id = useSyncExternalStore(subscribe, () => read(PROFILE_KEY), () => null);
-  return profiles.find((p) => p.id === id) ?? null;
+export const selectProfile = (id: string | null) => write(PROFILE_KEY, id);
+
+export function useSelectedProfileId() {
+  return useSyncExternalStore(subscribe, () => read(PROFILE_KEY), () => null);
 }
 
-export const selectProfile = (id: string) => write(PROFILE_KEY, id);
-export const lastApp = () => read(APP_KEY);
-export const rememberApp = (key: string) => write(APP_KEY, key);
+// The current profile, if the stored id still belongs to the account.
+export function useProfile(): Profile | null {
+  const { data } = useMe();
+  const id = useSelectedProfileId();
+  return data?.profiles.find((p) => p.id === id) ?? null;
+}
+
+// Email typed at sign-up/login, so "Rimanda l'email" knows where to send it
+// without putting the address in the URL.
+export const rememberPendingEmail = (email: string) => write(EMAIL_KEY, email, "session");
+export const pendingEmail = () => read(EMAIL_KEY, "session");
+export const usePendingEmail = () => useSyncExternalStore(subscribe, () => pendingEmail() ?? "", () => "");

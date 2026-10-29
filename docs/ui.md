@@ -44,6 +44,8 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
   - `Tile` 16:9 per *Continua a guardare*, *Novità*, canali live ed episodi, con didascalia sotto;
   - `Top10Card`: numero enorme a contorno **accanto** alla locandina (non sovrapposto);
   - `GenreCard`: riquadro 16:9 con il nome del genere, porta d'ingresso alla categoria.
+- **Campi e pulsanti secondari** usano bianco semitrasparente (`bg-white/[0.08]`, `bg-white/[0.14]`)
+  così si vedono sia sul nero sia dentro i riquadri grigi (`surface`).
 - **Leggibilità:** il testo sopra un'immagine sta sempre su una sfumatura nera (hero, card,
   riga in primo piano); il menu in alto diventa quasi opaco (`bg-black/85` + sfocatura) quando
   la pagina scorre sotto. Testo per lettori di schermo (`sr-only`) solo dentro contenitori
@@ -64,10 +66,14 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 
 | Percorso | Schermata |
 |---|---|
-| `/login` | email e password, oppure "Accedi con il telefono" (QR + codice) |
+| `/login` | email e password, "Password dimenticata?"; "Accedi con il telefono" (QR + codice) è ancora una bozza |
 | `/registrati` | creazione account |
-| `/stato/email`, `/stato/approvazione`, `/stato/sospeso` | account non ancora attivo |
-| `/profili` | "Chi sta guardando?", massimo 5 profili |
+| `/stato/email`, `/stato/approvazione`, `/stato/sospeso` | account non ancora attivo (la prima con "Rimanda l'email") |
+| `/verifica-email?token=` | arrivo dal link di conferma |
+| `/password-dimenticata`, `/reimposta-password?token=` | reset della password |
+| `/benvenuto` | guida iniziale per un account senza profili (3 passi) |
+| `/profili` | "Chi sta guardando?", massimo 5 profili; "Gestisci profili" (matita) e "Aggiungi" |
+| `/account` | impostazioni: nome, email, password, profili, esci |
 | `/tv` | Home, organizzata come HBO Max: hero a carosello (8 s, si ferma col telecomando sopra), *Continua a guardare*, *Top 10 di oggi*, *In onda ora*, *Esplora* (riquadri dei generi), *Novità*, riga *In primo piano*, poi una riga per genere |
 | `/tv/live` | come Pluto TV / Samsung TV Plus: in alto anteprima dal vivo (muta) del canale selezionato con programma, orario, avanzamento, "Dopo" e Guarda; filtri per categoria (Tutti, Generalisti, Film e serie, Lifestyle, Bambini); TV/desktop: guida con colonna canali fissa, riga orari e "Ora", linea dell'ora dietro i programmi (si vede solo negli spazi); muovendosi nella guida l'anteprima e i dettagli seguono il programma selezionato (l'anteprima cambia canale dopo una breve pausa). Telefono: per ogni canale *Ora* con avanzamento e *Dopo*; toccando un canale va nell'anteprima in alto |
 | `/tv/film`, `/tv/serie` | mini-Home del tipo: hero, Top dei film/serie, *Esplora per genere*, una riga per genere |
@@ -161,9 +167,9 @@ in pausa).
 
 ## Note sul prototipo
 
-- Dati finti in `maia-fe/lib/mock.ts` (titoli, canali, palinsesto, episodi: 6 per stagione);
-  profilo e ultima app in `localStorage` (`lib/session.ts`). Tutti gli episodi usano lo stesso
-  flusso di prova.
+- Dati finti in `maia-fe/lib/mock.ts` (titoli, canali, palinsesto, episodi: 6 per stagione).
+  Account e profili invece sono veri (maia-be); il profilo scelto è in `localStorage`
+  (`lib/session.ts`). Tutti gli episodi usano lo stesso flusso di prova.
 - Locandine e sfondi sono foto casuali di riempimento da picsum.photos.
 - Il video è un flusso HLS di prova pubblico (Mux), con più qualità.
 - Aprendo il player incollando l'indirizzo, il browser blocca l'avvio automatico con audio:

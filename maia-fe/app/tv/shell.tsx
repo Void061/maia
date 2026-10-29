@@ -14,8 +14,9 @@ import {
   TvGlyph,
 } from "@/components/icons";
 import Logo from "@/components/logo";
-import { apps, profiles } from "@/lib/mock";
-import { rememberApp, useProfile } from "@/lib/session";
+import { useLogout, useMe, useProfileMutations } from "@/lib/account";
+import { apps } from "@/lib/mock";
+import { useProfile } from "@/lib/session";
 
 const nav = [
   { href: "/tv", label: "Home", Icon: HomeIcon },
@@ -28,7 +29,13 @@ const appGlyph: Record<string, () => React.JSX.Element> = { tv: TvGlyph, casa: H
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const profile = useProfile() ?? profiles[0];
+  const router = useRouter();
+  const { data: me } = useMe();
+  const profile = useProfile();
+  // Signed in but no profile chosen on this device (or it was deleted): pick one first.
+  useEffect(() => {
+    if (me && !profile) router.replace("/profili");
+  }, [me, profile, router]);
   const [layer, setLayer] = useState<"apps" | "profile" | null>(null);
   const [scrolled, setScrolled] = useState(false);
   // Phone only: bars hide while scrolling down and come back on the way up.
@@ -97,8 +104,12 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             >
               <SearchIcon />
             </Link>
-            <button onClick={() => setLayer("profile")} className="focusable rounded-full" aria-label={`Profilo: ${profile.name}`}>
-              <Avatar profile={profile} size={40} />
+            <button
+              onClick={() => setLayer("profile")}
+              className="focusable rounded-full"
+              aria-label={`Profilo: ${profile?.name ?? ""}`}
+            >
+              {profile ? <Avatar profile={profile} size={40} /> : <span className="block size-10 rounded-full bg-raised" />}
             </button>
           </div>
         </div>
@@ -166,6 +177,8 @@ function Layer({ onClose, title, children }: { onClose: () => void; title: strin
 
 function AppSwitcher({ onClose }: { onClose: () => void }) {
   const router = useRouter();
+  const profile = useProfile();
+  const { update } = useProfileMutations();
   return (
     <Layer title="Le tue app" onClose={onClose}>
       <ul className="grid gap-2">
@@ -176,7 +189,7 @@ function AppSwitcher({ onClose }: { onClose: () => void }) {
               <button
                 disabled={!a.enabled}
                 onClick={() => {
-                  rememberApp(a.key);
+                  if (profile) update.mutate({ id: profile.id, lastAppKey: a.key });
                   onClose();
                   router.push(a.href);
                 }}
@@ -203,18 +216,21 @@ function AppSwitcher({ onClose }: { onClose: () => void }) {
 }
 
 function ProfileMenu({ onClose }: { onClose: () => void }) {
-  const profile = useProfile() ?? profiles[0];
+  const profile = useProfile();
+  const logout = useLogout();
   const item = "focusable pill-focus block w-full rounded-2xl px-4 py-3.5 text-left text-lg";
   return (
-    <Layer title={profile.name} onClose={onClose}>
+    <Layer title={profile?.name ?? "Profilo"} onClose={onClose}>
       <div className="grid gap-1">
         <Link href="/profili" className={item}>
           Cambia profilo
         </Link>
-        <button className={item}>Impostazioni account</button>
-        <Link href="/login" className={`${item} text-muted`}>
-          Esci
+        <Link href="/account" className={item}>
+          Impostazioni account
         </Link>
+        <button onClick={() => logout.mutate()} className={`${item} text-muted`}>
+          Esci
+        </button>
       </div>
     </Layer>
   );

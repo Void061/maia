@@ -33,6 +33,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma7.config.ts ./prisma7.config.ts
+# Admin helper until the admin panel exists: npm run account:approve -- <email>
+COPY --from=builder /app/scripts ./scripts
 
 USER nestjs
 

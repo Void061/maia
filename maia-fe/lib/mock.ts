@@ -1,13 +1,5 @@
 // Prototype data only: replaced by maia-be's API once the catalog exists.
 
-export type Profile = { id: string; name: string; hue: number };
-
-export const profiles: Profile[] = [
-  { id: "p1", name: "Ivan", hue: 38 },
-  { id: "p2", name: "Sofia", hue: 330 },
-  { id: "p3", name: "Ospite", hue: 200 },
-];
-
 export type MaiaApp = {
   key: string;
   name: string;

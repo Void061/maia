@@ -72,3 +72,26 @@ Top 10, In onda ora, Esplora, Novità, In primo piano) prima delle righe per gen
 come mini-Home; griglia completa solo nella pagina del genere; scheda titolo a schede (Episodi,
 Altri come questo, Dettagli); titolo dentro la locandina. Sostituisce le pagine Film/Serie a
 griglia con filtri.
+
+## 2026-10-30
+
+**Il browser parla solo con maia-fe**: `/api/*` è inoltrato a maia-be da un route handler di Next
+con `API_URL` letto a runtime. Sostituisce `NEXT_PUBLIC_API_URL`. Motivo: cookie di sessione di
+prima parte, niente CORS, stessa build ovunque, e l'app funziona anche aperta dall'IP di casa
+(telefono, TV), dove `localhost:3000` non esisterebbe.
+
+**Sessioni con cookie httpOnly**: access token JWT di 15 minuti + refresh token a rotazione di 30
+giorni salvato come hash in `sessions`. Niente token in `localStorage` (non leggibili da script).
+
+**Password con scrypt di `node:crypto`** invece di argon2/bcrypt: nessuna dipendenza nativa da
+compilare (npm 11 blocca gli script di installazione).
+
+**Email via SMTP generico**, con Mailpit in sviluppo: in produzione basta cambiare le variabili
+per usare un provider (Resend, Brevo...).
+
+**Approvazione da terminale** (`npm run account:approve`) finché non c'è il pannello admin.
+
+**Guida iniziale obbligatoria** se l'account non ha profili: ne serve almeno uno per usare l'app.
+
+**Profilo scelto salvato sul dispositivo, ultima app salvata nel profilo**: dispositivi diversi
+possono essere su profili diversi; l'app da riaprire segue la persona.

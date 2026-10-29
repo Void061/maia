@@ -2,24 +2,25 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import AuthFrame from "@/components/auth-frame";
 import { ButtonLink } from "@/components/ui";
+import ResendEmail from "./resend-email";
 
 // One screen per account state that blocks access (see the account
 // lifecycle: PENDING_EMAIL → PENDING_APPROVAL → ACTIVE / SUSPENDED).
 const states = {
   email: {
     title: "Conferma la tua email",
-    body: "Ti abbiamo mandato un link a ivan@esempio.it. Aprilo per confermare l'indirizzo: dopo, l'account passa all'approvazione.",
-    action: "Rimanda l'email",
+    body: "Ti abbiamo mandato un link per confermare l'indirizzo. Aprilo dalla tua casella: dopo la conferma, l'account passa all'approvazione di un amministratore.",
+    resend: true,
   },
   approvazione: {
     title: "Account in attesa di approvazione",
-    body: "L'email è confermata. Un amministratore deve ancora abilitare l'account: riceverai un'email appena è attivo.",
-    action: null,
+    body: "L'email è confermata. Un amministratore deve ancora abilitare l'account: quando è attivo puoi accedere.",
+    resend: false,
   },
   sospeso: {
     title: "Account non abilitato",
     body: "Questo account al momento non può entrare in MAIA. Per riattivarlo contatta l'amministratore.",
-    action: null,
+    resend: false,
   },
 } as const;
 
@@ -52,9 +53,7 @@ async function StateContent({
       <h1 className="font-display text-4xl font-bold">{state.title}</h1>
       <p className="mt-4 text-lg leading-relaxed text-muted">{state.body}</p>
       <div className="mt-10 flex flex-col gap-3">
-        {state.action && (
-          <ButtonLink href={`/stato/${stato}`}>{state.action}</ButtonLink>
-        )}
+        {state.resend && <ResendEmail />}
         <ButtonLink href="/login" variant="secondary">
           Torna al login
         </ButtonLink>
