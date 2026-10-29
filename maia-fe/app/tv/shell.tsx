@@ -31,24 +31,38 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const profile = useProfile() ?? profiles[0];
   const [layer, setLayer] = useState<"apps" | "profile" | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  // Phone only: bars hide while scrolling down and come back on the way up.
+  const [barsHidden, setBarsHidden] = useState(false);
   // The real rule: show the switcher only with more than one enabled app.
   // The prototype lists "Casa" (disabled) too, to show where future apps go.
   const multipleApps = apps.length > 1;
   const isActive = (href: string) => (href === "/tv" ? pathname === "/tv" : pathname.startsWith(href));
 
-  // The bar is clear over the hero and turns to glass once the page scrolls.
+  // The bar is clear over the hero and turns opaque once the page scrolls.
+  // On phones both bars slide away while scrolling down and return as soon as
+  // the user scrolls up (Netflix/YouTube/X). Small jitters are ignored.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 24);
+      const dy = y - lastY;
+      if (y < 80) setBarsHidden(false);
+      else if (dy > 8) setBarsHidden(true);
+      else if (dy < -8) setBarsHidden(false);
+      if (Math.abs(dy) > 8 || y < 80) lastY = y;
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  const hide = barsHidden && !layer;
 
   return (
     <div className="min-h-dvh">
       <header
-        className={`fixed inset-x-0 top-0 z-30 transition-colors duration-300 ${
+        className={`fixed inset-x-0 top-0 z-30 transition-[background-color,transform] duration-300 md:translate-y-0 ${
           scrolled ? "bg-black/85 backdrop-blur-xl" : "bg-gradient-to-b from-black/80 to-transparent"
-        }`}
+        } ${hide ? "-translate-y-full" : "translate-y-0"}`}
       >
         <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-10 md:h-20">
           <button
@@ -93,7 +107,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       {/* Phone: iOS-style tab bar. */}
       <nav
         aria-label="Menu principale"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-white/10 bg-black/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
+        className={`fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-white/10 bg-black/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl transition-transform duration-300 md:hidden ${
+          hide ? "translate-y-full" : "translate-y-0"
+        }`}
       >
         {[...nav, { href: "/tv/cerca", label: "Cerca", Icon: SearchIcon }].map(({ href, label, Icon }) => (
           <Link

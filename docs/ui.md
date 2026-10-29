@@ -83,6 +83,10 @@ Live, Film, Serie), a destra Cerca e l'avatar (cambia profilo, impostazioni, esc
 **Telefono:** stessa barra in alto, più una barra in basso con 5 voci, come iOS. La barra in basso
 è **quasi opaca** (`bg-black/90` + sfocatura) e le voci non attive sono grigio chiaro (`muted`):
 con il vetro trasparente e il grigio scuro non si leggeva sopra le immagini chiare.
+Sempre solo sul telefono, **le due barre si nascondono scorrendo verso il basso e ricompaiono
+scorrendo verso l'alto** (come Netflix/YouTube/X): ricompaiono sempre vicino all'inizio della
+pagina, ignorano movimenti sotto gli 8px e restano visibili mentre è aperto un pannello
+(selettore app, menu profilo). Su TV, desktop e tablet il menu resta sempre visibile.
 
 **Player:** layout dei comandi come Netflix/YouTube: nessun riquadro, solo sfumature scure in alto
 e in basso; icone piccole (24px in pulsanti da 40-44px) senza testo, con il nome nel suggerimento
