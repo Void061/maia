@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+src/generated
+.env
+.env.*
+!.env.example
+npm-debug.log*
+.git
+.gitignore
+.agents
+.claude
+README.md
+AGENTS.md
