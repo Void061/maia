@@ -93,14 +93,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       {/* Phone: iOS-style tab bar. */}
       <nav
         aria-label="Menu principale"
-        className="glass fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-white/10 pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-white/10 bg-black/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
       >
         {[...nav, { href: "/tv/cerca", label: "Cerca", Icon: SearchIcon }].map(({ href, label, Icon }) => (
           <Link
             key={href}
             href={href}
             aria-current={isActive(href) ? "page" : undefined}
-            className="flex flex-col items-center gap-1 py-2 text-[11px] font-medium text-faint aria-[current=page]:text-label"
+            className="flex flex-col items-center gap-1 py-2 text-[11px] font-medium text-muted aria-[current=page]:text-white"
           >
             <Icon />
             {label}

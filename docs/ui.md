@@ -80,7 +80,9 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 **Menu (TV, desktop, tablet):** barra in alto, trasparente sopra l'immagine e in vetro quando si
 scorre. A sinistra "maia TV" (apre il selettore delle app), al centro le voci a pillola (Home,
 Live, Film, Serie), a destra Cerca e l'avatar (cambia profilo, impostazioni, esci).
-**Telefono:** stessa barra in alto, più una barra in vetro in basso con 5 voci, come iOS.
+**Telefono:** stessa barra in alto, più una barra in basso con 5 voci, come iOS. La barra in basso
+è **quasi opaca** (`bg-black/90` + sfocatura) e le voci non attive sono grigio chiaro (`muted`):
+con il vetro trasparente e il grigio scuro non si leggeva sopra le immagini chiare.
 
 **Player:** comandi in una barra di vetro in basso con la barra di avanzamento bianca e il tempo
 rimanente; spariscono dopo 3 secondi di riproduzione (restano visibili in pausa). Pannello

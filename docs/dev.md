@@ -49,6 +49,10 @@ In più, `next dev` blocca gli script di sviluppo per chi arriva da un indirizzo
 `allowedDevOrigins: ["192.168.1.*"]`. Se la rete di casa cambia sottorete, va aggiornato lì
 (e il server di sviluppo riavviato).
 
+In sviluppo sono disattivati i pulsanti flottanti che coprivano l'app su telefono e TV:
+l'indicatore "N" di Next (`devIndicators: false` in `next.config.ts`; gli errori compaiono
+comunque) e i devtools di React Query (pacchetto rimosso).
+
 ## Problemi noti
 
 - **Prisma:** non installare `prisma@latest` (punta a una release candidate della 8 che blocca

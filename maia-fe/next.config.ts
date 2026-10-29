@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   // Dev only: lets phones and TVs on the home Wi-Fi load the dev scripts when
   // opening http://<PC IP>:3001. Without it the page renders but nothing reacts.
   allowedDevOrigins: ["192.168.1.*"],
+  // The floating "N" badge sits on top of the avatar when previewing on a
+  // phone or TV; build/runtime errors are still shown without it.
+  devIndicators: false,
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
