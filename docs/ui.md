@@ -119,6 +119,28 @@ in pausa).
 - **Ordine dei tasti a destra:** Ruota schermo (solo touch), Audio e sottotitoli, Impostazioni,
   Schermo intero.
 
+- **Comportamento identico ai grandi servizi** (Netflix, YouTube, Prime Video): prevedibile,
+  nessuna invenzione.
+
+  | Azione | Effetto |
+  |---|---|
+  | Video in caricamento (buffering o salto) | rotellina al centro su un disco scuro; il Play centrale non compare |
+  | ← / → oppure J / L | −10 / +10 s, con l'icona trasparente sul lato; pressioni ravvicinate si sommano ("30 secondi") |
+  | Doppio tocco a sinistra/destra (touch) | −10 / +10 s con la stessa icona; ogni tocco successivo aggiunge 10 s |
+  | Tocco singolo (touch) | mostra/nasconde i comandi (non mette in pausa) |
+  | Click (mouse) | play/pausa |
+  | Doppio click (mouse) | schermo intero |
+  | Spazio / K / Invio | play/pausa |
+  | F | schermo intero |
+  | M | audio sì/no |
+  | ↑ / ↓ | volume ±10%, con l'indicatore della percentuale in alto (titoli on demand) |
+  | C | apre "Audio e sottotitoli" (qualità e velocità sono nel pannello Impostazioni) |
+  | Esc / Indietro | a schermo intero esce dallo schermo intero; altrimenti torna alla pagina precedente |
+  | ↑ / ↓ nei live | cambiano canale, come in TV |
+
+  Con il mouse i comandi ricompaiono anche muovendolo; sul touch no, così un tocco non li
+  riaccende per sbaglio.
+
 ## Note sul prototipo
 
 - Dati finti in `maia-fe/lib/mock.ts`; profilo e ultima app in `localStorage` (`lib/session.ts`).
