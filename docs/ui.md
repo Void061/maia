@@ -116,8 +116,17 @@ in pausa).
   Sono elenchi con il segno di spunta sulla voce attiva, in due colonne su schermi grandi.
   Quando un pannello è aperto spariscono tutti i comandi e il video si scurisce; il pannello è
   opaco (`surface`), non in vetro. Si chiude con Chiudi, Esc/Indietro o toccando fuori.
-- **Ordine dei tasti a destra:** Ruota schermo (solo touch), Audio e sottotitoli, Impostazioni,
-  Schermo intero.
+- **Ordine dei tasti a destra:** Episodio successivo e Episodi (solo serie), Ruota schermo (solo
+  touch), Audio e sottotitoli, Impostazioni, Schermo intero.
+- **Serie**, come Netflix:
+  - il titolo al centro della barra ha sotto la puntata (`S1:E3 · Sotto il ponte`); l'URL è
+    `/guarda/[id]?s=1&e=3` e gli episodi della scheda titolo aprono la puntata giusta;
+  - **Episodio successivo** (tasto o **N**) passa alla puntata dopo, anche alla stagione
+    successiva; il tasto non c'è sull'ultima puntata;
+  - **Episodi** apre un pannello con le stagioni e l'elenco delle puntate (miniatura, numero,
+    titolo, durata); quella in corso è segnata "In riproduzione"; sceglierne una la fa partire;
+  - negli **ultimi 15 secondi** compare in basso a destra la scheda *Prossimo episodio tra N s*
+    con *Guarda ora*; a fine puntata la successiva parte da sola.
 
 - **Comportamento identico ai grandi servizi** (Netflix, YouTube, Prime Video): prevedibile,
   nessuna invenzione.
@@ -135,6 +144,7 @@ in pausa).
   | M | audio sì/no |
   | ↑ / ↓ | volume ±10%, con l'indicatore della percentuale in alto (titoli on demand) |
   | C | apre "Audio e sottotitoli" (qualità e velocità sono nel pannello Impostazioni) |
+  | N | episodio successivo (serie) |
   | Esc / Indietro | a schermo intero esce dallo schermo intero; altrimenti torna alla pagina precedente |
   | ↑ / ↓ nei live | cambiano canale, come in TV |
 
@@ -143,7 +153,9 @@ in pausa).
 
 ## Note sul prototipo
 
-- Dati finti in `maia-fe/lib/mock.ts`; profilo e ultima app in `localStorage` (`lib/session.ts`).
+- Dati finti in `maia-fe/lib/mock.ts` (titoli, canali, palinsesto, episodi: 6 per stagione);
+  profilo e ultima app in `localStorage` (`lib/session.ts`). Tutti gli episodi usano lo stesso
+  flusso di prova.
 - Locandine e sfondi sono foto casuali di riempimento da picsum.photos.
 - Il video è un flusso HLS di prova pubblico (Mux), con più qualità.
 - Aprendo il player incollando l'indirizzo, il browser blocca l'avvio automatico con audio:

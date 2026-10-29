@@ -5,9 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { PlayIcon, PlusIcon } from "@/components/icons";
 import Poster from "@/components/poster";
-import { backdropUrl, genres, similarTo, type Title } from "@/lib/mock";
-
-const episodeNames = ["Il ritorno", "La nebbia", "Sotto il ponte", "Testimoni", "Il molo", "Alba"];
+import { backdropUrl, episodesOf, genres, resumeEpisode, similarTo, type Title } from "@/lib/mock";
 
 // Sources are deliberately absent: MAIA picks and switches them on its own,
 // the viewer never sees where a title comes from.
@@ -44,7 +42,11 @@ export default function TitleDetail({ title }: { title: Title }) {
           <div className="mt-8 flex items-center gap-3">
             <Link
               ref={play}
-              href={`/guarda/${title.id}`}
+              href={
+                title.kind === "SERIES"
+                  ? `/guarda/${title.id}?s=${resumeEpisode(title).season}&e=${resumeEpisode(title).number}`
+                  : `/guarda/${title.id}`
+              }
               className="focusable inline-flex h-14 items-center gap-2 rounded-full bg-white px-8 text-lg font-semibold text-black"
             >
               <PlayIcon /> {title.progress !== undefined ? "Riprendi" : "Guarda"}
@@ -101,19 +103,23 @@ export default function TitleDetail({ title }: { title: Title }) {
               ))}
             </div>
             <div className="rail -mx-4 mt-4 flex gap-5 overflow-x-auto px-4 pb-6 pt-4 sm:mx-0 sm:px-0">
-              {episodeNames.map((name, i) => {
-                const ep = i + 1;
+              {episodesOf(season).map((ep) => {
+                const current = title.progress !== undefined && ep.season === 1 && ep.number === 3;
                 return (
-                  <Link key={ep} href={`/guarda/${title.id}`} className="group block w-64 shrink-0 outline-none sm:w-80">
+                  <Link
+                    key={ep.number}
+                    href={`/guarda/${title.id}?s=${ep.season}&e=${ep.number}`}
+                    className="group block w-64 shrink-0 outline-none sm:w-80"
+                  >
                     <span className="focusable lift relative block aspect-video overflow-hidden rounded-xl bg-surface group-focus-visible:scale-[1.06] group-focus-visible:shadow-[0_0_0_2px_white,0_30px_60px_-15px_black]">
                       <Image
-                        src={`https://picsum.photos/seed/maia-${title.id}-s${season}e${ep}/640/360`}
+                        src={`https://picsum.photos/seed/maia-${title.id}-s${ep.season}e${ep.number}/640/360`}
                         alt=""
                         fill
                         unoptimized
                         className="object-cover"
                       />
-                      {season === 1 && ep === 3 && title.progress !== undefined && (
+                      {current && (
                         <>
                           <span className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/80 to-transparent" />
                           <span className="absolute inset-x-3 bottom-3 h-1 overflow-hidden rounded-full bg-white/30">
@@ -122,9 +128,9 @@ export default function TitleDetail({ title }: { title: Title }) {
                         </>
                       )}
                     </span>
-                    <span className="mt-3 block text-sm text-faint">Episodio {ep}</span>
-                    <span className="block truncate text-base font-semibold text-label">{name}</span>
-                    <span className="block text-sm text-faint">{48 + ((ep * 7) % 12)} min</span>
+                    <span className="mt-3 block text-sm text-faint">Episodio {ep.number}</span>
+                    <span className="block truncate text-base font-semibold text-label">{ep.name}</span>
+                    <span className="block text-sm text-faint">{ep.minutes} min</span>
                   </Link>
                 );
               })}

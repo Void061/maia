@@ -97,6 +97,12 @@ export const RotateIcon = () => (
     <path d="m9.5 22.5 0-2.2-2.2.2" />
   </svg>
 );
+export const NextEpisodeIcon = () => (
+  <svg {...base}><path d="M6 5.5v13l10-6.5z" fill="currentColor" stroke="none" /><path d="M18.5 5.5v13" strokeWidth="2.2" /></svg>
+);
+export const EpisodesIcon = () => (
+  <svg {...base}><rect x="3" y="8" width="14" height="11" rx="2" /><path d="M7 5h11a2 2 0 0 1 2 2v9" /></svg>
+);
 export const ChevronUpIcon = () => (
   <svg {...base}><path d="m6 15 6-6 6 6" /></svg>
 );

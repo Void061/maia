@@ -64,6 +64,35 @@ export const titles: Title[] = [
 
 export const findTitle = (id: string) => titles.find((t) => t.id === id);
 
+export type Episode = { season: number; number: number; name: string; minutes: number };
+
+const episodeNames = [
+  "Il ritorno", "La nebbia", "Sotto il ponte", "Testimoni", "Il molo", "Alba",
+  "Bassa marea", "Il faro", "Lettere", "La fiera", "Controcorrente", "Ultimo giro",
+];
+export const EPISODES_PER_SEASON = 6;
+
+// Six episodes per season, names rotating per season so seasons differ.
+export const episodesOf = (season: number): Episode[] =>
+  Array.from({ length: EPISODES_PER_SEASON }, (_, i) => ({
+    season,
+    number: i + 1,
+    name: episodeNames[(i + (season - 1) * 3) % episodeNames.length],
+    minutes: 48 + (((i + 1) * 7 + season) % 12),
+  }));
+
+export const episodeAt = (season: number, number: number) => episodesOf(season)[number - 1];
+
+// The episode after S/E, moving to the next season when one ends; null at the very end.
+export function nextEpisode(t: Title, season: number, number: number): Episode | null {
+  if (number < EPISODES_PER_SEASON) return episodeAt(season, number + 1);
+  if (season < (t.seasons ?? 1)) return episodeAt(season + 1, 1);
+  return null;
+}
+
+// Where "Riprendi" lands for a series in progress (prototype: S1:E3).
+export const resumeEpisode = (t: Title) => (t.progress !== undefined ? episodeAt(1, 3) : episodeAt(1, 1));
+
 // Editorial rows (in the real app: computed by maia-be or curated from the admin panel).
 export const newIds = ["t6", "t14", "t12", "t11", "t8", "t3"];
 export const top10Ids = ["t1", "t6", "t3", "t12", "t4", "t2", "t9", "t7", "t13", "t10"];

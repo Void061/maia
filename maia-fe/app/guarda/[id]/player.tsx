@@ -1,17 +1,20 @@
 "use client";
 
 import type Hls from "hls.js";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BackIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  EpisodesIcon,
   ExitFullscreenIcon,
   Forward10Icon,
   ForwardIcon,
   FullscreenIcon,
   MutedIcon,
+  NextEpisodeIcon,
   PauseIcon,
   PlayIcon,
   Replay10Icon,
@@ -22,7 +25,17 @@ import {
   VolumeIcon,
   VolumeLowIcon,
 } from "@/components/icons";
-import { channels, demoStream, scheduleAround, type Title } from "@/lib/mock";
+import {
+  channels,
+  demoStream,
+  episodeAt,
+  episodesOf,
+  nextEpisode,
+  resumeEpisode,
+  scheduleAround,
+  type Episode,
+  type Title,
+} from "@/lib/mock";
 import { hhmm, useNow } from "@/lib/use-now";
 
 type Props = { title?: Title; live?: { channelId: string } };
@@ -51,12 +64,22 @@ export default function Player({ title, live }: Props) {
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const [channelId, setChannelId] = useState(live?.channelId);
+  // Series: which episode is playing (?s=&e= in the URL, else where "Riprendi" lands).
+  const params = useSearchParams();
+  const isSeries = title?.kind === "SERIES";
+  const [episode, setEpisode] = useState<Episode | null>(() => {
+    if (!title || !isSeries) return null;
+    const s = Number(params.get("s"));
+    const e = Number(params.get("e"));
+    return s && e ? (episodeAt(s, e) ?? resumeEpisode(title)) : resumeEpisode(title);
+  });
+  const upNext = title && episode ? nextEpisode(title, episode.season, episode.number) : null;
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [chrome, setChrome] = useState(true);
   // Which sheet is open: audio & subtitles, or settings (quality, speed).
-  const [panel, setPanel] = useState<"subs" | "settings" | null>(null);
+  const [panel, setPanel] = useState<"subs" | "settings" | "episodes" | null>(null);
   const [levels, setLevels] = useState<Level[]>([]);
   const [level, setLevel] = useState(-1); // -1 = auto
   const [audio, setAudio] = useState<Track[]>([]);
@@ -247,6 +270,21 @@ export default function Player({ title, live }: Props) {
     }
   }, []);
 
+  // Plays another episode: the URL follows, the stream restarts from the top.
+  // (Prototype: every episode is the same demo stream.)
+  const playEpisode = useCallback(
+    (ep: Episode) => {
+      if (!title) return;
+      setEpisode(ep);
+      setPanel(null);
+      root.current?.focus(); // keep the remote/keyboard shortcuts working
+      seekTo(0);
+      video.current?.play().catch(() => {});
+      router.replace(`/guarda/${title.id}?s=${ep.season}&e=${ep.number}`, { scroll: false });
+    },
+    [title, seekTo, router],
+  );
+
   const zap = useCallback(
     (dir: 1 | -1) => {
       const i = channels.findIndex((c) => c.id === channelId);
@@ -280,6 +318,9 @@ export default function Player({ title, live }: Props) {
     } else if ((k === "ArrowRight" || k === "l") && !live) {
       e.preventDefault();
       seek(10);
+    } else if (k === "n" && upNext) {
+      e.preventDefault();
+      playEpisode(upNext);
     } else if (k === "c") {
       e.preventDefault();
       setPanel("subs");
@@ -293,6 +334,10 @@ export default function Player({ title, live }: Props) {
   }
 
   const heading = live ? onAir?.title ?? channel?.name : title?.name;
+  const subheading = episode ? `S${episode.season}:E${episode.number} · ${episode.name}` : null;
+  // "Prossimo episodio" card in the last seconds, Netflix-style; plays on its own at the end.
+  const remaining = duration ? duration - time : Infinity;
+  const showUpNext = !!upNext && remaining <= 15 && !panel;
 
   return (
     <div
@@ -336,6 +381,7 @@ export default function Player({ title, live }: Props) {
         onWaiting={() => setBuffering(true)}
         onSeeking={() => setBuffering(true)}
         onPlaying={() => setBuffering(false)}
+        onEnded={() => upNext && playEpisode(upNext)}
         onSeeked={() => setBuffering(false)}
         onCanPlay={() => setBuffering(false)}
         onVolumeChange={(e) => {
@@ -358,7 +404,10 @@ export default function Player({ title, live }: Props) {
             <BackIcon />
           </Ctl>
           {/* Phone: the title sits at the top; larger screens show it in the bottom row. */}
-          <p className="min-w-0 truncate text-base font-semibold sm:hidden">{heading}</p>
+          <div className="min-w-0 sm:hidden">
+            <p className="truncate text-base font-semibold">{heading}</p>
+            {subheading && <p className="truncate text-xs text-muted">{subheading}</p>}
+          </div>
         </div>
 
         <div className="pointer-events-auto bg-gradient-to-t from-black/85 via-black/50 to-transparent px-3 pb-3 pt-16 sm:px-8 sm:pb-6">
@@ -422,10 +471,21 @@ export default function Player({ title, live }: Props) {
                 </p>
               )}
               <p className="truncate text-base font-semibold">{heading}</p>
+              {subheading && <p className="truncate text-sm text-muted">{subheading}</p>}
             </div>
 
             {/* Right: audio/subtitles, fullscreen. */}
             <div className="flex items-center justify-end gap-1 sm:gap-2">
+              {upNext && (
+                <Ctl label="Episodio successivo" onClick={() => playEpisode(upNext)}>
+                  <NextEpisodeIcon />
+                </Ctl>
+              )}
+              {isSeries && (
+                <Ctl label="Episodi" onClick={() => setPanel("episodes")}>
+                  <EpisodesIcon />
+                </Ctl>
+              )}
               <Ctl label="Ruota schermo" onClick={rotate} className="hidden pointer-coarse:grid">
                 <RotateIcon />
               </Ctl>
@@ -505,6 +565,32 @@ export default function Player({ title, live }: Props) {
         </div>
       )}
 
+      {showUpNext && upNext && title && (
+        <div className="absolute bottom-28 right-3 w-72 overflow-hidden rounded-2xl bg-surface shadow-[0_20px_50px_rgb(0_0_0/0.6)] sm:bottom-32 sm:right-8 sm:w-80">
+          <div className="relative aspect-video">
+            <Image
+              src={`https://picsum.photos/seed/maia-${title.id}-s${upNext.season}e${upNext.number}/640/360`}
+              alt=""
+              fill
+              unoptimized
+              className="object-cover"
+            />
+          </div>
+          <div className="p-4">
+            <p className="text-xs font-semibold text-muted">Prossimo episodio tra {Math.max(0, Math.ceil(remaining))} s</p>
+            <p className="mt-1 truncate text-base font-semibold">
+              S{upNext.season}:E{upNext.number} · {upNext.name}
+            </p>
+            <button
+              onClick={() => playEpisode(upNext)}
+              className="focusable mt-3 inline-flex h-10 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black [&>svg]:size-4"
+            >
+              <PlayIcon /> Guarda ora
+            </button>
+          </div>
+        </div>
+      )}
+
       {panel && (
         <div
           aria-hidden
@@ -515,7 +601,18 @@ export default function Player({ title, live }: Props) {
           }}
         />
       )}
-      {panel && (
+      {panel === "episodes" && title && episode && (
+        <EpisodesPanel
+          title={title}
+          current={episode}
+          onPick={playEpisode}
+          onClose={() => {
+            setPanel(null);
+            root.current?.focus();
+          }}
+        />
+      )}
+      {(panel === "subs" || panel === "settings") && (
         <SettingsPanel
           mode={panel}
           onClose={() => { setPanel(null); root.current?.focus(); }}
@@ -532,6 +629,96 @@ export default function Player({ title, live }: Props) {
           live={!!live}
         />
       )}
+    </div>
+  );
+}
+
+// Episodes sheet, Netflix-style: season tabs and the list of episodes with a
+// thumbnail; the one playing is marked. Picking one plays it at once.
+function EpisodesPanel({
+  title,
+  current,
+  onPick,
+  onClose,
+}: {
+  title: Title;
+  current: Episode;
+  onPick: (ep: Episode) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [season, setSeason] = useState(current.season);
+  useEffect(() => {
+    ref.current?.querySelector<HTMLElement>("[aria-current=true], button")?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key === "Backspace") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      data-focus-trap
+      role="dialog"
+      aria-label="Episodi"
+      className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[2rem] bg-surface p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_rgb(0_0_0/0.6)] sm:inset-x-auto sm:right-10 sm:bottom-24 sm:max-h-[75dvh] sm:w-[34rem] sm:rounded-3xl"
+    >
+      <div className="flex items-center justify-between gap-6">
+        <h2 className="font-display text-xl font-bold">{title.name}</h2>
+        <button onClick={onClose} className="focusable pill-focus rounded-full px-4 py-1.5 text-sm text-muted">
+          Chiudi
+        </button>
+      </div>
+      {(title.seasons ?? 1) > 1 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {Array.from({ length: title.seasons ?? 1 }, (_, i) => i + 1).map((n) => (
+            <button
+              key={n}
+              onClick={() => setSeason(n)}
+              aria-pressed={season === n}
+              className="focusable pill-focus h-10 rounded-full px-4 text-sm font-medium text-muted aria-pressed:bg-white/15 aria-pressed:text-label"
+            >
+              Stagione {n}
+            </button>
+          ))}
+        </div>
+      )}
+      <ol className="mt-4 grid gap-1">
+        {episodesOf(season).map((ep) => {
+          const playing = ep.season === current.season && ep.number === current.number;
+          return (
+            <li key={ep.number}>
+              <button
+                onClick={() => onPick(ep)}
+                aria-current={playing}
+                className="focusable pill-focus group flex w-full items-center gap-4 rounded-2xl p-2 text-left aria-[current=true]:bg-white/10"
+              >
+                <span className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-raised sm:w-36">
+                  <Image
+                    src={`https://picsum.photos/seed/maia-${title.id}-s${ep.season}e${ep.number}/640/360`}
+                    alt=""
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm text-faint group-focus-visible:text-black/60">
+                    {playing ? "In riproduzione" : `Episodio ${ep.number}`}
+                  </span>
+                  <span className="block truncate text-base font-semibold">{ep.name}</span>
+                  <span className="block text-sm text-faint group-focus-visible:text-black/60">{ep.minutes} min</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
