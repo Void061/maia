@@ -106,7 +106,7 @@ export default function Player({ title, live }: Props) {
 
   // The whole player goes fullscreen so the controls stay visible. iPhone
   // Safari cannot fullscreen a page element: there the video's native
-  // fullscreen is used instead. On phones we also try to turn to landscape.
+  // fullscreen is used instead. Orientation is left to the user.
   const toggleFullscreen = useCallback(async () => {
     const el = root.current;
     const v = video.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
@@ -117,12 +117,21 @@ export default function Player({ title, live }: Props) {
     }
     if (el.requestFullscreen) {
       await el.requestFullscreen().catch(() => {});
-      const orientation = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
-      await orientation.lock?.("landscape").catch(() => {});
     } else {
       v.webkitEnterFullscreen?.();
     }
   }, []);
+
+  // A tap on the picture (outside the controls) hides the controls at once;
+  // the next tap brings them back. Play/pause stays on its own button.
+  const onSurfaceTap = useCallback(() => {
+    if (chrome) {
+      clearTimeout(hideTimer.current);
+      setChrome(false);
+    } else {
+      poke();
+    }
+  }, [chrome, poke]);
 
   const toggle = useCallback(() => {
     const v = video.current;
@@ -190,14 +199,17 @@ export default function Player({ title, live }: Props) {
       tabIndex={-1}
       data-own-keys={panel ? undefined : ""}
       onKeyDown={onKeyDown}
-      onPointerMove={poke}
+      onPointerMove={(e) => {
+        // Only a real mouse wakes the controls by moving; on touch a tap is the toggle.
+        if (e.pointerType === "mouse") poke();
+      }}
       className={`fixed inset-0 bg-black outline-none ${chrome || panel ? "" : "cursor-none"}`}
     >
       <video
         ref={video}
         playsInline
         className="absolute inset-0 size-full"
-        onClick={() => { poke(); toggle(); }}
+        onClick={onSurfaceTap}
         onDoubleClick={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
           if (!live) seek(e.clientX < r.left + r.width / 2 ? -10 : 10);
@@ -287,7 +299,7 @@ export default function Player({ title, live }: Props) {
         </div>
       </div>
 
-      {!playing && !panel && (
+      {!playing && !panel && chrome && (
         <button
           onClick={toggle}
           aria-label="Riproduci"

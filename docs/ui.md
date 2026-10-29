@@ -92,8 +92,13 @@ con il vetro trasparente e il grigio scuro non si leggeva sopra le immagini chia
   salta solo al rilascio, così un salto lento non fa restare indietro la barra. Anche i salti di
   ±10 secondi (frecce, doppio tocco) aggiornano la barra subito.
 - **Schermo intero:** tasto in fondo a destra della barra e tasto **F**. Va a schermo intero
-  l'intero player (non solo il video), così i comandi restano; sul telefono prova a ruotare in
-  orizzontale. Su iPhone, dove Safari non lo permette, usa lo schermo intero nativo del video. Pannello
+  l'intero player (non solo il video), così i comandi restano. **Non forza la rotazione**:
+  l'orientamento resta come lo tiene l'utente. Su iPhone, dove Safari non lo permette, usa lo
+  schermo intero nativo del video.
+- **Tocco sull'immagine** (fuori dai comandi): nasconde subito barra e comandi; un altro tocco li
+  fa ricomparire. Non mette in pausa: play/pausa è sul suo tasto (o OK/Invio). Il doppio tocco ai
+  lati resta per ±10 secondi. Con il mouse i comandi ricompaiono anche muovendolo; sul touch no,
+  così un tocco non li riaccende per sbaglio. Pannello
 "Riproduzione" con qualità, sottotitoli, lingua audio e velocità letti dal flusso. Il player non
 mostra mai da quale servizio arriva il video.
 
