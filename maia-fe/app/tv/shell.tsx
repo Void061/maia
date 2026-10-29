@@ -47,7 +47,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh">
       <header
         className={`fixed inset-x-0 top-0 z-30 transition-colors duration-300 ${
-          scrolled ? "glass" : "bg-gradient-to-b from-black/70 to-transparent"
+          scrolled ? "bg-black/85 backdrop-blur-xl" : "bg-gradient-to-b from-black/80 to-transparent"
         }`}
       >
         <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-10 md:h-20">

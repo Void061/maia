@@ -56,6 +56,11 @@ Due dimensioni indipendenti: **tipo** (`MOVIE` / `SERIES`) e **generi** (molti-a
 | Serie > Commedie | `kind = SERIES` e genere `comedy` |
 | Commedie (scorciatoia) | genere `comedy`, qualunque tipo |
 
+In interfaccia (organizzazione alla HBO Max, vedi [../ui.md](../ui.md)): le pagine Film e Serie
+sono mini-Home con una riga per genere e i riquadri *Esplora*; la griglia completa c'è solo nella
+pagina del singolo genere. Oltre ai generi, la Home ha righe editoriali (*Top 10*, *Novità*,
+*In primo piano*) che il backend dovrà fornire (calcolate o scelte dal pannello admin).
+
 Il menu è salvato nel database (`MenuEntry`: nome, posizione, voce madre, filtro), così si
 aggiungono voci e raccolte scelte a mano senza toccare il codice. I generi dei servizi si
 traducono nei generi di MAIA con una tabella di alias (`GenreAlias`); un genere sconosciuto va in

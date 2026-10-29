@@ -1,7 +1,7 @@
-import Catalog from "@/components/catalog";
+import { Hub } from "@/components/catalog";
 
 export const metadata = { title: "Serie · MAIA TV" };
 
 export default function Page() {
-  return <Catalog kind="SERIES" title="Serie" />;
+  return <Hub kind="SERIES" />;
 }

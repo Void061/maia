@@ -33,7 +33,8 @@ const variants = {
   quiet: "text-muted hover:text-label",
 };
 
-const shape = "focusable inline-flex h-14 items-center justify-center gap-2 rounded-full px-8 text-lg";
+const shape =
+  "focusable inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-base sm:h-14 sm:px-8 sm:text-lg";
 
 export function Button({
   children,

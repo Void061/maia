@@ -66,3 +66,9 @@ piaceva; questi riferimenti sono familiari per un'app di streaming sulla TV. Ved
 **Le fonti non si mostrano e non si scelgono.** L'utente non sa che un contenuto può avere più
 fonti: niente "Disponibile su", niente "Da RaiPlay" nel player, nessun avviso quando MAIA cambia
 fonte. Rimossa la scelta manuale prevista prima. Vedi [tv/catalog.md](tv/catalog.md).
+
+**Organizzazione del catalogo come HBO Max.** Home a righe editoriali (Continua a guardare,
+Top 10, In onda ora, Esplora, Novità, In primo piano) prima delle righe per genere; Film e Serie
+come mini-Home; griglia completa solo nella pagina del genere; scheda titolo a schede (Episodi,
+Altri come questo, Dettagli); titolo dentro la locandina. Sostituisce le pagine Film/Serie a
+griglia con filtri.

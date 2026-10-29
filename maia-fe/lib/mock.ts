@@ -64,12 +64,30 @@ export const titles: Title[] = [
 
 export const findTitle = (id: string) => titles.find((t) => t.id === id);
 
+// Editorial rows (in the real app: computed by maia-be or curated from the admin panel).
+export const newIds = ["t6", "t14", "t12", "t11", "t8", "t3"];
+export const top10Ids = ["t1", "t6", "t3", "t12", "t4", "t2", "t9", "t7", "t13", "t10"];
+export const pick = (ids: string[], kind?: Kind) =>
+  ids.map((id) => findTitle(id)!).filter((t) => !kind || t.kind === kind);
+
+export const findGenre = (slug: string) => genres.find((g) => g.slug === slug);
+
+// Titles sharing at least one genre, most shared first.
+export const similarTo = (t: Title) =>
+  titles
+    .filter((x) => x.id !== t.id)
+    .map((x) => ({ x, n: x.genres.filter((g) => t.genres.includes(g)).length }))
+    .filter(({ n }) => n > 0)
+    .sort((a, b) => b.n - a.n)
+    .map(({ x }) => x);
+
 export const byGenre = (slug: string, kind?: Kind) =>
   titles.filter((t) => t.genres.includes(slug) && (!kind || t.kind === kind));
 
 // Deterministic artwork per title, so the prototype looks the same on every load.
 export const posterUrl = (id: string) => `https://picsum.photos/seed/maia-${id}/400/600`;
 export const backdropUrl = (id: string) => `https://picsum.photos/seed/maia-${id}-bg/1600/900`;
+export const genreArtUrl = (slug: string) => `https://picsum.photos/seed/maia-genre-${slug}/800/450`;
 
 export type Channel = { id: string; number: number; name: string; provider: string };
 export type Program = { channelId: string; title: string; start: number; end: number };

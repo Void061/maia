@@ -1,116 +1,62 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { PlayIcon, PlusIcon } from "@/components/icons";
-import Poster, { Tile } from "@/components/poster";
+import { useMemo } from "react";
+import Hero from "@/components/hero";
+import Poster, { GenreCard, Tile, Top10Card } from "@/components/poster";
 import Rail from "@/components/rail";
-import { ButtonLink } from "@/components/ui";
-import { backdropUrl, byGenre, channels, genres, scheduleAround, titles, type Title } from "@/lib/mock";
+import Spotlight from "@/components/spotlight";
+import { byGenre, channels, findTitle, genres, newIds, pick, scheduleAround, titles, top10Ids } from "@/lib/mock";
 import { useProfile } from "@/lib/session";
 import { greeting, hhmm, useNow } from "@/lib/use-now";
 
 const featured = [titles[0], titles[3], titles[5], titles[1]];
-const SLIDE_MS = 8000;
 
-const singular: Record<string, string> = {
-  commedia: "Commedia",
-  horror: "Horror",
-  giallo: "Giallo",
-  dramma: "Dramma",
-  documentario: "Documentario",
-  animazione: "Animazione",
-};
-const meta = (t: Title) =>
-  [t.kind === "SERIES" ? "Serie" : "Film", singular[t.genres[0]], String(t.year)].filter(Boolean).join(" · ");
-
+// Home, HBO Max layout: hero carousel, then editorial rows (resume, top 10,
+// live, explore, new, spotlight) before the plain genre rows.
 export default function TvHome() {
   const profile = useProfile();
   const now = useNow();
-  const [slide, setSlide] = useState(0);
-  const [paused, setPaused] = useState(false);
   const resume = titles.filter((t) => t.progress !== undefined);
-  const current = featured[slide];
-
-  // The hero advances on its own, and holds still while the remote is on it.
-  useEffect(() => {
-    if (paused) return;
-    const id = setTimeout(() => setSlide((s) => (s + 1) % featured.length), SLIDE_MS);
-    return () => clearTimeout(id);
-  }, [slide, paused]);
 
   return (
     <div className="bg-canvas">
-      <section
-        className="relative h-[78vh] min-h-[30rem] overflow-hidden sm:h-[88vh]"
-        onFocusCapture={() => setPaused(true)}
-        onBlurCapture={() => setPaused(false)}
-      >
-        <div key={current.id} className="absolute inset-0 animate-[fade_700ms_ease-out]">
-          <Image src={backdropUrl(current.id)} alt="" fill unoptimized priority className="object-cover" />
-        </div>
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/30" />
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/20 to-transparent" />
+      <Hero items={featured} eyebrow={now && profile ? `${greeting(now)}, ${profile.name}` : undefined} />
 
-        <div className="absolute inset-x-0 bottom-0 px-4 pb-10 sm:px-10 sm:pb-16 lg:px-16">
-          <p className="text-base font-medium text-muted sm:text-lg">
-            {now && profile ? `${greeting(now)}, ${profile.name}` : " "}
-          </p>
-          <h1
-            key={current.id}
-            className="mt-2 max-w-4xl animate-[fade_700ms_ease-out] font-display text-5xl leading-[0.95] font-extrabold sm:text-8xl"
-          >
-            {current.name}
-          </h1>
-          <p className="mt-4 text-base font-medium text-muted sm:text-lg">{meta(current)}</p>
-          <p className="mt-3 line-clamp-2 max-w-xl text-base leading-relaxed text-label/85 sm:text-lg">
-            {current.overview}
-          </p>
-          <div className="mt-7 flex items-center gap-3">
-            <ButtonLink href={`/guarda/${current.id}`}>
-              <PlayIcon /> {current.progress !== undefined ? "Riprendi" : "Guarda"}
-            </ButtonLink>
-            <ButtonLink href={`/tv/titolo/${current.id}`} variant="secondary">
-              Dettagli
-            </ButtonLink>
-            <button
-              aria-label="Aggiungi ai preferiti"
-              className="focusable pill-focus glass grid size-14 place-items-center rounded-full"
-            >
-              <PlusIcon />
-            </button>
-          </div>
-          <div className="mt-8 flex gap-2" role="tablist" aria-label="Titoli in evidenza">
-            {featured.map((t, i) => (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={i === slide}
-                aria-label={t.name}
-                onClick={() => setSlide(i)}
-                onFocus={() => setSlide(i)}
-                className="focusable h-2 w-2 rounded-full bg-white/35 transition-all aria-selected:w-8 aria-selected:bg-white"
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <div className="relative -mt-4">
+      <div className="relative">
         <Rail title="Continua a guardare">
           {resume.map((t) => (
             <Tile key={t.id} title={t} className="w-64 sm:w-80 xl:w-96" />
           ))}
         </Rail>
 
+        <Rail title="Top 10 di oggi">
+          {pick(top10Ids).map((t, i) => (
+            <Top10Card key={t.id} title={t} rank={i + 1} />
+          ))}
+        </Rail>
+
         <OnAir now={now} />
+
+        <Rail title="Esplora">
+          {genres.map((g) => (
+            <GenreCard key={g.slug} href={`/tv/genere/${g.slug}`} name={g.name} slug={g.slug} />
+          ))}
+        </Rail>
+
+        <Rail title="Novità">
+          {pick(newIds).map((t) => (
+            <Tile key={t.id} title={t} className="w-64 sm:w-80 xl:w-96" />
+          ))}
+        </Rail>
+
+        <Spotlight heading="In primo piano: gialli" lead={findTitle("t10")!} more={byGenre("giallo").filter((t) => t.id !== "t10")} />
 
         {genres.map((g) => {
           const list = byGenre(g.slug);
           if (list.length < 2) return null;
           return (
-            <Rail key={g.slug} title={g.name}>
+            <Rail key={g.slug} title={g.name} href={`/tv/genere/${g.slug}`}>
               {list.map((t) => (
                 <Poster key={t.id} title={t} className="w-32 sm:w-44 xl:w-52" />
               ))}
@@ -139,7 +85,7 @@ function OnAir({ now }: { now: number | null }) {
         <Link key={ch.id} href={`/guarda/live-${ch.id}`} className="group block w-64 shrink-0 outline-none sm:w-80 xl:w-96">
           <span className="focusable lift relative flex aspect-video flex-col justify-between overflow-hidden rounded-xl bg-gradient-to-br from-surface to-raised p-4 group-focus-visible:scale-[1.06] group-focus-visible:shadow-[0_0_0_2px_white,0_30px_60px_-15px_black] sm:p-5">
             <span className="flex items-center justify-between">
-              <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-semibold">Live</span>
+              <span className="rounded-md bg-white px-2 py-0.5 text-xs font-bold text-black">LIVE</span>
               <span className="text-sm text-muted">{ch.number}</span>
             </span>
             <span className="font-display text-2xl font-bold sm:text-3xl">{ch.name}</span>
@@ -154,7 +100,7 @@ function OnAir({ now }: { now: number | null }) {
           </span>
           {prog && now && (
             <>
-              <span className="mt-3 block truncate text-sm font-medium text-label sm:text-base">{prog.title}</span>
+              <span className="mt-3 block truncate text-sm font-semibold text-label sm:text-base">{prog.title}</span>
               <span className="block text-sm text-faint">
                 {hhmm(prog.start)} – {hhmm(prog.end)}
               </span>

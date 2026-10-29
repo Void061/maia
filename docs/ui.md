@@ -38,8 +38,16 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 - **Selezione stile tvOS:** l'elemento selezionato si solleva (`.lift`, scala 1.06) con un bordo
   bianco sottile e un'ombra profonda; i pulsanti e le voci a pillola (`.pill-focus`) diventano
   bianchi con testo nero. Niente aloni colorati. Rispetta `prefers-reduced-motion`.
-- **Card:** riquadri 16:9 (`Tile`) per *Continua a guardare*, canali live ed episodi; locandine
-  2:3 (`Poster`) per righe di genere e griglie. Il titolo sta **sotto** l'immagine.
+- **Card** (`components/poster.tsx`):
+  - `Poster` 2:3, stile Max: il titolo sta **dentro** l'immagine, in basso, su una sfumatura nera
+    forte (metà altezza) così resta leggibile su qualunque foto;
+  - `Tile` 16:9 per *Continua a guardare*, *Novità*, canali live ed episodi, con didascalia sotto;
+  - `Top10Card`: numero enorme a contorno **accanto** alla locandina (non sovrapposto);
+  - `GenreCard`: riquadro 16:9 con il nome del genere, porta d'ingresso alla categoria.
+- **Leggibilità:** il testo sopra un'immagine sta sempre su una sfumatura nera (hero, card,
+  riga in primo piano); il menu in alto diventa quasi opaco (`bg-black/85` + sfocatura) quando
+  la pagina scorre sotto. Testo per lettori di schermo (`sr-only`) solo dentro contenitori
+  `relative`, altrimenti allarga la pagina.
 - **Logo:** "maia" in grassetto stretto con il gradiente di marca, seguito da "TV" nella sezione.
 
 ## Navigazione col telecomando
@@ -60,10 +68,12 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 | `/registrati` | creazione account |
 | `/stato/email`, `/stato/approvazione`, `/stato/sospeso` | account non ancora attivo |
 | `/profili` | "Chi sta guardando?", massimo 5 profili |
-| `/tv` | Home MAIA TV: hero a tutto schermo che scorre da sola ogni 8 s (si ferma quando il telecomando è sopra), *Continua a guardare*, *In onda ora*, righe per genere |
+| `/tv` | Home, organizzata come HBO Max: hero a carosello (8 s, si ferma col telecomando sopra), *Continua a guardare*, *Top 10 di oggi*, *In onda ora*, *Esplora* (riquadri dei generi), *Novità*, riga *In primo piano*, poi una riga per genere |
 | `/tv/live` | TV/desktop: griglia del palinsesto con linea dell'ora; telefono: lista dei canali |
-| `/tv/film`, `/tv/serie` | griglia con filtri per genere |
-| `/tv/titolo/[id]` | scheda: trama, Guarda/Riprendi, stagioni ed episodi (nessuna indicazione delle fonti) |
+| `/tv/film`, `/tv/serie` | mini-Home del tipo: hero, Top dei film/serie, *Esplora per genere*, una riga per genere |
+| `/tv/film/[genere]`, `/tv/serie/[genere]` | pagina del genere: hero corto e griglia completa |
+| `/tv/genere/[genere]` | scorciatoia su film **e** serie insieme (es. "Commedie") |
+| `/tv/titolo/[id]` | scheda: hero con Guarda/Riprendi, poi le schede *Episodi* (con le stagioni), *Altri come questo*, *Dettagli*; nessuna indicazione delle fonti |
 | `/tv/cerca` | ricerca con tastiera a griglia su schermi grandi |
 | `/guarda/[id]`, `/guarda/live-[canale]` | player a schermo intero |
 
