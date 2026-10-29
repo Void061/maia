@@ -99,48 +99,25 @@ in pausa).
   schermo intero, quindi il tasto ci entra se serve; uscendo dallo schermo intero la rotazione
   si sblocca. Su iPhone (Safari non permette il blocco) apre lo schermo intero nativo del video,
   che segue la rotazione del telefono. Il tasto schermo intero da solo non ruota.
-- **Volume** (`VolumeControl`), come YouTube: click sull'icona = muto/audio (se il volume era a 0
-  torna al 50%); accanto un cursore con perno che si apre al passaggio del mouse o col focus del
-  telecomando, ed è sempre visibile sul telefono. L'icona cambia con il livello (muto, basso,
-  alto). Nota: su iPhone il volume si regola solo con i tasti fisici (Safari ignora il volume
-  impostato dalla pagina); il muto funziona.
+- **Volume** (`VolumeControl`), come Netflix: l'icona apre una piccola finestra **verticale**
+  sopra di sé, **chiusa di base**, che si apre solo premendo l'icona. Dentro: percentuale,
+  cursore verticale con perno (trascinabile, o ↑/↓ col focus) e tasto muto. Si chiude premendo
+  di nuovo l'icona, toccando fuori o con Esc/Indietro. ↑/↓ cambiano il volume anche a finestra
+  chiusa. L'icona cambia con il livello (muto, basso, alto). Nota: su iPhone il volume si regola
+  solo con i tasti fisici (Safari ignora il volume impostato dalla pagina); il muto funziona.
 - **Niente sfocatura sopra il video.** Rotellina, icone dei salti e indicatore del volume usano
   fondi neri semitrasparenti, mai `backdrop-filter`/`.glass`: su Chrome Android un livello
   sfocato sopra un video in riproduzione copia un pezzo vecchio del fotogramma durante i salti,
   che appare come un "mini player" rettangolare.
-- **Pannello "Audio e sottotitoli"**: quando è aperto spariscono tutti i comandi e il video si
-  scurisce; il pannello è opaco (`surface`), non in vetro, così si legge sopra qualunque immagine.
-  Si chiude con Chiudi, Esc/Indietro o toccando fuori.
-- **Barra di avanzamento** (`Scrubber`) con **perno** bianco, tempo trascorso a sinistra e tempo
-  **rimanente in positivo** a destra. Mentre la trascini (mouse o dito, area di tocco alta 32px)
-  perno e tempi seguono subito il puntatore e sopra il perno compare il tempo di arrivo; il video
-  salta solo al rilascio, così un salto lento non fa restare indietro la barra. Anche i salti di
-  ±10 secondi (frecce, doppio tocco) aggiornano la barra subito.
-- **Schermo intero:** tasto in fondo a destra della barra e tasto **F**. Va a schermo intero
-  l'intero player (non solo il video), così i comandi restano. **Non forza la rotazione**:
-  l'orientamento resta come lo tiene l'utente. Su iPhone, dove Safari non lo permette, usa lo
-  schermo intero nativo del video.
-- **Comportamento identico ai grandi servizi** (Netflix, YouTube, Prime Video): prevedibile,
-  nessuna invenzione.
+- **Due pannelli separati**, come YouTube/Netflix:
+  - **Audio e sottotitoli** (icona fumetto, tasto C): lingua audio e sottotitoli;
+  - **Impostazioni** (icona ingranaggio): qualità e velocità (la velocità non c'è nei live).
 
-  | Azione | Effetto |
-  |---|---|
-  | Video in caricamento (buffering o salto) | rotellina al centro su un disco scuro; il Play centrale non compare |
-  | ← / → oppure J / L | −10 / +10 s, con l'icona trasparente sul lato; pressioni ravvicinate si sommano ("30 secondi") |
-  | Doppio tocco a sinistra/destra (touch) | −10 / +10 s con la stessa icona; ogni tocco successivo aggiunge 10 s |
-  | Tocco singolo (touch) | mostra/nasconde i comandi (non mette in pausa) |
-  | Click (mouse) | play/pausa |
-  | Doppio click (mouse) | schermo intero |
-  | Spazio / K / Invio | play/pausa |
-  | F | schermo intero |
-  | M | audio sì/no |
-  | ↑ / ↓ | volume ±10%, con l'indicatore della percentuale in alto (titoli on demand) |
-  | C | apre "Audio e sottotitoli" |
-  | Esc / Indietro | a schermo intero esce dallo schermo intero; altrimenti torna alla pagina precedente |
-  | ↑ / ↓ nei live | cambiano canale, come in TV |
-
-  Con il mouse i comandi ricompaiono anche muovendolo; sul touch no, così un tocco non li
-  riaccende per sbaglio.
+  Sono elenchi con il segno di spunta sulla voce attiva, in due colonne su schermi grandi.
+  Quando un pannello è aperto spariscono tutti i comandi e il video si scurisce; il pannello è
+  opaco (`surface`), non in vetro. Si chiude con Chiudi, Esc/Indietro o toccando fuori.
+- **Ordine dei tasti a destra:** Ruota schermo (solo touch), Audio e sottotitoli, Impostazioni,
+  Schermo intero.
 
 ## Note sul prototipo
 
