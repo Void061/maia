@@ -104,6 +104,10 @@ in pausa).
   telecomando, ed è sempre visibile sul telefono. L'icona cambia con il livello (muto, basso,
   alto). Nota: su iPhone il volume si regola solo con i tasti fisici (Safari ignora il volume
   impostato dalla pagina); il muto funziona.
+- **Niente sfocatura sopra il video.** Rotellina, icone dei salti e indicatore del volume usano
+  fondi neri semitrasparenti, mai `backdrop-filter`/`.glass`: su Chrome Android un livello
+  sfocato sopra un video in riproduzione copia un pezzo vecchio del fotogramma durante i salti,
+  che appare come un "mini player" rettangolare.
 - **Pannello "Audio e sottotitoli"**: quando è aperto spariscono tutti i comandi e il video si
   scurisce; il pannello è opaco (`surface`), non in vetro, così si legge sopra qualunque immagine.
   Si chiude con Chiudi, Esc/Indietro o toccando fuori.

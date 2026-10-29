@@ -461,10 +461,13 @@ export default function Player({ title, live }: Props) {
         </div>
       )}
 
+      {/* Nothing drawn over the video uses backdrop-filter: on Android Chrome a
+          blurred layer over a playing video copies a stale patch of the frame
+          during seeks, which shows up as a "mini player" rectangle. */}
       {buffering && (
         <div role="status" aria-label="Caricamento" className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
           {/* Dark disc behind the ring so it reads on bright frames too. */}
-          <div className="grid size-24 place-items-center rounded-full bg-black/60 backdrop-blur-sm">
+          <div className="grid size-24 place-items-center rounded-full bg-black/65">
             <div className="size-14 animate-spin rounded-full border-4 border-white/25 border-t-white" />
           </div>
         </div>
@@ -478,10 +481,10 @@ export default function Player({ title, live }: Props) {
             seekHint.dir < 0 ? "left-[14%]" : "right-[14%]"
           }`}
         >
-          <span className="grid size-16 place-items-center rounded-full bg-black/40 text-white backdrop-blur-sm [&>svg]:size-7">
+          <span className="grid size-16 place-items-center rounded-full bg-black/55 text-white [&>svg]:size-7">
             {seekHint.dir < 0 ? <RewindIcon /> : <ForwardIcon />}
           </span>
-          <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
+          <span className="rounded-full bg-black/55 px-2.5 py-0.5 text-xs font-semibold text-white">
             {seekHint.secs} secondi
           </span>
         </div>
@@ -490,7 +493,7 @@ export default function Player({ title, live }: Props) {
       {volHint !== null && (
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-[18%] flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/55 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm [&>svg]:size-5"
+          className="pointer-events-none absolute left-1/2 top-[18%] flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/65 px-4 py-2 text-sm font-semibold text-white [&>svg]:size-5"
         >
           {volHint === 0 ? <MutedIcon /> : volHint < 0.5 ? <VolumeLowIcon /> : <VolumeIcon />}
           {Math.round(volHint * 100)}%
