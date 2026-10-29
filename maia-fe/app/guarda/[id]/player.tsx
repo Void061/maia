@@ -16,6 +16,7 @@ import {
   PlayIcon,
   Replay10Icon,
   RewindIcon,
+  RotateIcon,
   SubtitlesIcon,
   VolumeIcon,
   VolumeLowIcon,
@@ -25,6 +26,11 @@ import { hhmm, useNow } from "@/lib/use-now";
 
 type Props = { title?: Title; live?: { channelId: string } };
 type Level = { index: number; height: number };
+// lock()/unlock() are missing from some DOM typings and from iPhone Safari.
+type OrientationWithLock = ScreenOrientation & {
+  lock?: (o: "portrait" | "landscape") => Promise<void>;
+  unlock?: () => void;
+};
 type Track = { index: number; label: string };
 
 const SPEEDS = [0.75, 1, 1.25, 1.5];
@@ -126,7 +132,11 @@ export default function Player({ title, live }: Props) {
 
   // Track fullscreen however it was entered or left (button, F key, Esc, OS gesture).
   useEffect(() => {
-    const onChange = () => setFullscreen(document.fullscreenElement === root.current);
+    const onChange = () => {
+      const on = document.fullscreenElement === root.current;
+      setFullscreen(on);
+      if (!on) (screen.orientation as OrientationWithLock).unlock?.();
+    };
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
@@ -159,6 +169,24 @@ export default function Player({ title, live }: Props) {
       poke();
     }
   }, [chrome, poke]);
+
+  // Rotate button (touch devices), like the YouTube app: portrait -> landscape
+  // and back. Browsers only allow locking the orientation in fullscreen, so
+  // we enter it first. iPhone Safari cannot lock: there we open the video's
+  // native fullscreen, which follows the phone when it is turned.
+  const rotate = useCallback(async () => {
+    const el = root.current;
+    const v = video.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+    if (!el || !v) return;
+    const orientation = screen.orientation as OrientationWithLock;
+    const landscape = orientation.type.startsWith("landscape");
+    try {
+      if (!document.fullscreenElement) await el.requestFullscreen();
+      await orientation.lock!(landscape ? "portrait" : "landscape");
+    } catch {
+      if (!document.fullscreenElement) v.webkitEnterFullscreen?.();
+    }
+  }, []);
 
   const toggle = useCallback(() => {
     const v = video.current;
@@ -396,6 +424,9 @@ export default function Player({ title, live }: Props) {
 
             {/* Right: audio/subtitles, fullscreen. */}
             <div className="flex items-center justify-end gap-1 sm:gap-2">
+              <Ctl label="Ruota schermo" onClick={rotate} className="hidden pointer-coarse:grid">
+                <RotateIcon />
+              </Ctl>
               <Ctl label="Audio e sottotitoli" onClick={() => setPanel(true)}>
                 <SubtitlesIcon />
               </Ctl>
@@ -676,12 +707,14 @@ function Ctl({
   children,
   strong = false,
   big = false,
+  className = "grid",
 }: {
   label: string;
   onClick: () => void;
   children: React.ReactNode;
   strong?: boolean;
   big?: boolean;
+  className?: string;
 }) {
   const size = big
     ? strong
@@ -694,7 +727,7 @@ function Ctl({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`focusable grid shrink-0 place-items-center rounded-full ${size} ${look}`}
+      className={`focusable shrink-0 place-items-center rounded-full ${className} ${size} ${look}`}
     >
       {children}
     </button>

@@ -94,6 +94,11 @@ in pausa).
   orario nei live); a destra audio e sottotitoli, schermo intero.
 - **Telefono:** −10 / play-pausa / +10 al centro dello schermo, come nelle app; in basso restano
   barra, volume, sottotitoli e schermo intero.
+- **Ruota schermo** (solo dispositivi touch, `pointer-coarse`), come l'app di YouTube: un tocco
+  passa in orizzontale, un altro torna in verticale. I browser bloccano l'orientamento solo a
+  schermo intero, quindi il tasto ci entra se serve; uscendo dallo schermo intero la rotazione
+  si sblocca. Su iPhone (Safari non permette il blocco) apre lo schermo intero nativo del video,
+  che segue la rotazione del telefono. Il tasto schermo intero da solo non ruota.
 - **Volume** (`VolumeControl`), come YouTube: click sull'icona = muto/audio (se il volume era a 0
   torna al 50%); accanto un cursore con perno che si apre al passaggio del mouse o col focus del
   telecomando, ed è sempre visibile sul telefono. L'icona cambia con il livello (muto, basso,

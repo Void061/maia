@@ -90,6 +90,13 @@ export const Forward10Icon = () => (
 export const SubtitlesIcon = () => (
   <svg {...base}><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="M7 12.5h4M13 12.5h4M7 15.5h7" /></svg>
 );
+export const RotateIcon = () => (
+  <svg {...base}>
+    <rect x="7.5" y="3" width="9" height="15" rx="1.8" transform="rotate(-45 12 10.5)" />
+    <path d="M3.5 14.5a8.5 8.5 0 0 0 6 6" />
+    <path d="m9.5 22.5 0-2.2-2.2.2" />
+  </svg>
+);
 export const ChevronUpIcon = () => (
   <svg {...base}><path d="m6 15 6-6 6 6" /></svg>
 );
