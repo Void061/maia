@@ -19,24 +19,38 @@ services:
       timeout: 3s
       retries: 10
 
+  # Catches every email sent in development: web UI on http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
   maia-be:
     build: ./maia-be
     ports:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-maia}:${POSTGRES_PASSWORD:-maia}@postgres:5432/${POSTGRES_DB:-maia}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
+      APP_URL: ${APP_URL:-http://localhost:3001}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      MAIL_FROM: ${MAIL_FROM:-MAIA <noreply@maia.local>}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
   maia-fe:
-    build:
-      context: ./maia-fe
-      # NEXT_PUBLIC_* vars are inlined at build time (see Dockerfile).
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:3000
+    build: ./maia-fe
     ports:
       - "3001:3001"
+    environment:
+      # Server-side only: maia-fe proxies /api/* to maia-be (see app/api).
+      API_URL: http://maia-be:3000
     depends_on:
       - maia-be
 

@@ -1,7 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// MAIA database schema. See docs/access.md for the account lifecycle.
 
 generator client {
   provider = "prisma-client"
@@ -10,4 +7,92 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+/// PENDING_EMAIL → PENDING_APPROVAL → ACTIVE; SUSPENDED blocks access.
+enum AccountStatus {
+  PENDING_EMAIL
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum EmailTokenType {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+model Account {
+  id              String        @id @default(cuid())
+  email           String        @unique
+  name            String
+  passwordHash    String        @map("password_hash")
+  status          AccountStatus @default(PENDING_EMAIL)
+  role            Role          @default(USER)
+  emailVerifiedAt DateTime?     @map("email_verified_at")
+  approvedAt      DateTime?     @map("approved_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  profiles    Profile[]
+  emailTokens EmailToken[]
+  sessions    Session[]
+
+  @@map("accounts")
+}
+
+/// Up to 5 per account (enforced in ProfilesService). Personal data hangs off profiles.
+model Profile {
+  id         String   @id @default(cuid())
+  accountId  String   @map("account_id")
+  name       String
+  /// Colour of the avatar (0-359), until real avatars exist.
+  hue        Int
+  lastAppKey String?  @map("last_app_key")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("profiles")
+}
+
+/// One-time links sent by email. Only the SHA-256 of the token is stored.
+model EmailToken {
+  id        String         @id @default(cuid())
+  accountId String         @map("account_id")
+  type      EmailTokenType
+  tokenHash String         @unique @map("token_hash")
+  expiresAt DateTime       @map("expires_at")
+  usedAt    DateTime?      @map("used_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, type])
+  @@map("email_tokens")
+}
+
+/// A login on a device. The refresh token (hashed here) rotates on every use;
+/// reusing an old one revokes the session.
+model Session {
+  id               String    @id @default(cuid())
+  accountId        String    @map("account_id")
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  userAgent        String?   @map("user_agent")
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("sessions")
 }
