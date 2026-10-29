@@ -70,3 +70,26 @@ export const RewindIcon = () => (
 export const ForwardIcon = () => (
   <svg {...base}><path d="m12.5 7 5.5 5-5.5 5M6 7l5.5 5L6 17" /></svg>
 );
+export const Replay10Icon = () => (
+  <svg {...base}>
+    <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
+    <path d="M4.5 3.5v3.7h3.7" />
+    <text x="12" y="15.2" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor" stroke="none">10</text>
+  </svg>
+);
+export const Forward10Icon = () => (
+  <svg {...base}>
+    <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+    <path d="M19.5 3.5v3.7h-3.7" />
+    <text x="12" y="15.2" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor" stroke="none">10</text>
+  </svg>
+);
+export const SubtitlesIcon = () => (
+  <svg {...base}><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="M7 12.5h4M13 12.5h4M7 15.5h7" /></svg>
+);
+export const ChevronUpIcon = () => (
+  <svg {...base}><path d="m6 15 6-6 6 6" /></svg>
+);
+export const ChevronDownIcon = () => (
+  <svg {...base}><path d="m6 9 6 6 6-6" /></svg>
+);

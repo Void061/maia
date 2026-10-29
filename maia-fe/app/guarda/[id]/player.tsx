@@ -5,14 +5,18 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BackIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
   ExitFullscreenIcon,
+  Forward10Icon,
   ForwardIcon,
   FullscreenIcon,
   MutedIcon,
   PauseIcon,
   PlayIcon,
+  Replay10Icon,
   RewindIcon,
-  SettingsIcon,
+  SubtitlesIcon,
   VolumeIcon,
 } from "@/components/icons";
 import { channels, demoStream, scheduleAround, type Title } from "@/lib/mock";
@@ -285,91 +289,114 @@ export default function Player({ title, live }: Props) {
         onDurationChange={(e) => setDuration(e.currentTarget.duration)}
       />
 
+      {/* Controls, Netflix/YouTube layout: no box, just scrims top and bottom.
+          Small icon buttons with tooltips, grouped left / centre / right. */}
       <div
-        className={`pointer-events-none absolute inset-0 flex flex-col justify-between bg-gradient-to-b from-black/60 via-transparent to-black/70 transition-opacity duration-300 ${chrome || panel ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute inset-0 flex flex-col justify-between transition-opacity duration-300 ${chrome || panel ? "opacity-100" : "opacity-0"}`}
       >
-        <div className="pointer-events-auto flex items-center gap-4 p-4 sm:p-10">
-          <button
-            onClick={() => router.back()}
-            className="focusable pill-focus glass grid size-12 place-items-center rounded-full"
-            aria-label="Indietro"
-          >
+        <div className="pointer-events-auto flex items-center gap-3 bg-gradient-to-b from-black/75 to-transparent px-3 pb-12 pt-3 sm:gap-4 sm:px-8 sm:pt-6">
+          <Ctl label="Indietro" onClick={() => router.back()}>
             <BackIcon />
-          </button>
-          <div className="min-w-0">
-            {live && channel && (
-              <p className="text-sm font-medium text-muted sm:text-base">
-                {channel.number} · {channel.name}
-                {onAir && ` · ${hhmm(onAir.start)} – ${hhmm(onAir.end)}`}
-              </p>
-            )}
-            <h1 className="truncate font-display text-xl font-bold sm:text-3xl">{heading}</h1>
-          </div>
+          </Ctl>
+          {/* Phone: the title sits at the top; larger screens show it in the bottom row. */}
+          <p className="min-w-0 truncate text-base font-semibold sm:hidden">{heading}</p>
         </div>
 
-        {/* Apple TV-style transport: a glass bar with a thin white scrubber. */}
-        <div className="pointer-events-auto p-4 sm:p-10">
-          <div className="glass rounded-[1.75rem] px-5 py-4 sm:px-7 sm:py-5">
-            {!live ? (
-              <Scrubber time={time} duration={duration} onSeek={seekTo} onActivity={poke} />
-            ) : (
-              <div className="flex items-center gap-3 text-sm font-medium">
-                <span className="rounded-md bg-white px-2 py-0.5 text-xs font-bold text-black">LIVE</span>
-                {onAir && now && (
-                  <span className="relative h-1.5 flex-1 rounded-full bg-white/25">
-                    <span
-                      className="absolute inset-y-0 left-0 rounded-full bg-white"
-                      style={{ width: `${((now - onAir.start) / (onAir.end - onAir.start)) * 100}%` }}
-                    />
-                  </span>
-                )}
-              </div>
-            )}
-            <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
-              <button
-                onClick={toggle}
-                className="focusable grid size-12 place-items-center rounded-full bg-white text-black"
-                aria-label={playing ? "Pausa" : "Riproduci"}
-              >
-                {playing ? <PauseIcon /> : <PlayIcon />}
-              </button>
-              {live && (
-                <>
-                  <button onClick={() => zap(-1)} className="focusable pill-focus h-12 rounded-full px-5 font-medium">
-                    Canale precedente
-                  </button>
-                  <button onClick={() => zap(1)} className="focusable pill-focus h-12 rounded-full px-5 font-medium">
-                    Canale successivo
-                  </button>
-                </>
+        <div className="pointer-events-auto bg-gradient-to-t from-black/85 via-black/50 to-transparent px-3 pb-3 pt-16 sm:px-8 sm:pb-6">
+          {!live ? (
+            <Scrubber time={time} duration={duration} onSeek={seekTo} onActivity={poke} />
+          ) : (
+            <div className="flex h-8 items-center gap-3">
+              <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-bold text-black">LIVE</span>
+              {onAir && now && (
+                <span className="relative h-1 flex-1 rounded-full bg-white/25">
+                  <span
+                    className="absolute inset-y-0 left-0 rounded-full bg-white"
+                    style={{ width: `${((now - onAir.start) / (onAir.end - onAir.start)) * 100}%` }}
+                  />
+                </span>
               )}
-              <button
-                onClick={toggleMute}
-                aria-label={muted ? "Attiva audio" : "Disattiva audio"}
-                className="focusable pill-focus grid size-12 place-items-center rounded-full"
-              >
+            </div>
+          )}
+
+          <div className="mt-1 flex items-center justify-between gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]">
+            {/* Left: transport + volume (on phones the transport sits mid-screen instead). */}
+            <div className="flex items-center gap-1 sm:gap-2">
+              <span className="hidden items-center gap-1 sm:flex sm:gap-2">
+                <Ctl label={playing ? "Pausa" : "Riproduci"} onClick={toggle}>
+                  {playing ? <PauseIcon /> : <PlayIcon />}
+                </Ctl>
+                {!live ? (
+                  <>
+                    <Ctl label="Indietro di 10 secondi" onClick={() => seek(-10)}>
+                      <Replay10Icon />
+                    </Ctl>
+                    <Ctl label="Avanti di 10 secondi" onClick={() => seek(10)}>
+                      <Forward10Icon />
+                    </Ctl>
+                  </>
+                ) : (
+                  <>
+                    <Ctl label="Canale precedente" onClick={() => zap(-1)}>
+                      <ChevronUpIcon />
+                    </Ctl>
+                    <Ctl label="Canale successivo" onClick={() => zap(1)}>
+                      <ChevronDownIcon />
+                    </Ctl>
+                  </>
+                )}
+              </span>
+              <Ctl label={muted ? "Attiva audio" : "Disattiva audio"} onClick={toggleMute}>
                 {muted ? <MutedIcon /> : <VolumeIcon />}
-              </button>
-              <button
-                onClick={() => setPanel(true)}
-                className="focusable pill-focus flex h-12 items-center gap-2 rounded-full px-5 font-medium"
-              >
-                <SettingsIcon /> Audio e sottotitoli
-              </button>
-              <p className="ml-auto hidden text-sm text-muted lg:block">
-                {live ? "Su e giù cambiano canale" : "Frecce: -10 / +10 secondi · Giù: audio e sottotitoli"}
-              </p>
-              <button
-                onClick={toggleFullscreen}
-                aria-label={fullscreen ? "Esci da schermo intero" : "Schermo intero"}
-                className="focusable pill-focus ml-auto grid size-12 place-items-center rounded-full lg:ml-0"
-              >
+              </Ctl>
+            </div>
+
+            {/* Centre: what is playing. */}
+            <div className="hidden min-w-0 max-w-[40vw] text-center sm:block">
+              {live && channel && (
+                <p className="truncate text-xs font-medium text-muted">
+                  {channel.number} · {channel.name}
+                  {onAir && ` · ${hhmm(onAir.start)} – ${hhmm(onAir.end)}`}
+                </p>
+              )}
+              <p className="truncate text-base font-semibold">{heading}</p>
+            </div>
+
+            {/* Right: audio/subtitles, fullscreen. */}
+            <div className="flex items-center justify-end gap-1 sm:gap-2">
+              <Ctl label="Audio e sottotitoli" onClick={() => setPanel(true)}>
+                <SubtitlesIcon />
+              </Ctl>
+              <Ctl label={fullscreen ? "Esci da schermo intero" : "Schermo intero"} onClick={toggleFullscreen}>
                 {fullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
-              </button>
+              </Ctl>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Phone: transport in the middle of the screen, like the streaming apps. */}
+      {(chrome || panel) && !buffering && (
+        <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-10 sm:hidden">
+          <Ctl
+            label={live ? "Canale precedente" : "Indietro di 10 secondi"}
+            onClick={() => (live ? zap(-1) : seek(-10))}
+            big
+          >
+            {live ? <ChevronUpIcon /> : <Replay10Icon />}
+          </Ctl>
+          <Ctl label={playing ? "Pausa" : "Riproduci"} onClick={toggle} big strong>
+            {playing ? <PauseIcon /> : <PlayIcon />}
+          </Ctl>
+          <Ctl
+            label={live ? "Canale successivo" : "Avanti di 10 secondi"}
+            onClick={() => (live ? zap(1) : seek(10))}
+            big
+          >
+            {live ? <ChevronDownIcon /> : <Forward10Icon />}
+          </Ctl>
+        </div>
+      )}
 
       {buffering && (
         <div role="status" aria-label="Caricamento" className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -388,23 +415,13 @@ export default function Player({ title, live }: Props) {
             seekHint.dir < 0 ? "left-[14%]" : "right-[14%]"
           }`}
         >
-          <span className="grid size-20 place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm [&>svg]:size-9">
+          <span className="grid size-16 place-items-center rounded-full bg-black/40 text-white backdrop-blur-sm [&>svg]:size-7">
             {seekHint.dir < 0 ? <RewindIcon /> : <ForwardIcon />}
           </span>
-          <span className="rounded-full bg-black/45 px-3 py-1 text-sm font-semibold text-white backdrop-blur-sm">
+          <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
             {seekHint.secs} secondi
           </span>
         </div>
-      )}
-
-      {!playing && !panel && chrome && !buffering && (
-        <button
-          onClick={toggle}
-          aria-label="Riproduci"
-          className="focusable glass absolute left-1/2 top-1/2 grid size-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-white [&>svg]:size-10"
-        >
-          <PlayIcon />
-        </button>
       )}
 
       {panel && (
@@ -596,5 +613,38 @@ function Scrubber({
         {fmt(Math.max(0, duration - shown))}
       </span>
     </div>
+  );
+}
+
+// One control: icon only, its name in the tooltip and for screen readers.
+// `strong` = filled white (play/pause on phones), `big` = phone mid-screen controls.
+function Ctl({
+  label,
+  onClick,
+  children,
+  strong = false,
+  big = false,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  strong?: boolean;
+  big?: boolean;
+}) {
+  const size = big
+    ? strong
+      ? "size-16 [&>svg]:size-8"
+      : "size-12 [&>svg]:size-8"
+    : "size-10 [&>svg]:size-6 sm:size-11";
+  const look = strong ? "bg-white text-black" : big ? "bg-black/35 text-white" : "pill-focus text-white";
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`focusable grid shrink-0 place-items-center rounded-full ${size} ${look}`}
+    >
+      {children}
+    </button>
   );
 }

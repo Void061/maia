@@ -84,8 +84,16 @@ Live, Film, Serie), a destra Cerca e l'avatar (cambia profilo, impostazioni, esc
 è **quasi opaca** (`bg-black/90` + sfocatura) e le voci non attive sono grigio chiaro (`muted`):
 con il vetro trasparente e il grigio scuro non si leggeva sopra le immagini chiare.
 
-**Player:** comandi in una barra di vetro in basso; spariscono dopo 3 secondi di riproduzione
-(restano visibili in pausa).
+**Player:** layout dei comandi come Netflix/YouTube: nessun riquadro, solo sfumature scure in alto
+e in basso; icone piccole (24px in pulsanti da 40-44px) senza testo, con il nome nel suggerimento
+del mouse e per i lettori di schermo. Spariscono dopo 3 secondi di riproduzione (restano visibili
+in pausa).
+- **In alto:** Indietro (e il titolo, sul telefono).
+- **In basso:** barra di avanzamento a tutta larghezza, poi tre gruppi: a sinistra play/pausa,
+  −10, +10, volume (nei live: canale su/giù al posto di ±10); al centro il titolo (e canale e
+  orario nei live); a destra audio e sottotitoli, schermo intero.
+- **Telefono:** −10 / play-pausa / +10 al centro dello schermo, come nelle app; in basso restano
+  barra, volume, sottotitoli e schermo intero.
 - **Barra di avanzamento** (`Scrubber`) con **perno** bianco, tempo trascorso a sinistra e tempo
   **rimanente in positivo** a destra. Mentre la trascini (mouse o dito, area di tocco alta 32px)
   perno e tempi seguono subito il puntatore e sopra il perno compare il tempo di arrivo; il video
