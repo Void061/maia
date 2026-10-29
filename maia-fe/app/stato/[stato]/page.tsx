@@ -1,0 +1,68 @@
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import AuthFrame from "@/components/auth-frame";
+import { ButtonLink } from "@/components/ui";
+
+// One screen per account state that blocks access (see the account
+// lifecycle: PENDING_EMAIL → PENDING_APPROVAL → ACTIVE / SUSPENDED).
+const states = {
+  email: {
+    title: "Conferma la tua email",
+    body: "Ti abbiamo mandato un link a ivan@esempio.it. Aprilo per confermare l'indirizzo: dopo, l'account passa all'approvazione.",
+    action: "Rimanda l'email",
+  },
+  approvazione: {
+    title: "Account in attesa di approvazione",
+    body: "L'email è confermata. Un amministratore deve ancora abilitare l'account: riceverai un'email appena è attivo.",
+    action: null,
+  },
+  sospeso: {
+    title: "Account non abilitato",
+    body: "Questo account al momento non può entrare in MAIA. Per riattivarlo contatta l'amministratore.",
+    action: null,
+  },
+} as const;
+
+export function generateStaticParams() {
+  return Object.keys(states).map((stato) => ({ stato }));
+}
+
+export default function StatePage({ params }: PageProps<"/stato/[stato]">) {
+  return (
+    <AuthFrame>
+      {/* URL data stays behind Suspense so the frame is part of the instant shell. */}
+      <Suspense fallback={null}>
+        <StateContent params={params} />
+      </Suspense>
+    </AuthFrame>
+  );
+}
+
+async function StateContent({
+  params,
+}: {
+  params: Promise<{ stato: string }>;
+}) {
+  const { stato } = await params;
+  const state = states[stato as keyof typeof states];
+  if (!state) notFound();
+
+  return (
+    <div className="max-w-md">
+      <span
+        aria-hidden
+        className="mb-8 block size-3 rounded-full bg-lamp shadow-[0_0_24px_6px_rgb(245_184_86/0.5)]"
+      />
+      <h1 className="font-display text-4xl font-semibold">{state.title}</h1>
+      <p className="mt-4 text-lg leading-relaxed text-moon">{state.body}</p>
+      <div className="mt-10 flex flex-wrap gap-3">
+        {state.action && (
+          <ButtonLink href={`/stato/${stato}`}>{state.action}</ButtonLink>
+        )}
+        <ButtonLink href="/login" variant="ghost">
+          Torna al login
+        </ButtonLink>
+      </div>
+    </div>
+  );
+}

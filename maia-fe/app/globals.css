@@ -1,26 +1,83 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* MAIA — "il salotto la sera": ink-plum surfaces, one warm lamp light. */
+@theme {
+  --color-ink: #120f1c;
+  --color-dusk: #1c1830;
+  --color-haze: #2a2542;
+  --color-line: #3a3456;
+  --color-paper: #f4f0fa;
+  --color-moon: #b7afd3;
+  --color-lamp: #f5b856;
+  --color-lamp-deep: #c9862b;
+
+  --font-display: var(--font-bricolage);
+  --font-sans: var(--font-figtree);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
+  background: var(--color-ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Hide scrollbars on horizontal rails: they scroll with arrows, wheel or touch. */
+.rail {
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* The lamp: whatever has focus lifts slightly and catches a warm light.
+   Mouse users get the same treatment on hover, touch users on press. */
+.lamp {
+  transition:
+    transform 180ms ease-out,
+    box-shadow 180ms ease-out,
+    outline-color 180ms ease-out;
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+}
+.lamp:focus-visible,
+.lamp:hover {
+  outline-color: var(--color-lamp);
+  box-shadow:
+    0 0 0 6px rgb(245 184 86 / 0.12),
+    0 18px 50px -12px rgb(245 184 86 / 0.45);
+}
+.lamp-lift:focus-visible,
+.lamp-lift:hover {
+  transform: scale(1.06);
+  z-index: 1;
+}
+.lamp:active {
+  transform: scale(0.98);
+}
+:focus-visible {
+  outline: 2px solid var(--color-lamp);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lamp,
+  .lamp-lift {
+    transition: none;
+  }
+  .lamp-lift:focus-visible,
+  .lamp-lift:hover {
+    transform: none;
+  }
 }
