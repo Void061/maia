@@ -11,8 +11,8 @@ database PostgreSQL gestito da Coolify.
 maia-be non va esposto su internet: il browser passa sempre da maia-fe (`/api/*`).
 `APP_URL` è l'indirizzo pubblico di maia-fe (i link nelle email puntano lì). Per l'SMTP serve un
 provider vero (es. Resend o Brevo, piano gratuito) con il dominio verificato per `MAIL_FROM`.
-Approvare un account in produzione: dal terminale del container maia-be,
-`npm run account:approve -- persona@esempio.it`.
+Il primo amministratore in produzione si crea dal terminale del container maia-be,
+`npm run account:approve -- persona@esempio.it --admin`; gli altri account dal pannello `/admin`.
 
 ## Immagini
 

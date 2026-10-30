@@ -217,6 +217,7 @@ function AppSwitcher({ onClose }: { onClose: () => void }) {
 
 function ProfileMenu({ onClose }: { onClose: () => void }) {
   const profile = useProfile();
+  const { data: me } = useMe();
   const logout = useLogout();
   const item = "focusable pill-focus block w-full rounded-2xl px-4 py-3.5 text-left text-lg";
   return (
@@ -228,6 +229,11 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
         <Link href="/account" className={item}>
           Impostazioni account
         </Link>
+        {me?.role === "ADMIN" && (
+          <Link href="/admin" className={item}>
+            Amministrazione
+          </Link>
+        )}
         <button onClick={() => logout.mutate()} className={`${item} text-muted`}>
           Esci
         </button>

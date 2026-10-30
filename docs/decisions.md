@@ -90,8 +90,15 @@ compilare (npm 11 blocca gli script di installazione).
 per usare un provider (Resend, Brevo...).
 
 **Approvazione da terminale** (`npm run account:approve`) finché non c'è il pannello admin.
+*(Superata dal pannello admin, sotto: il comando resta solo per creare il primo amministratore.)*
 
 **Guida iniziale obbligatoria** se l'account non ha profili: ne serve almeno uno per usare l'app.
 
 **Profilo scelto salvato sul dispositivo, ultima app salvata nel profilo**: dispositivi diversi
 possono essere su profili diversi; l'app da riaprire segue la persona.
+
+**Pannello admin `/admin`** per approvare, rifiutare, sospendere, riattivare e promuovere gli
+account. Un admin non può agire sul proprio account (niente rischio di restare senza admin).
+"Approva comunque" un account con email non confermata la conta come confermata. "Rifiuta"
+elimina l'account invece di lasciarlo in uno stato "rifiutato": per una casa non serve tenere
+lo storico delle registrazioni scartate.

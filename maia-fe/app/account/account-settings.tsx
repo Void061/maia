@@ -65,6 +65,15 @@ export default function AccountSettings() {
               </Button>
             </Section>
 
+            {me.role === "ADMIN" && (
+              <Section title="Amministrazione">
+                <p className="text-muted">Approva i nuovi account, sospendili o rendili amministratori.</p>
+                <Button variant="secondary" onClick={() => router.push("/admin")} className="mt-5">
+                  Apri il pannello admin
+                </Button>
+              </Section>
+            )}
+
             <Button variant="danger" onClick={() => logout.mutate()} disabled={logout.isPending}>
               {logout.isPending ? "Uscita…" : "Esci da MAIA"}
             </Button>

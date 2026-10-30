@@ -89,10 +89,8 @@ export class AuthService {
     await this.mail.send({
       to: to as string[],
       subject: `Nuovo account da approvare: ${account.name}`,
-      lines: [
-        `${account.name} (${account.email}) ha confermato l'email e aspetta l'approvazione.`,
-        `Per approvarlo: npm run account:approve -- ${account.email}`,
-      ],
+      lines: [`${account.name} (${account.email}) ha confermato l'email e aspetta l'approvazione.`],
+      action: { label: 'Apri il pannello admin', url: `${this.mail.appUrl}/admin` },
     });
   }
 

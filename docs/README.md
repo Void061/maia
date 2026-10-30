@@ -20,6 +20,7 @@ commit di ogni modifica che cambia comportamento, struttura o decisioni (vedi `C
 
 - **Fatto:** scheletro del monorepo, Dockerfile, docker-compose locale; prototipo UI di MAIA TV con
   dati finti; **account e profili veri** (registrazione, conferma email, approvazione da terminale,
-  login con sessioni, password dimenticata, guida iniziale, profili, impostazioni account).
-- **Non ancora fatto:** pannello admin, permessi sulle app, login TV con codice, schema Prisma del
+  login con sessioni, password dimenticata, guida iniziale, profili, impostazioni account,
+  pannello admin per approvare e gestire gli account).
+- **Non ancora fatto:** permessi sulle app, login TV con codice, schema Prisma del
   catalogo, adapter dei servizi (MAIA TV usa ancora i dati finti).

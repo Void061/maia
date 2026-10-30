@@ -1,8 +1,8 @@
 # Accesso, account e profili
 
 *Stato: implementato (backend + frontend) per registrazione, conferma email, login, sessioni,
-password dimenticata, profili e impostazioni account. Da fare: pannello admin, permessi sulle
-app, login TV con codice, notifica all'utente quando l'account viene approvato.*
+password dimenticata, profili, impostazioni account e pannello admin. Da fare: permessi sulle
+app, login TV con codice.*
 
 ## Flusso
 
@@ -28,15 +28,17 @@ Lo stato viene rivelato **solo dopo una password corretta**; con password sbagli
 sempre 401 `INVALID_CREDENTIALS`. La registrazione è aperta a chiunque (409 `EMAIL_TAKEN` se l'email
 esiste già): il filtro è l'approvazione manuale.
 
-**Approvazione** (finché non c'è il pannello admin), da `maia-be/`:
+**Approvazione:** dal pannello admin (`/admin`, vedi sotto). Quando un account conferma
+l'email, il backend scrive agli account `ADMIN` attivi e a `ADMIN_EMAIL` (variabile d'ambiente)
+con il link al pannello. All'utente approvato arriva l'email "Il tuo account MAIA è attivo".
+
+Il **primo amministratore** si crea da terminale (nessuno può ancora approvarlo dall'app), da
+`maia-be/`:
 
 ```bash
-npm run account:approve -- persona@esempio.it          # → ACTIVE
 npm run account:approve -- persona@esempio.it --admin  # → ACTIVE + ruolo ADMIN
+npm run account:approve -- persona@esempio.it          # → ACTIVE (senza pannello)
 ```
-
-Quando un account conferma l'email, il backend scrive agli account `ADMIN` attivi e a
-`ADMIN_EMAIL` (variabile d'ambiente) con il comando da lanciare.
 
 ## Email e link monouso
 
@@ -44,7 +46,8 @@ Quando un account conferma l'email, il backend scrive agli account `ADMIN` attiv
 |---|---|---|
 | Conferma email (registrazione, "Rimanda l'email") | `/verifica-email?token=…` | 48 ore |
 | Password dimenticata | `/reimposta-password?token=…` | 1 ora |
-| Nuovo account da approvare (agli admin) | — | — |
+| Nuovo account da approvare (agli admin) | `/admin` | — |
+| Account attivato (all'utente approvato) | `/login` | — |
 
 - Nel database c'è solo lo SHA-256 del token; ogni link si usa una volta sola e un nuovo link
   annulla i precedenti dello stesso tipo.
@@ -69,8 +72,32 @@ Quando un account conferma l'email, il backend scrive agli account `ADMIN` attiv
 
 ## Ruoli
 
-- **Amministratore** (`role: ADMIN`): approva e sospende gli account, decide le app (pannello da fare).
+- **Amministratore** (`role: ADMIN`): usa il pannello admin; in futuro deciderà anche le app.
 - **Titolare dell'account**: gestisce i propri profili e i propri dati.
+
+## Pannello admin (`/admin`)
+
+Visibile solo agli account `ADMIN` attivi: ci si arriva dal menu del profilo nell'app
+("Amministrazione") e dalla pagina Account. Per gli altri la pagina dice che è riservata e le API
+rispondono 403 `NOT_ADMIN`. Il ruolo è ricontrollato sul database a ogni chiamata, quindi togliere
+il ruolo o sospendere un admin ha effetto subito.
+
+- Filtri con i conteggi: **Da approvare** (si apre qui), Email da confermare, Attivi, Sospesi, Tutti;
+  ricerca per nome o email.
+- Ogni riga: nome, email, stato, badge Admin, data di registrazione, email confermata o no, numero
+  di profili, e le azioni dello stato:
+
+| Stato | Azioni |
+|---|---|
+| Da approvare | **Approva**, Rifiuta |
+| Email da confermare | Approva comunque (conta come email confermata), Rifiuta |
+| Attivo | Rendi admin / Togli admin, Sospendi |
+| Sospeso | **Riattiva**, Elimina |
+
+- **Rifiuta / Elimina** cancellano l'account con profili, sessioni e link; **Sospendi** chiude
+  anche tutte le sue sessioni. Le tre azioni chiedono conferma con una spiegazione.
+- Sul proprio account (segnato "(tu)") non ci sono azioni: un admin non può sospendersi, eliminarsi
+  o togliersi il ruolo, così MAIA non resta senza amministratori per sbaglio.
 
 ## Profili
 
@@ -134,3 +161,9 @@ Documentazione interattiva su `http://localhost:3000/docs` (JSON su `/docs-json`
 | POST | `/me/password` | `{currentPassword, newPassword}` |
 | GET / POST | `/profiles` | elenco / `{name, hue}` |
 | PATCH / DELETE | `/profiles/:id` | `{name?, hue?, lastAppKey?}` |
+| GET | `/admin/accounts` | `?status=&q=` → `{accounts, counts}` (solo ADMIN) |
+| POST | `/admin/accounts/:id/approve` | da `PENDING_*` a `ACTIVE` + email all'utente |
+| POST | `/admin/accounts/:id/suspend` | `SUSPENDED` + sessioni chiuse |
+| POST | `/admin/accounts/:id/reactivate` | da `SUSPENDED` a `ACTIVE` |
+| POST | `/admin/accounts/:id/role` | `{role: USER\|ADMIN}` |
+| DELETE | `/admin/accounts/:id` | rifiuta / elimina |

@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AccountController } from './account/account.controller.js';
+import { AdminController } from './admin/admin.controller.js';
+import { AdminGuard } from './admin/admin.guard.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -19,7 +21,7 @@ import { ProfilesController } from './profiles/profiles.controller.js';
     MailModule,
     AuthModule,
   ],
-  controllers: [AppController, AccountController, ProfilesController],
-  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  controllers: [AppController, AccountController, ProfilesController, AdminController],
+  providers: [AppService, AdminGuard, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

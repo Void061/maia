@@ -20,7 +20,8 @@ cd maia-fe && npm run dev               # http://localhost:3001
 **http://localhost:8025** (non escono verso internet).
 
 **Primo account:** registrati dall'app, apri il link di conferma in Mailpit, poi da `maia-be/`:
-`npm run account:approve -- tua@email.it --admin`.
+`npm run account:approve -- tua@email.it --admin`. Da lì in poi gli altri account si approvano
+dal pannello `/admin`.
 
 **Database:** dopo una modifica a `prisma/schema.prisma`, `npm run db:migrate` (crea la migrazione
 e rigenera il client Prisma).

@@ -1,5 +1,7 @@
 import type { components } from "./api-schema";
 
+export type { components };
+
 // Types generated from maia-be's OpenAPI (npm run gen:api, with maia-be running).
 export type Account = components["schemas"]["AccountDto"];
 export type Profile = components["schemas"]["ProfileDto"];
