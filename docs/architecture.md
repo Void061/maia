@@ -1,5 +1,12 @@
 # Architettura
 
+## Convenzioni
+
+- **Codice in inglese**: componenti, file, cartelle, percorsi delle pagine, parametri e slug
+  (generi: `comedy`, `crime`, ...; categorie dei canali: `general`, `kids`, ...), identificatori,
+  codici di errore, commenti. **Testi per l'utente in italiano** (interfaccia, email).
+  Documentazione (`docs/`) in italiano.
+
 ## Monorepo
 
 ```
@@ -53,7 +60,7 @@ dal codice sono riesportati da `lib/api.ts` (`Account`, `Profile`).
 - Next.js 16.4 con **Cache Components** e **Partial Prefetching** attivi (default del template).
   Conseguenza pratica: le pagine dinamiche che leggono `params` devono farlo dentro un
   `<Suspense>`, altrimenti il dev overlay segnala "URL data outside of Suspense". Vedi gli esempi
-  in `app/stato/[stato]/page.tsx` e `app/tv/titolo/[id]/page.tsx`.
+  in `app/status/[state]/page.tsx` e `app/tv/title/[id]/page.tsx`.
 - Prima di scrivere codice Next, leggere la guida in `maia-fe/node_modules/next/dist/docs/`
   (questa versione ha API diverse da quelle note: vedi `maia-fe/AGENTS.md`).
 - React Query è collegato in `app/providers.tsx`. `lib/api.ts` è il client delle chiamate (passa da

@@ -66,23 +66,23 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 
 | Percorso | Schermata |
 |---|---|
-| `/login` | email e password, "Password dimenticata?"; "Accedi con il telefono" (QR + codice) è ancora una bozza |
-| `/registrati` | creazione account |
-| `/stato/email`, `/stato/approvazione`, `/stato/sospeso` | account non ancora attivo (la prima con "Rimanda l'email") |
-| `/verifica-email?token=` | arrivo dal link di conferma |
-| `/password-dimenticata`, `/reimposta-password?token=` | reset della password |
-| `/benvenuto` | guida iniziale per un account senza profili (3 passi) |
-| `/profili` | "Chi sta guardando?", massimo 5 profili; "Gestisci profili" (matita) e "Aggiungi" |
+| `/login` | email e password, "Password dimenticata?" |
+| `/signup` | creazione account |
+| `/status/unverified`, `/status/pending`, `/status/suspended` | account non ancora attivo (la prima con "Rimanda l'email") |
+| `/verify-email?token=` | arrivo dal link di conferma |
+| `/forgot-password`, `/reset-password?token=` | reset della password |
+| `/welcome` | guida iniziale per un account senza profili (3 passi) |
+| `/profiles` | "Chi sta guardando?", massimo 5 profili; "Gestisci profili" (matita) e "Aggiungi" |
 | `/account` | impostazioni: nome, email, password, profili, (admin) link al pannello, esci |
 | `/admin` | pannello admin: filtri per stato con conteggi, ricerca, azioni per account |
 | `/tv` | Home, organizzata come HBO Max: hero a carosello (8 s, si ferma col telecomando sopra), *Continua a guardare*, *Top 10 di oggi*, *In onda ora*, *Esplora* (riquadri dei generi), *Novità*, riga *In primo piano*, poi una riga per genere |
 | `/tv/live` | come Pluto TV / Samsung TV Plus: in alto anteprima dal vivo (muta) del canale selezionato con programma, orario, avanzamento, "Dopo" e Guarda; filtri per categoria (Tutti, Generalisti, Film e serie, Lifestyle, Bambini); TV/desktop: guida con colonna canali fissa, riga orari e "Ora", linea dell'ora dietro i programmi (si vede solo negli spazi); muovendosi nella guida l'anteprima e i dettagli seguono il programma selezionato (l'anteprima cambia canale dopo una breve pausa). Telefono: per ogni canale *Ora* con avanzamento e *Dopo*; toccando un canale va nell'anteprima in alto |
-| `/tv/film`, `/tv/serie` | mini-Home del tipo: hero, Top dei film/serie, *Esplora per genere*, una riga per genere |
-| `/tv/film/[genere]`, `/tv/serie/[genere]` | pagina del genere: hero corto e griglia completa |
-| `/tv/genere/[genere]` | scorciatoia su film **e** serie insieme (es. "Commedie") |
-| `/tv/titolo/[id]` | scheda: hero con Guarda/Riprendi, poi le schede *Episodi* (con le stagioni), *Altri come questo*, *Dettagli*; nessuna indicazione delle fonti |
-| `/tv/cerca` | ricerca con tastiera a griglia su schermi grandi |
-| `/guarda/[id]`, `/guarda/live-[canale]` | player a schermo intero |
+| `/tv/movies`, `/tv/series` | mini-Home del tipo: hero, Top dei film/serie, *Esplora per genere*, una riga per genere |
+| `/tv/movies/[genre]`, `/tv/series/[genre]` | pagina del genere: hero corto e griglia completa |
+| `/tv/genre/[genre]` | scorciatoia su film **e** serie insieme (es. "Commedie") |
+| `/tv/title/[id]` | scheda: hero con Guarda/Riprendi, poi le schede *Episodi* (con le stagioni), *Altri come questo*, *Dettagli*; nessuna indicazione delle fonti |
+| `/tv/search` | ricerca con tastiera a griglia su schermi grandi |
+| `/watch/[id]`, `/watch/live-[channel]` | player a schermo intero |
 
 **Menu (TV, desktop, tablet):** barra in alto, trasparente sopra l'immagine e in vetro quando si
 scorre. A sinistra "maia TV" (apre il selettore delle app), al centro le voci a pillola (Home,
@@ -131,7 +131,7 @@ in pausa).
   touch), Audio e sottotitoli, Impostazioni, Schermo intero.
 - **Serie**, come Netflix:
   - il titolo al centro della barra ha sotto la puntata (`S1:E3 · Sotto il ponte`); l'URL è
-    `/guarda/[id]?s=1&e=3` e gli episodi della scheda titolo aprono la puntata giusta;
+    `/watch/[id]?s=1&e=3` e gli episodi della scheda titolo aprono la puntata giusta;
   - **Episodio successivo** (tasto o **N**) passa alla puntata dopo, anche alla stagione
     successiva; il tasto non c'è sull'ultima puntata;
   - **Episodio precedente** (tasto o **P**) torna alla puntata prima, anche all'ultima della

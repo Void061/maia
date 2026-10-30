@@ -40,7 +40,7 @@ export default function TvHome() {
 
         <Rail title="Esplora">
           {genres.map((g) => (
-            <GenreCard key={g.slug} href={`/tv/genere/${g.slug}`} name={g.name} slug={g.slug} />
+            <GenreCard key={g.slug} href={`/tv/genre/${g.slug}`} name={g.name} slug={g.slug} />
           ))}
         </Rail>
 
@@ -50,13 +50,13 @@ export default function TvHome() {
           ))}
         </Rail>
 
-        <Spotlight heading="In primo piano: gialli" lead={findTitle("t10")!} more={byGenre("giallo").filter((t) => t.id !== "t10")} />
+        <Spotlight heading="In primo piano: gialli" lead={findTitle("t10")!} more={byGenre("crime").filter((t) => t.id !== "t10")} />
 
         {genres.map((g) => {
           const list = byGenre(g.slug);
           if (list.length < 2) return null;
           return (
-            <Rail key={g.slug} title={g.name} href={`/tv/genere/${g.slug}`}>
+            <Rail key={g.slug} title={g.name} href={`/tv/genre/${g.slug}`}>
               {list.map((t) => (
                 <Poster key={t.id} title={t} className="w-32 sm:w-44 xl:w-52" />
               ))}
@@ -82,7 +82,7 @@ function OnAir({ now }: { now: number | null }) {
   return (
     <Rail title="In onda ora" href="/tv/live">
       {onAir.map(({ ch, prog }) => (
-        <Link key={ch.id} href={`/guarda/live-${ch.id}`} className="group block w-64 shrink-0 outline-none sm:w-80 xl:w-96">
+        <Link key={ch.id} href={`/watch/live-${ch.id}`} className="group block w-64 shrink-0 outline-none sm:w-80 xl:w-96">
           <span className="focusable lift relative flex aspect-video flex-col justify-between overflow-hidden rounded-xl bg-gradient-to-br from-surface to-raised p-4 group-focus-visible:scale-[1.06] group-focus-visible:shadow-[0_0_0_2px_white,0_30px_60px_-15px_black] sm:p-5">
             <span className="flex items-center justify-between">
               <span className="rounded-md bg-white px-2 py-0.5 text-xs font-bold text-black">LIVE</span>

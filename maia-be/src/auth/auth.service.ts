@@ -75,7 +75,7 @@ export class AuthService {
         "per completare la registrazione conferma il tuo indirizzo email. Il link vale 48 ore.",
         "Dopo la conferma un amministratore abiliterà l'account: riceverai un'altra email.",
       ],
-      action: { label: 'Conferma email', url: `${this.mail.appUrl}/verifica-email?token=${token}` },
+      action: { label: 'Conferma email', url: `${this.mail.appUrl}/verify-email?token=${token}` },
     });
   }
 
@@ -173,7 +173,7 @@ export class AuthService {
         'abbiamo ricevuto una richiesta per reimpostare la password. Il link vale 1 ora.',
         'Se la richiesta non è partita da te, ignora questa email: la password resta quella di prima.',
       ],
-      action: { label: 'Scegli una nuova password', url: `${this.mail.appUrl}/reimposta-password?token=${token}` },
+      action: { label: 'Scegli una nuova password', url: `${this.mail.appUrl}/reset-password?token=${token}` },
     });
   }
 

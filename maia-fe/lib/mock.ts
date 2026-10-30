@@ -29,29 +29,29 @@ export type Title = {
 };
 
 export const genres = [
-  { slug: "commedia", name: "Commedie" },
+  { slug: "comedy", name: "Commedie" },
   { slug: "horror", name: "Horror" },
-  { slug: "giallo", name: "Gialli" },
-  { slug: "dramma", name: "Drammi" },
-  { slug: "documentario", name: "Documentari" },
-  { slug: "animazione", name: "Animazione" },
+  { slug: "crime", name: "Gialli" },
+  { slug: "drama", name: "Drammi" },
+  { slug: "documentary", name: "Documentari" },
+  { slug: "animation", name: "Animazione" },
 ];
 
 export const titles: Title[] = [
-  { id: "t1", kind: "SERIES", name: "Il porto delle nebbie", year: 2023, genres: ["giallo", "dramma"], seasons: 2, overview: "Una commissaria torna nella città dove è cresciuta per indagare su una scomparsa che nessuno vuole risolvere.", sources: ["RaiPlay", "Pluto TV"], progress: 0.42 },
+  { id: "t1", kind: "SERIES", name: "Il porto delle nebbie", year: 2023, genres: ["crime", "drama"], seasons: 2, overview: "Una commissaria torna nella città dove è cresciuta per indagare su una scomparsa che nessuno vuole risolvere.", sources: ["RaiPlay", "Pluto TV"], progress: 0.42 },
   { id: "t2", kind: "MOVIE", name: "La casa sul lago", year: 2019, genres: ["horror"], minutes: 98, overview: "Un weekend tra amici in una villa isolata. Il lago, di notte, restituisce qualcosa che aveva preso anni prima.", sources: ["Pluto TV"] },
-  { id: "t3", kind: "MOVIE", name: "Tutti a tavola", year: 2021, genres: ["commedia"], minutes: 104, overview: "Tre generazioni, un pranzo della domenica e un segreto di famiglia che salta fuori tra il primo e il secondo.", sources: ["RaiPlay"], progress: 0.8 },
-  { id: "t4", kind: "SERIES", name: "Condominio Aurora", year: 2022, genres: ["commedia"], seasons: 3, overview: "Le vite intrecciate degli inquilini di un palazzo di Torino, tra assemblee infinite e amori sul pianerottolo.", sources: ["RaiPlay", "La7"] },
-  { id: "t5", kind: "MOVIE", name: "Oltre la cresta", year: 2020, genres: ["documentario"], minutes: 87, overview: "Un anno sulle Alpi con chi le abita, seguendo il ritmo delle stagioni e dei ghiacciai che si ritirano.", sources: ["RaiPlay"] },
-  { id: "t6", kind: "SERIES", name: "Notte fonda", year: 2024, genres: ["horror", "giallo"], seasons: 1, overview: "Una radio notturna riceve chiamate da ascoltatori che descrivono crimini non ancora avvenuti.", sources: ["Pluto TV"], progress: 0.15 },
-  { id: "t7", kind: "MOVIE", name: "Il ritorno di Nino", year: 2018, genres: ["commedia", "dramma"], minutes: 112, overview: "Dopo vent'anni in Argentina, Nino torna al paese per vendere la casa di famiglia. Il paese ha altri piani.", sources: ["La7", "Pluto TV"] },
-  { id: "t8", kind: "MOVIE", name: "Cartoline da Marte", year: 2022, genres: ["animazione", "commedia"], minutes: 81, overview: "Una sonda dimenticata su Marte decide di scrivere a casa. Ogni lunedì, una cartolina.", sources: ["RaiPlay"] },
-  { id: "t9", kind: "SERIES", name: "Mare d'inverno", year: 2021, genres: ["dramma"], seasons: 2, overview: "Una famiglia di pescatori di Chioggia affronta l'inverno più duro degli ultimi trent'anni.", sources: ["RaiPlay"] },
-  { id: "t10", kind: "MOVIE", name: "L'ultimo treno", year: 2017, genres: ["giallo"], minutes: 95, overview: "Sette passeggeri, un treno notturno fermo in galleria e un controllore che non risponde più.", sources: ["Pluto TV"] },
-  { id: "t11", kind: "SERIES", name: "La cucina di Rosa", year: 2023, genres: ["documentario"], seasons: 4, overview: "Rosa gira l'Italia di trattoria in trattoria alla ricerca delle ricette che stanno scomparendo.", sources: ["La7"] },
+  { id: "t3", kind: "MOVIE", name: "Tutti a tavola", year: 2021, genres: ["comedy"], minutes: 104, overview: "Tre generazioni, un pranzo della domenica e un segreto di famiglia che salta fuori tra il primo e il secondo.", sources: ["RaiPlay"], progress: 0.8 },
+  { id: "t4", kind: "SERIES", name: "Condominio Aurora", year: 2022, genres: ["comedy"], seasons: 3, overview: "Le vite intrecciate degli inquilini di un palazzo di Torino, tra assemblee infinite e amori sul pianerottolo.", sources: ["RaiPlay", "La7"] },
+  { id: "t5", kind: "MOVIE", name: "Oltre la cresta", year: 2020, genres: ["documentary"], minutes: 87, overview: "Un anno sulle Alpi con chi le abita, seguendo il ritmo delle stagioni e dei ghiacciai che si ritirano.", sources: ["RaiPlay"] },
+  { id: "t6", kind: "SERIES", name: "Notte fonda", year: 2024, genres: ["horror", "crime"], seasons: 1, overview: "Una radio notturna riceve chiamate da ascoltatori che descrivono crimini non ancora avvenuti.", sources: ["Pluto TV"], progress: 0.15 },
+  { id: "t7", kind: "MOVIE", name: "Il ritorno di Nino", year: 2018, genres: ["comedy", "drama"], minutes: 112, overview: "Dopo vent'anni in Argentina, Nino torna al paese per vendere la casa di famiglia. Il paese ha altri piani.", sources: ["La7", "Pluto TV"] },
+  { id: "t8", kind: "MOVIE", name: "Cartoline da Marte", year: 2022, genres: ["animation", "comedy"], minutes: 81, overview: "Una sonda dimenticata su Marte decide di scrivere a casa. Ogni lunedì, una cartolina.", sources: ["RaiPlay"] },
+  { id: "t9", kind: "SERIES", name: "Mare d'inverno", year: 2021, genres: ["drama"], seasons: 2, overview: "Una famiglia di pescatori di Chioggia affronta l'inverno più duro degli ultimi trent'anni.", sources: ["RaiPlay"] },
+  { id: "t10", kind: "MOVIE", name: "L'ultimo treno", year: 2017, genres: ["crime"], minutes: 95, overview: "Sette passeggeri, un treno notturno fermo in galleria e un controllore che non risponde più.", sources: ["Pluto TV"] },
+  { id: "t11", kind: "SERIES", name: "La cucina di Rosa", year: 2023, genres: ["documentary"], seasons: 4, overview: "Rosa gira l'Italia di trattoria in trattoria alla ricerca delle ricette che stanno scomparendo.", sources: ["La7"] },
   { id: "t12", kind: "MOVIE", name: "Il pozzo", year: 2021, genres: ["horror"], minutes: 89, overview: "In una masseria pugliese, un pozzo chiuso da decenni viene riaperto per l'estate più secca del secolo.", sources: ["Pluto TV", "RaiPlay"] },
-  { id: "t13", kind: "SERIES", name: "Ufficio smarriti", year: 2020, genres: ["commedia"], seasons: 2, overview: "L'ufficio oggetti smarriti della stazione di Bologna e i suoi tre impiegati, che restituiscono più storie che oggetti.", sources: ["RaiPlay"] },
-  { id: "t14", kind: "MOVIE", name: "Volpi", year: 2024, genres: ["animazione"], minutes: 76, overview: "Una cucciola di volpe si perde in città e deve trovare la strada di casa prima dell'alba.", sources: ["Pluto TV"] },
+  { id: "t13", kind: "SERIES", name: "Ufficio smarriti", year: 2020, genres: ["comedy"], seasons: 2, overview: "L'ufficio oggetti smarriti della stazione di Bologna e i suoi tre impiegati, che restituiscono più storie che oggetti.", sources: ["RaiPlay"] },
+  { id: "t14", kind: "MOVIE", name: "Volpi", year: 2024, genres: ["animation"], minutes: 76, overview: "Una cucciola di volpe si perde in città e deve trovare la strada di casa prima dell'alba.", sources: ["Pluto TV"] },
 ];
 
 export const findTitle = (id: string) => titles.find((t) => t.id === id);
@@ -117,7 +117,7 @@ export const posterUrl = (id: string) => `https://picsum.photos/seed/maia-${id}/
 export const backdropUrl = (id: string) => `https://picsum.photos/seed/maia-${id}-bg/1600/900`;
 export const genreArtUrl = (slug: string) => `https://picsum.photos/seed/maia-genre-${slug}/800/450`;
 
-export type ChannelCategory = "generalisti" | "film-serie" | "lifestyle" | "bambini";
+export type ChannelCategory = "general" | "movies-series" | "lifestyle" | "kids";
 export type Channel = {
   id: string;
   number: number;
@@ -129,10 +129,10 @@ export type Channel = {
 
 export const channelCategories: { key: ChannelCategory | "tutti"; name: string }[] = [
   { key: "tutti", name: "Tutti" },
-  { key: "generalisti", name: "Generalisti" },
-  { key: "film-serie", name: "Film e serie" },
+  { key: "general", name: "Generalisti" },
+  { key: "movies-series", name: "Film e serie" },
   { key: "lifestyle", name: "Lifestyle" },
-  { key: "bambini", name: "Bambini" },
+  { key: "kids", name: "Bambini" },
 ];
 export type Program = { channelId: string; title: string; start: number; end: number; description: string };
 
@@ -146,14 +146,14 @@ const showBlurbs: Record<string, string> = {
 };
 
 export const channels: Channel[] = [
-  { id: "c1", number: 1, name: "Rai 1", provider: "RaiPlay", category: "generalisti", hue: 212 },
-  { id: "c2", number: 2, name: "Rai 2", provider: "RaiPlay", category: "generalisti", hue: 2 },
-  { id: "c3", number: 3, name: "Rai 3", provider: "RaiPlay", category: "generalisti", hue: 145 },
-  { id: "c7", number: 7, name: "La7", provider: "La7", category: "generalisti", hue: 330 },
-  { id: "c20", number: 20, name: "Pluto Cinema", provider: "Pluto TV", category: "film-serie", hue: 45 },
-  { id: "c21", number: 21, name: "Pluto Gialli", provider: "Pluto TV", category: "film-serie", hue: 268 },
+  { id: "c1", number: 1, name: "Rai 1", provider: "RaiPlay", category: "general", hue: 212 },
+  { id: "c2", number: 2, name: "Rai 2", provider: "RaiPlay", category: "general", hue: 2 },
+  { id: "c3", number: 3, name: "Rai 3", provider: "RaiPlay", category: "general", hue: 145 },
+  { id: "c7", number: 7, name: "La7", provider: "La7", category: "general", hue: 330 },
+  { id: "c20", number: 20, name: "Pluto Cinema", provider: "Pluto TV", category: "movies-series", hue: 45 },
+  { id: "c21", number: 21, name: "Pluto Gialli", provider: "Pluto TV", category: "movies-series", hue: 268 },
   { id: "c22", number: 22, name: "Pluto Cucina", provider: "Pluto TV", category: "lifestyle", hue: 24 },
-  { id: "c23", number: 23, name: "Pluto Animazione", provider: "Pluto TV", category: "bambini", hue: 190 },
+  { id: "c23", number: 23, name: "Pluto Animazione", provider: "Pluto TV", category: "kids", hue: 190 },
 ];
 
 const showNames = [

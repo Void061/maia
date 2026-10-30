@@ -62,7 +62,7 @@ export default function LiveGuide() {
       {/* Selected channel: live preview + what is (or will be) on. */}
       <section className="grid gap-5 px-4 sm:px-10 md:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] md:items-center md:gap-10 lg:px-16 xl:grid-cols-[minmax(0,1fr)_minmax(0,44rem)]">
         <Link
-          href={`/guarda/live-${previewId}`}
+          href={`/watch/live-${previewId}`}
           aria-label={`Guarda ${channels.find((c) => c.id === previewId)?.name}`}
           className="focusable lift block overflow-hidden rounded-2xl md:order-2"
           tabIndex={-1}
@@ -210,7 +210,7 @@ function Details({
         </div>
       )}
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <ButtonLink href={`/guarda/live-${channel.id}`}>
+        <ButtonLink href={`/watch/live-${channel.id}`}>
           <PlayIcon /> {live ? "Guarda" : "Guarda il canale"}
         </ButtonLink>
         {live && next && (
@@ -307,7 +307,7 @@ function Grid({
         {list.map((ch) => (
           <div key={ch.id} className="flex h-[4.5rem] items-stretch py-1">
             <Link
-              href={`/guarda/live-${ch.id}`}
+              href={`/watch/live-${ch.id}`}
               className="focusable pill-focus sticky left-0 z-20 flex shrink-0 items-center gap-3 rounded-xl bg-canvas pr-3"
               style={{ width: COL - 8, marginRight: 8 }}
               onFocus={() =>
@@ -367,7 +367,7 @@ function Grid({
                   return live ? (
                     <Link
                       key={p.start}
-                      href={`/guarda/live-${ch.id}`}
+                      href={`/watch/live-${ch.id}`}
                       onFocus={() => onSelect(ch.id, p.start)}
                       onMouseEnter={() => onSelect(ch.id, p.start)}
                       className={cls}

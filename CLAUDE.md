@@ -16,6 +16,10 @@ Tutto ciò che è stato deciso e implementato è in [`docs/`](docs/README.md).
 
 ## Regole
 
+- **Codice sempre in inglese**: nomi di componenti, file e cartelle, **percorsi delle pagine**
+  (es. `/profiles`, non `/profili`), parametri e slug negli URL, identificatori, chiavi, codici di
+  errore e **commenti**. In italiano restano solo i testi che l'utente legge (interfaccia, email)
+  e la documentazione in `docs/`.
 - Frontend: questa versione di Next.js ha API diverse da quelle note. Prima di scrivere codice
   leggi la guida in `maia-fe/node_modules/next/dist/docs/` (vedi `maia-fe/AGENTS.md`).
 - Niente aggiramento del DRM e solo servizi gratuiti (vedi `docs/tv/catalog.md`).

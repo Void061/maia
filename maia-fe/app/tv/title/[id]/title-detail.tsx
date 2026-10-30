@@ -44,8 +44,8 @@ export default function TitleDetail({ title }: { title: Title }) {
               ref={play}
               href={
                 title.kind === "SERIES"
-                  ? `/guarda/${title.id}?s=${resumeEpisode(title).season}&e=${resumeEpisode(title).number}`
-                  : `/guarda/${title.id}`
+                  ? `/watch/${title.id}?s=${resumeEpisode(title).season}&e=${resumeEpisode(title).number}`
+                  : `/watch/${title.id}`
               }
               className="focusable inline-flex h-14 items-center gap-2 rounded-full bg-white px-8 text-lg font-semibold text-black"
             >
@@ -108,7 +108,7 @@ export default function TitleDetail({ title }: { title: Title }) {
                 return (
                   <Link
                     key={ep.number}
-                    href={`/guarda/${title.id}?s=${ep.season}&e=${ep.number}`}
+                    href={`/watch/${title.id}?s=${ep.season}&e=${ep.number}`}
                     className="group block w-64 shrink-0 outline-none sm:w-80"
                   >
                     <span className="focusable lift relative block aspect-video overflow-hidden rounded-xl bg-surface group-focus-visible:scale-[1.06] group-focus-visible:shadow-[0_0_0_2px_white,0_30px_60px_-15px_black]">

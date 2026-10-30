@@ -85,7 +85,7 @@ export default function Welcome() {
             </p>
             <div className="mt-10 flex flex-col gap-3">
               <Button onClick={() => router.replace("/tv")}>Inizia a guardare</Button>
-              <Button variant="secondary" onClick={() => router.replace("/profili")}>
+              <Button variant="secondary" onClick={() => router.replace("/profiles")}>
                 Aggiungi altri profili
               </Button>
             </div>

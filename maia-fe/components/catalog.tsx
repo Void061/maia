@@ -6,7 +6,7 @@ import Poster, { GenreCard, Top10Card } from "@/components/poster";
 import Rail from "@/components/rail";
 import { byGenre, findGenre, genres, pick, titles, top10Ids, type Kind } from "@/lib/mock";
 
-const base = { MOVIE: "/tv/film", SERIES: "/tv/serie" } as const;
+const base = { MOVIE: "/tv/movies", SERIES: "/tv/series" } as const;
 const label = { MOVIE: "Film", SERIES: "Serie" } as const;
 
 // Film / Serie: a mini home for one kind. Hero, top 10, explore tiles, then

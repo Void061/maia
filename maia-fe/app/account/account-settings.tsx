@@ -60,7 +60,7 @@ export default function AccountSettings() {
                   </li>
                 ))}
               </ul>
-              <Button variant="secondary" onClick={() => router.push("/profili")} className="mt-5">
+              <Button variant="secondary" onClick={() => router.push("/profiles")} className="mt-5">
                 Gestisci profili
               </Button>
             </Section>

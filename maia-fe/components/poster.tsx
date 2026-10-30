@@ -15,7 +15,7 @@ const subtitle = (t: Title) =>
 // Portrait poster, Max style: the title is set inside the artwork, at the bottom.
 export default function Poster({ title, className = "" }: { title: Title; className?: string }) {
   return (
-    <Link href={`/tv/titolo/${title.id}`} data-title={title.id} className={`group block shrink-0 outline-none ${className}`}>
+    <Link href={`/tv/title/${title.id}`} data-title={title.id} className={`group block shrink-0 outline-none ${className}`}>
       <span className={`${art} aspect-[2/3]`}>
         <Image src={posterUrl(title.id)} alt="" fill unoptimized className="object-cover" />
         <span className={`${scrim} h-1/2`} />
@@ -32,7 +32,7 @@ export default function Poster({ title, className = "" }: { title: Title; classN
 // Landscape tile (Continua a guardare, Novità): 16:9 with caption below.
 export function Tile({ title, className = "" }: { title: Title; className?: string }) {
   return (
-    <Link href={`/tv/titolo/${title.id}`} data-title={title.id} className={`group block shrink-0 outline-none ${className}`}>
+    <Link href={`/tv/title/${title.id}`} data-title={title.id} className={`group block shrink-0 outline-none ${className}`}>
       <span className={`${art} aspect-video`}>
         <Image src={backdropUrl(title.id)} alt="" fill unoptimized className="object-cover" />
         {title.progress !== undefined && (
@@ -53,7 +53,7 @@ export function Tile({ title, className = "" }: { title: Title; className?: stri
 // Top 10: a huge outlined rank number beside the poster.
 export function Top10Card({ title, rank }: { title: Title; rank: number }) {
   return (
-    <Link href={`/tv/titolo/${title.id}`} data-title={title.id} className="group relative flex shrink-0 items-end gap-1 outline-none">
+    <Link href={`/tv/title/${title.id}`} data-title={title.id} className="group relative flex shrink-0 items-end gap-1 outline-none">
       <span
         aria-hidden
         className="select-none font-display text-[6rem] leading-[0.8] font-black text-black sm:text-[9rem]"

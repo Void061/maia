@@ -19,7 +19,7 @@ export default function SignupForm() {
     mutationFn: () => api("/auth/register", { method: "POST", body: { name, email, password } }),
     onSuccess: () => {
       rememberPendingEmail(email);
-      router.push("/stato/email");
+      router.push("/status/unverified");
     },
   });
 
@@ -54,7 +54,7 @@ export default function SignupForm() {
             {signup.error instanceof ApiError && signup.error.code === "EMAIL_TAKEN" ? (
               <>
                 Esiste già un account con questa email. <TextLink href="/login">Accedi</TextLink> oppure{" "}
-                <TextLink href="/password-dimenticata">reimposta la password</TextLink>.
+                <TextLink href="/forgot-password">reimposta la password</TextLink>.
               </>
             ) : (
               signup.error.message

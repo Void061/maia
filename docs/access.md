@@ -19,10 +19,10 @@ Senza sessione non si entra in nessuna pagina dell'app (`maia-fe/proxy.ts`).
 
 | Stato | Quando | Login | Schermata in maia-fe |
 |---|---|---|---|
-| `PENDING_EMAIL` | registrato, email non confermata | 403 `EMAIL_NOT_VERIFIED` | `/stato/email` con "Rimanda l'email" |
-| `PENDING_APPROVAL` | email confermata | 403 `PENDING_APPROVAL` | `/stato/approvazione` |
+| `PENDING_EMAIL` | registrato, email non confermata | 403 `EMAIL_NOT_VERIFIED` | `/status/unverified` con "Rimanda l'email" |
+| `PENDING_APPROVAL` | email confermata | 403 `PENDING_APPROVAL` | `/status/pending` |
 | `ACTIVE` | approvato | ok | — |
-| `SUSPENDED` | sospeso | 403 `SUSPENDED` | `/stato/sospeso` |
+| `SUSPENDED` | sospeso | 403 `SUSPENDED` | `/status/suspended` |
 
 Lo stato viene rivelato **solo dopo una password corretta**; con password sbagliata la risposta è
 sempre 401 `INVALID_CREDENTIALS`. La registrazione è aperta a chiunque (409 `EMAIL_TAKEN` se l'email
@@ -30,7 +30,9 @@ esiste già): il filtro è l'approvazione manuale.
 
 **Approvazione:** dal pannello admin (`/admin`, vedi sotto). Quando un account conferma
 l'email, il backend scrive agli account `ADMIN` attivi e a `ADMIN_EMAIL` (variabile d'ambiente)
-con il link al pannello. All'utente approvato arriva l'email "Il tuo account MAIA è attivo".
+con il link al pannello. All'utente approvato arriva l'email di **benvenuto** ("Ti diamo il
+benvenuto in MAIA"): l'account è attivo, al primo accesso creerà il suo profilo (fino a 5, uno per
+persona di casa), e un pulsante "Entra in MAIA".
 
 Il **primo amministratore** si crea da terminale (nessuno può ancora approvarlo dall'app), da
 `maia-be/`:
@@ -44,8 +46,8 @@ npm run account:approve -- persona@esempio.it          # → ACTIVE (senza panne
 
 | Email | Link | Durata |
 |---|---|---|
-| Conferma email (registrazione, "Rimanda l'email") | `/verifica-email?token=…` | 48 ore |
-| Password dimenticata | `/reimposta-password?token=…` | 1 ora |
+| Conferma email (registrazione, "Rimanda l'email") | `/verify-email?token=…` | 48 ore |
+| Password dimenticata | `/reset-password?token=…` | 1 ora |
 | Nuovo account da approvare (agli admin) | `/admin` | — |
 | Account attivato (all'utente approvato) | `/login` | — |
 
@@ -103,10 +105,10 @@ il ruolo o sospendere un admin ha effetto subito.
 
 - Massimo **5** per account; nomi unici nell'account (senza distinguere maiuscole); 1-20 caratteri.
 - Avatar: iniziale su un gradiente del colore scelto (`hue`, 8 colori proposti).
-- **Guida iniziale** (`/benvenuto`) per un account senza profili: spiega i profili, fa creare il
+- **Guida iniziale** (`/welcome`) per un account senza profili: spiega i profili, fa creare il
   primo (nome proposto = nome dell'account), poi "Inizia a guardare" o "Aggiungi altri profili".
   "Chi sta guardando?" rimanda alla guida finché non c'è almeno un profilo.
-- **Gestisci profili** su `/profili`: avatar scuriti con la matita; tocco → modifica nome e colore
+- **Gestisci profili** su `/profiles`: avatar scuriti con la matita; tocco → modifica nome e colore
   o elimina (con conferma). "Aggiungi" apre lo stesso modulo vuoto.
 - Il profilo scelto è salvato **sul dispositivo** (`localStorage`): ogni dispositivo può essere su
   un profilo diverso. L'ultima app usata è salvata **nel profilo** (`lastAppKey`).
@@ -127,8 +129,9 @@ Oggi l'elenco delle app è ancora nei dati finti del frontend (`lib/mock.ts`).
 
 ## Login sulla TV (da fare)
 
-QR code e codice di 6 caratteri confermati dal telefono. Oggi "Accedi con il telefono" mostra la
-schermata e avvisa che arriva presto.
+QR code e codice di 6 caratteri confermati dal telefono. Il pulsante "Accedi con il telefono" è
+stato tolto dalla pagina di login: comparirà solo sulla TV quando la funzione esiste (su telefono e
+computer non ha senso, lì si usano email e password).
 
 ## Modello dati
 

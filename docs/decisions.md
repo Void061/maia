@@ -102,3 +102,15 @@ account. Un admin non può agire sul proprio account (niente rischio di restare 
 "Approva comunque" un account con email non confermata la conta come confermata. "Rifiuta"
 elimina l'account invece di lasciarlo in uno stato "rifiutato": per una casa non serve tenere
 lo storico delle registrazioni scartate.
+
+**Codice in inglese, testi in italiano.** Componenti, file, cartelle, percorsi delle pagine,
+parametri, slug, identificatori e commenti in inglese; interfaccia ed email in italiano; docs in
+italiano. Rinominati i percorsi esistenti (es. `/profili` → `/profiles`, `/guarda` → `/watch`,
+`/stato/email` → `/status/unverified`) e gli slug dei generi e delle categorie dei canali.
+
+**Email di benvenuto all'approvazione** invece di un semplice "account attivo".
+
+**Tolto "Accedi con il telefono" dal login**: tornerà solo sulla TV con il login a codice.
+
+**Deploy: tutto sulla VPS, Cloudflare davanti come proxy**, non il frontend statico su Cloudflare
+(il frontend ha bisogno di un server). **Email con Resend via SMTP.**

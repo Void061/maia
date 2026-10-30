@@ -142,11 +142,17 @@ export class AdminController {
         emailVerifiedAt: account.emailVerifiedAt ?? new Date(),
       },
     });
+    // Welcome email: the account is live, here is what to do first.
     await this.mail.send({
       to: account.email,
-      subject: 'Il tuo account MAIA è attivo',
-      lines: [`Ciao ${account.name},`, 'un amministratore ha abilitato il tuo account: ora puoi accedere a MAIA.'],
-      action: { label: 'Accedi', url: `${this.mail.appUrl}/login` },
+      subject: 'Ti diamo il benvenuto in MAIA',
+      lines: [
+        `Ciao ${account.name},`,
+        'il tuo account è stato approvato: da adesso puoi usare MAIA su TV, computer, tablet e telefono.',
+        'Al primo accesso ti chiederemo di creare il tuo profilo. Puoi aggiungerne fino a 5, uno per ogni persona di casa: ognuno ha i suoi preferiti e la sua lista "Continua a guardare".',
+        "Per entrare usa l'email e la password che hai scelto alla registrazione.",
+      ],
+      action: { label: 'Entra in MAIA', url: `${this.mail.appUrl}/login` },
     });
   }
 

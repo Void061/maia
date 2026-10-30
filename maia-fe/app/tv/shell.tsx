@@ -21,8 +21,8 @@ import { useProfile } from "@/lib/session";
 const nav = [
   { href: "/tv", label: "Home", Icon: HomeIcon },
   { href: "/tv/live", label: "Live", Icon: LiveIcon },
-  { href: "/tv/film", label: "Film", Icon: FilmIcon },
-  { href: "/tv/serie", label: "Serie", Icon: SeriesIcon },
+  { href: "/tv/movies", label: "Film", Icon: FilmIcon },
+  { href: "/tv/series", label: "Serie", Icon: SeriesIcon },
 ];
 
 const appGlyph: Record<string, () => React.JSX.Element> = { tv: TvGlyph, casa: HouseGlyph };
@@ -34,7 +34,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const profile = useProfile();
   // Signed in but no profile chosen on this device (or it was deleted): pick one first.
   useEffect(() => {
-    if (me && !profile) router.replace("/profili");
+    if (me && !profile) router.replace("/profiles");
   }, [me, profile, router]);
   const [layer, setLayer] = useState<"apps" | "profile" | null>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -97,9 +97,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-2">
             <Link
-              href="/tv/cerca"
+              href="/tv/search"
               aria-label="Cerca"
-              aria-current={isActive("/tv/cerca") ? "page" : undefined}
+              aria-current={isActive("/tv/search") ? "page" : undefined}
               className="focusable pill-focus hidden size-11 place-items-center rounded-full text-label md:grid"
             >
               <SearchIcon />
@@ -122,7 +122,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           hide ? "translate-y-full" : "translate-y-0"
         }`}
       >
-        {[...nav, { href: "/tv/cerca", label: "Cerca", Icon: SearchIcon }].map(({ href, label, Icon }) => (
+        {[...nav, { href: "/tv/search", label: "Cerca", Icon: SearchIcon }].map(({ href, label, Icon }) => (
           <Link
             key={href}
             href={href}
@@ -223,7 +223,7 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
   return (
     <Layer title={profile?.name ?? "Profilo"} onClose={onClose}>
       <div className="grid gap-1">
-        <Link href="/profili" className={item}>
+        <Link href="/profiles" className={item}>
           Cambia profilo
         </Link>
         <Link href="/account" className={item}>

@@ -7,7 +7,7 @@ export function generateStaticParams() {
   return titles.map((t) => ({ id: t.id }));
 }
 
-export default function Page({ params }: PageProps<"/tv/titolo/[id]">) {
+export default function Page({ params }: PageProps<"/tv/title/[id]">) {
   return (
     <Suspense fallback={<div className="min-h-dvh" />}>
       <Content params={params} />

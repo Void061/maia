@@ -9,12 +9,12 @@ import { backdropUrl, type Title } from "@/lib/mock";
 const SLIDE_MS = 8000;
 
 const singular: Record<string, string> = {
-  commedia: "Commedia",
+  comedy: "Commedia",
   horror: "Horror",
-  giallo: "Giallo",
-  dramma: "Dramma",
-  documentario: "Documentario",
-  animazione: "Animazione",
+  crime: "Giallo",
+  drama: "Dramma",
+  documentary: "Documentario",
+  animation: "Animazione",
 };
 export const meta = (t: Title) =>
   [t.kind === "SERIES" ? "Serie" : "Film", singular[t.genres[0]], String(t.year)].filter(Boolean).join(" · ");
@@ -67,10 +67,10 @@ export default function Hero({
           {current.overview}
         </p>
         <div className="mt-6 flex items-center gap-2 sm:gap-3">
-          <ButtonLink href={`/guarda/${current.id}`}>
+          <ButtonLink href={`/watch/${current.id}`}>
             <PlayIcon /> {current.progress !== undefined ? "Riprendi" : "Guarda"}
           </ButtonLink>
-          <ButtonLink href={`/tv/titolo/${current.id}`} variant="secondary">
+          <ButtonLink href={`/tv/title/${current.id}`} variant="secondary">
             Dettagli
           </ButtonLink>
           <button

@@ -12,7 +12,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_ENTRY.has(pathname)) {
-    return signedIn ? NextResponse.redirect(new URL("/profili", request.url)) : NextResponse.next();
+    return signedIn ? NextResponse.redirect(new URL("/profiles", request.url)) : NextResponse.next();
   }
   if (signedIn) return NextResponse.next();
 
@@ -22,5 +22,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/login", "/profili/:path*", "/benvenuto", "/account/:path*", "/admin/:path*", "/tv/:path*", "/guarda/:path*"],
+  matcher: ["/", "/login", "/profiles/:path*", "/welcome", "/account/:path*", "/admin/:path*", "/tv/:path*", "/watch/:path*"],
 };

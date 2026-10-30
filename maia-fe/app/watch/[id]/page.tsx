@@ -7,7 +7,7 @@ export function generateStaticParams() {
   return [...titles.map((t) => ({ id: t.id })), ...channels.map((c) => ({ id: `live-${c.id}` }))];
 }
 
-export default function Page({ params }: PageProps<"/guarda/[id]">) {
+export default function Page({ params }: PageProps<"/watch/[id]">) {
   return (
     <Suspense fallback={<div className="fixed inset-0 bg-black" />}>
       <Content params={params} />

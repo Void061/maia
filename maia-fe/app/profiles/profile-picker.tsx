@@ -26,7 +26,7 @@ export default function ProfilePicker() {
 
   const profiles = me?.profiles;
   useEffect(() => {
-    if (profiles && profiles.length === 0) router.replace("/benvenuto");
+    if (profiles && profiles.length === 0) router.replace("/welcome");
   }, [profiles, router]);
 
   // On a TV the remote should be ready to move straight away.

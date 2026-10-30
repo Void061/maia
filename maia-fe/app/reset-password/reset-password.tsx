@@ -74,7 +74,7 @@ export default function ResetPassword() {
         <div className="mt-4">
           <Notice>
             Il link non è valido o è scaduto (vale 1 ora).{" "}
-            <TextLink href="/password-dimenticata">Chiedine uno nuovo</TextLink>.
+            <TextLink href="/forgot-password">Chiedine uno nuovo</TextLink>.
           </Notice>
         </div>
       ) : (

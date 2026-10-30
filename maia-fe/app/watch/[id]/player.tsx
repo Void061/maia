@@ -288,7 +288,7 @@ export default function Player({ title, live }: Props) {
       root.current?.focus(); // keep the remote/keyboard shortcuts working
       seekTo(0);
       video.current?.play().catch(() => {});
-      router.replace(`/guarda/${title.id}?s=${ep.season}&e=${ep.number}`, { scroll: false });
+      router.replace(`/watch/${title.id}?s=${ep.season}&e=${ep.number}`, { scroll: false });
     },
     [title, seekTo, router],
   );
@@ -298,7 +298,7 @@ export default function Player({ title, live }: Props) {
       const i = channels.findIndex((c) => c.id === channelId);
       const next = channels[(i + dir + channels.length) % channels.length];
       setChannelId(next.id);
-      router.replace(`/guarda/live-${next.id}`, { scroll: false });
+      router.replace(`/watch/live-${next.id}`, { scroll: false });
     },
     [channelId, router],
   );
