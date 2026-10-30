@@ -114,3 +114,8 @@ italiano. Rinominati i percorsi esistenti (es. `/profili` → `/profiles`, `/gua
 
 **Deploy: tutto sulla VPS, Cloudflare davanti come proxy**, non il frontend statico su Cloudflare
 (il frontend ha bisogno di un server). **Email con Resend via SMTP.**
+
+**Configurazione minima.** Resend (host, porta, utente SMTP) è fisso nel codice: si imposta solo
+`RESEND_API_KEY`, e senza chiave le email vanno a Mailpit. `COOKIE_SECURE` eliminata: i cookie sono
+`Secure` quando `APP_URL` è `https://`. Variabili del backend: `DATABASE_URL`, `JWT_SECRET`,
+`APP_URL`, `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa).

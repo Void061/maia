@@ -57,12 +57,13 @@ npm run account:approve -- persona@esempio.it          # → ACTIVE (senza panne
   esista o no (non si può scoprire chi è registrato).
 - Reimpostare la password chiude **tutte** le sessioni; cambiarla dalle impostazioni chiude tutte
   **tranne quella in uso**.
-- Invio via SMTP (`maia-be/src/mail`). In sviluppo: Mailpit (vedi [dev.md](dev.md)). Se il server
+- Invio (`maia-be/src/mail`): con `RESEND_API_KEY` impostata via **Resend** (SMTP, host/porta/
+  utente fissi nel codice); senza, in **Mailpit** (sviluppo, vedi [dev.md](dev.md)). Se il server
   di posta non risponde l'errore va nel log e la richiesta non fallisce.
 
 ## Sessioni
 
-- Login → due cookie `httpOnly`, `SameSite=Lax` (`Secure` in produzione con `COOKIE_SECURE=true`):
+- Login → due cookie `httpOnly`, `SameSite=Lax` (`Secure` automaticamente quando `APP_URL` è `https://`):
   - `maia_at`: access token JWT, 15 minuti (`sub` = account, `sid` = sessione);
   - `maia_rt`: refresh token casuale, 30 giorni, salvato come hash nella tabella `sessions`.
 - `POST /auth/refresh` ruota il refresh token (il vecchio smette di valere) e rinnova l'access.

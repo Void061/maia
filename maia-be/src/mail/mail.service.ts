@@ -4,8 +4,13 @@ import nodemailer, { type Transporter } from 'nodemailer';
 
 type Mail = { to: string | string[]; subject: string; lines: string[]; action?: { label: string; url: string } };
 
-// Sends the transactional emails over SMTP. In development the SMTP server is
-// Mailpit (docker-compose): every email is caught and readable on :8025.
+// Resend's SMTP endpoint: fixed for every account, only the API key changes.
+const RESEND_SMTP = { host: 'smtp.resend.com', port: 465, secure: true, user: 'resend' };
+// Mailpit (docker-compose) catches every email in development: web UI on :8025.
+const MAILPIT_PORT = 1025;
+
+// Sends the transactional emails. With RESEND_API_KEY set they go out through
+// Resend; without it they land in Mailpit, so development never emails anyone.
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -14,14 +19,22 @@ export class MailService {
   readonly appUrl: string;
 
   constructor(config: ConfigService) {
-    const user = config.get<string>('SMTP_USER');
-    this.transport = nodemailer.createTransport({
-      host: config.get<string>('SMTP_HOST', 'localhost'),
-      port: Number(config.get<string>('SMTP_PORT', '1025')),
-      secure: config.get<string>('SMTP_SECURE') === 'true',
-      auth: user ? { user, pass: config.get<string>('SMTP_PASS') } : undefined,
-    });
-    this.from = config.get<string>('MAIL_FROM', 'MAIA <noreply@maia.local>');
+    const resendKey = config.get<string>('RESEND_API_KEY');
+    this.transport = resendKey
+      ? nodemailer.createTransport({
+          host: RESEND_SMTP.host,
+          port: RESEND_SMTP.port,
+          secure: RESEND_SMTP.secure,
+          auth: { user: RESEND_SMTP.user, pass: resendKey },
+        })
+      : nodemailer.createTransport({
+          // Inside docker-compose Mailpit is reachable as "mailpit".
+          host: config.get<string>('MAILPIT_HOST', 'localhost'),
+          port: MAILPIT_PORT,
+          secure: false,
+        });
+    this.logger.log(resendKey ? 'Email via Resend' : 'Email via Mailpit (development)');
+    this.from = config.get<string>('MAIL_FROM') || 'MAIA <noreply@maia.local>';
     this.appUrl = config.get<string>('APP_URL', 'http://localhost:3001').replace(/\/$/, '');
   }
 

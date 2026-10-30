@@ -5,29 +5,21 @@ database PostgreSQL gestito da Coolify.
 
 | Risorsa | Base directory | Porta | Variabili |
 |---|---|---|---|
-| maia-be | `/maia-be` | 3000 | `DATABASE_URL`, `JWT_SECRET`, `APP_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `ADMIN_EMAIL`, `COOKIE_SECURE=true` |
+| maia-be | `/maia-be` | 3000 | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (pubblico, `https://`), `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa) |
 | maia-fe | `/maia-fe` | 3001 | `API_URL` (indirizzo interno di maia-be, es. `http://maia-be:3000`), a runtime |
 
 maia-be non va esposto su internet: il browser passa sempre da maia-fe (`/api/*`).
-`APP_URL` è l'indirizzo pubblico di maia-fe (i link nelle email puntano lì). Per l'SMTP serve un
-provider vero (es. Resend o Brevo, piano gratuito) con il dominio verificato per `MAIL_FROM`.
+`APP_URL` è l'indirizzo pubblico di maia-fe (i link nelle email puntano lì; con `https://` i
+cookie diventano `Secure` da soli).
 Il primo amministratore in produzione si crea dal terminale del container maia-be,
 `npm run account:approve -- persona@esempio.it --admin`; gli altri account dal pannello `/admin`.
 
 ## Email con Resend
 
-Il backend invia via SMTP, quindi Resend si usa senza codice dedicato. Su maia-be:
-
-```
-SMTP_HOST=smtp.resend.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=resend
-SMTP_PASS=<API key di Resend>
-MAIL_FROM="MAIA <noreply@dominio>"
-```
-
-Prima va verificato il dominio su Resend (record DNS). In sviluppo resta Mailpit.
+Server, porta e utente SMTP di Resend sono fissi nel codice: basta impostare su maia-be
+`RESEND_API_KEY` (la chiave `re_...`) e `MAIL_FROM` con un dominio verificato su Resend (record
+DNS). Senza chiave le email andrebbero a Mailpit, che in produzione non esiste: la chiave è
+obbligatoria in produzione.
 
 ## Cloudflare
 

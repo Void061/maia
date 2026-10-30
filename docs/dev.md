@@ -16,8 +16,9 @@ cd maia-be && npm run start:dev         # http://localhost:3000 (Swagger su /doc
 cd maia-fe && npm run dev               # http://localhost:3001
 ```
 
-**Email in sviluppo:** tutte le email inviate dal backend finiscono in Mailpit, visibile su
-**http://localhost:8025** (non escono verso internet).
+**Email in sviluppo:** con `RESEND_API_KEY` vuota tutte le email finiscono in Mailpit, visibile
+su **http://localhost:8025** (non escono verso internet). Mettendo la chiave di Resend partono
+email vere (dopo aver riavviato il backend: le variabili si leggono all'avvio).
 
 **Primo account:** registrati dall'app, apri il link di conferma in Mailpit, poi da `maia-be/`:
 `npm run account:approve -- tua@email.it --admin`. Da lì in poi gli altri account si approvano
@@ -38,7 +39,7 @@ le due modalità insieme.
 
 | File | Contenuto |
 |---|---|
-| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (per i link nelle email), `SMTP_*`, `MAIL_FROM`, `ADMIN_EMAIL`, `COOKIE_SECURE` |
+| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa) |
 | `maia-fe/.env.local` | `API_URL=http://localhost:3000` (dove il gateway `/api` trova maia-be) |
 
 Sono ignorati da git; i modelli sono i rispettivi `.env.example`.

@@ -8,10 +8,11 @@ export const REFRESH_COOKIE = 'maia_rt';
 export const ACCESS_TTL_SEC = 15 * 60;
 export const REFRESH_TTL_SEC = 60 * 60 * 24 * 30;
 
+// Secure (HTTPS-only) cookies whenever the app itself is served over HTTPS.
 const base = (): CookieOptions => ({
   httpOnly: true,
   sameSite: 'lax',
-  secure: process.env.COOKIE_SECURE === 'true',
+  secure: (process.env.APP_URL ?? '').startsWith('https://'),
   path: '/',
 });
 

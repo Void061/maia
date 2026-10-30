@@ -34,8 +34,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-maia}:${POSTGRES_PASSWORD:-maia}@postgres:5432/${POSTGRES_DB:-maia}?schema=public
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
       APP_URL: ${APP_URL:-http://localhost:3001}
-      SMTP_HOST: mailpit
-      SMTP_PORT: "1025"
+      MAILPIT_HOST: mailpit
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-MAIA <noreply@maia.local>}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
     depends_on:
