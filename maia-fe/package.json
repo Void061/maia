@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "eslint",
+    "remote": "node scripts/remote.mjs",
     "gen:api": "openapi-typescript http://localhost:3000/docs-json -o lib/api-schema.d.ts"
   },
   "dependencies": {
@@ -17,6 +18,7 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@ngrok/ngrok": "^1.7.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

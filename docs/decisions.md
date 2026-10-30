@@ -119,3 +119,7 @@ italiano. Rinominati i percorsi esistenti (es. `/profili` → `/profiles`, `/gua
 `RESEND_API_KEY`, e senza chiave le email vanno a Mailpit. `COOKIE_SECURE` eliminata: i cookie sono
 `Secure` quando `APP_URL` è `https://`. Variabili del backend: `DATABASE_URL`, `JWT_SECRET`,
 `APP_URL`, `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa).
+
+**Anteprima da remoto con ngrok (`npm run remote` in maia-fe)**, sempre dietro basic auth
+(`Ivan` / `12341@`), per provare le modifiche da qualsiasi rete. La basic auth la fa lo script e
+non ngrok, perché ngrok vuole password di almeno 8 caratteri.
