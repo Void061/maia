@@ -287,5 +287,10 @@ export function parseDuration(value: string | undefined): number | null {
 // Daily shows name episodes by date: "Puntata del 12/03/2026" -> "2026-03-12".
 export function parseItalianDate(text: string): string | null {
   const m = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
-  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null;
+  if (!m) return null;
+  const [day, month, year] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  // RaiPlay sometimes writes placeholders ("Puntata del 00/00/1992"): only real dates count.
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date.toISOString().slice(0, 10);
 }
