@@ -235,3 +235,12 @@ RaiPlay due serate e molte clip, in MAIA "2 stagioni" con una puntata ciascuna e
 negli extra). La data della puntata si legge anche dal titolo dell'episodio, così le puntate si
 collocano nella stessa stagione; le clip si mostrano raggruppate per puntata e con nomi ripuliti, in
 lettura. Misurato: 21 programmi divisi come "Da Grande" e 82 con puntate provvisorie senza data.
+
+**Pluto TV: le condizioni d'uso lo escludono, oltre al limite tecnico.** Letti i Termini di
+Utilizzo italiani di Pluto TV (Pluto TV Europe GmbH, in vigore dal 14/11/2022,
+legal.paramount.com/it/it/plutotv/terms-of-use): uso solo personale e non commerciale; **vietato
+accedere al servizio con software automatici, script o robot senza autorizzazione scritta**
+(sezione 6); vietato riprodurre o visualizzare i contenuti fuori dal servizio (sezione 4);
+conseguenze: revoca dell'uso e blocco degli IP. A differenza di RaiPlay il divieto di lettura
+automatica è esplicito, e il catalogo di MAIA si costruisce proprio così. Insieme al limite tecnico
+già misurato (catalogo assegnato per IP, API aperte solo a pluto.tv), Pluto TV non si aggiunge.
