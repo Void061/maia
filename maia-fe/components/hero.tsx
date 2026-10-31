@@ -1,23 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { PlayIcon, PlusIcon } from "@/components/icons";
 import { ButtonLink } from "@/components/ui";
-import { backdropUrl, type Title } from "@/lib/mock";
+import { Art } from "@/components/poster";
+import { meta, type TitleCard } from "@/lib/tv";
 
 const SLIDE_MS = 8000;
-
-const singular: Record<string, string> = {
-  comedy: "Commedia",
-  horror: "Horror",
-  crime: "Giallo",
-  drama: "Dramma",
-  documentary: "Documentario",
-  animation: "Animazione",
-};
-export const meta = (t: Title) =>
-  [t.kind === "SERIES" ? "Serie" : "Film", singular[t.genres[0]], String(t.year)].filter(Boolean).join(" · ");
 
 // Full-bleed carousel. Advances on its own and holds still while the remote
 // is on it. Text sits on a heavy bottom/left scrim so it reads on any image.
@@ -26,7 +15,7 @@ export default function Hero({
   eyebrow,
   short = false,
 }: {
-  items: Title[];
+  items: TitleCard[];
   eyebrow?: string | null;
   short?: boolean;
 }) {
@@ -40,6 +29,10 @@ export default function Hero({
     return () => clearTimeout(id);
   }, [slide, paused, items.length]);
 
+  if (!current) {
+    return <section aria-busy className={`animate-pulse bg-surface ${short ? "h-[62vh] min-h-[26rem]" : "h-[78vh] min-h-[30rem] sm:h-[86vh]"}`} />;
+  }
+
   return (
     <section
       className={`relative overflow-hidden ${short ? "h-[62vh] min-h-[26rem]" : "h-[78vh] min-h-[30rem] sm:h-[86vh]"}`}
@@ -47,7 +40,7 @@ export default function Hero({
       onBlurCapture={() => setPaused(false)}
     >
       <div key={current.id} className="absolute inset-0 animate-[fade_700ms_ease-out]">
-        <Image src={backdropUrl(current.id)} alt="" fill unoptimized priority className="object-cover" />
+        <Art src={current.backdropUrl ?? current.posterUrl} seed={current.id} priority />
       </div>
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/40" />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent" />
@@ -68,7 +61,7 @@ export default function Hero({
         </p>
         <div className="mt-6 flex items-center gap-2 sm:gap-3">
           <ButtonLink href={`/watch/${current.id}`}>
-            <PlayIcon /> {current.progress !== undefined ? "Riprendi" : "Guarda"}
+            <PlayIcon /> Guarda
           </ButtonLink>
           <ButtonLink href={`/tv/title/${current.id}`} variant="secondary">
             Dettagli

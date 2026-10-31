@@ -255,7 +255,8 @@ export class CatalogService {
       if (tmdbSeasons) return tmdbSeasons;
       tmdbSeasons = [];
       if (tmdbId && this.tmdb) {
-        for (const n of await this.tmdb.seasonNumbers(tmdbId)) tmdbSeasons.push(await this.tmdb.season(tmdbId, n));
+        const numbers = await this.tmdb.seasonNumbers(tmdbId);
+        tmdbSeasons.push(...(await Promise.all(numbers.map((n) => this.tmdb!.season(tmdbId, n)))));
       }
       return tmdbSeasons;
     };

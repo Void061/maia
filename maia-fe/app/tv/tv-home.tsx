@@ -3,72 +3,91 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import Hero from "@/components/hero";
-import Poster, { GenreCard, Tile, Top10Card } from "@/components/poster";
+import Poster, { GenreCard, PosterSkeleton, Tile } from "@/components/poster";
 import Rail from "@/components/rail";
 import Spotlight from "@/components/spotlight";
-import { byGenre, channels, findTitle, genres, newIds, pick, scheduleAround, titles, top10Ids } from "@/lib/mock";
+import { channels, scheduleAround } from "@/lib/live-demo";
 import { useProfile } from "@/lib/session";
+import { useGenres, useHome } from "@/lib/tv";
 import { greeting, hhmm, useNow } from "@/lib/use-now";
 
-const featured = [titles[0], titles[3], titles[5], titles[1]];
-
-// Home, HBO Max layout: hero carousel, then editorial rows (resume, top 10,
-// live, explore, new, spotlight) before the plain genre rows.
+// Home, HBO Max layout: hero carousel, then editorial rows (new, live,
+// explore, spotlight) before the plain genre rows. Everything comes from the
+// catalog in maia-be except the live channels (still demo data).
 export default function TvHome() {
   const profile = useProfile();
   const now = useNow();
-  const resume = titles.filter((t) => t.progress !== undefined);
+  const home = useHome();
+  const genres = useGenres();
+
+  const rows = home.data?.rows ?? [];
+  const newest = rows.find((r) => r.key === "new");
+  const genreRows = rows.filter((r) => r.genre);
+  const spotlight = genreRows[0];
+  const other = rows.filter((r) => r !== newest && r !== spotlight);
+
+  if (home.isError) {
+    return (
+      <div className="night min-h-dvh px-4 pt-28 sm:px-10 lg:px-16">
+        <p className="text-lg text-muted">Il catalogo non risponde. Riprova tra poco.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-canvas">
-      <Hero items={featured} eyebrow={now && profile ? `${greeting(now)}, ${profile.name}` : undefined} />
+      <Hero items={home.data?.featured ?? []} eyebrow={now && profile ? `${greeting(now)}, ${profile.name}` : undefined} />
 
       <div className="relative">
-        <Rail title="Continua a guardare">
-          {resume.map((t) => (
-            <Tile key={t.id} title={t} className="w-64 sm:w-80 xl:w-96" />
-          ))}
-        </Rail>
+        {home.isPending && (
+          <Rail title="Novità">
+            {Array.from({ length: 8 }, (_, i) => (
+              <PosterSkeleton key={i} className="w-32 sm:w-44 xl:w-52" />
+            ))}
+          </Rail>
+        )}
 
-        <Rail title="Top 10 di oggi">
-          {pick(top10Ids).map((t, i) => (
-            <Top10Card key={t.id} title={t} rank={i + 1} />
-          ))}
-        </Rail>
+        {newest && (
+          <Rail title={newest.name}>
+            {newest.items.map((t) => (
+              <Tile key={t.id} title={t} className="w-64 sm:w-80 xl:w-96" />
+            ))}
+          </Rail>
+        )}
 
         <OnAir now={now} />
 
-        <Rail title="Esplora">
-          {genres.map((g) => (
-            <GenreCard key={g.slug} href={`/tv/genre/${g.slug}`} name={g.name} slug={g.slug} />
-          ))}
-        </Rail>
+        {genres.data && genres.data.length > 0 && (
+          <Rail title="Esplora">
+            {genres.data.slice(0, 12).map((g) => (
+              <GenreCard
+                key={g.slug}
+                href={`/tv/genre/${g.slug}`}
+                name={g.name}
+                image={rows.find((r) => r.genre === g.slug)?.items.find((t) => t.backdropUrl)?.backdropUrl}
+              />
+            ))}
+          </Rail>
+        )}
 
-        <Rail title="Novità">
-          {pick(newIds).map((t) => (
-            <Tile key={t.id} title={t} className="w-64 sm:w-80 xl:w-96" />
-          ))}
-        </Rail>
+        {spotlight && spotlight.items.length > 1 && (
+          <Spotlight heading={`In primo piano: ${spotlight.name.toLowerCase()}`} lead={spotlight.items[0]} more={spotlight.items.slice(1)} />
+        )}
 
-        <Spotlight heading="In primo piano: gialli" lead={findTitle("t10")!} more={byGenre("crime").filter((t) => t.id !== "t10")} />
-
-        {genres.map((g) => {
-          const list = byGenre(g.slug);
-          if (list.length < 2) return null;
-          return (
-            <Rail key={g.slug} title={g.name} href={`/tv/genre/${g.slug}`}>
-              {list.map((t) => (
-                <Poster key={t.id} title={t} className="w-32 sm:w-44 xl:w-52" />
-              ))}
-            </Rail>
-          );
-        })}
+        {other.map((row) => (
+          <Rail key={row.key} title={row.name} href={row.genre ? `/tv/genre/${row.genre}` : row.key === "movies" ? "/tv/movies" : "/tv/series"}>
+            {row.items.map((t) => (
+              <Poster key={t.id} title={t} className="w-32 sm:w-44 xl:w-52" />
+            ))}
+          </Rail>
+        ))}
         <div className="h-16" />
       </div>
     </div>
   );
 }
 
+// Live channels: demo data until channels and EPG are in maia-be.
 function OnAir({ now }: { now: number | null }) {
   const onAir = useMemo(() => {
     if (!now) return [];

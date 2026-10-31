@@ -155,3 +155,9 @@ Le puntate dei programmi si collocano prima per data di messa in onda, poi per n
 
 **Elenco completo di RaiPlay per esplorazione** delle pagine di sezione, genere, raccolta e
 collezione (6753 programmi), perché RaiPlay non ha un indice A-Z pubblico.
+
+**Frontend collegato al catalogo vero.** Film, serie, generi, ricerca, schede e player leggono
+maia-be; i dati finti restano solo per le dirette (`lib/live-demo.ts`). Le pagine con parametro
+hanno un solo parametro segnaposto in `generateStaticParams` (Cache Components ne vuole almeno uno)
+e caricano i dati nel browser, perché il catalogo cambia di continuo. Il player non usa hls.js per
+il catalogo: il link va in `<video src>` (vedi riproduzione sul dispositivo).

@@ -1,6 +1,6 @@
 # MAIA TV: catalogo e riproduzione
 
-*Stato: aggiornamento del catalogo RaiPlay costruito nel backend (`maia-be/src/tv/`, vedi "Implementazione"); il frontend usa ancora i dati finti (`maia-fe/lib/mock.ts`) finché non ci sono gli endpoint del catalogo.*
+*Stato: catalogo RaiPlay nel database con aggiornamento automatico; il frontend lo legge e riproduce i video dal dispositivo (vedi "Implementazione" e "API per il frontend"). Le dirette sono ancora dati di prova.*
 
 ## Servizi
 
@@ -267,7 +267,13 @@ Comandi (vedi [../dev.md](../dev.md)): `npm run catalog -- fill|refresh raiplay`
 `npm run catalog -- sync raiplay <slug...>`, `npm run catalog -- status`,
 `npm run catalog:worker`, `npm run catalog:probe`.
 
-Ancora da fare: endpoint del catalogo e del playback per il frontend, pannello admin per la
+**API per il frontend** (`maia-be/src/tv/tv.controller.ts`, solo con sessione): `GET /tv/home`,
+`GET /tv/genres?kind=`, `GET /tv/titles?kind&genre&q&skip&take`, `GET /tv/titles/:id` (stagioni ed
+episodi disponibili, extra, simili), `GET /tv/playback/:itemId?exclude=` (film, episodio o extra:
+la fonte migliore, prima i servizi OK e con meno errori), `POST /tv/playback/:itemId/failed`.
+Un titolo è visibile solo se ha almeno un video disponibile e senza DRM.
+
+Ancora da fare: pannello admin per la
 coda di revisione e per le regole di numerazione, pannello stato, riabbinamento periodico dei
 titoli *review*/*new* (TMDB può aggiungerli in seguito).
 
@@ -331,6 +337,10 @@ blocchi caricati a parte. Seguendole dalle 10 sezioni on demand si arriva a **67
 1. ~~Prototipo di misura RaiPlay~~ (fatto: 90% abbinati da soli).
 2. ~~Schema Prisma del catalogo, coda pg-boss, fase 1 e fase 2 per RaiPlay~~ (fatto, vedi
    "Implementazione").
-3. Endpoint del catalogo e del playback, frontend collegato (HLS nativo per RaiPlay).
-4. Pannello admin: coda di revisione, regole di numerazione, stato dei servizi.
-5. Altri servizi, uno alla volta, dopo la verifica del vincolo geografico.
+3. ~~Endpoint del catalogo e del playback, frontend collegato (HLS nativo per RaiPlay)~~ (fatto:
+   `maia-be/src/tv/tv.controller.ts`, `maia-fe/lib/tv.ts`).
+4. Generi unificati (oggi convivono quelli TMDB, es. "Dramma", e quelli RaiPlay, es.
+   "Drammatico", "approfondimento"): tabella `GenreAlias`.
+5. Pannello admin: coda di revisione, regole di numerazione, stato dei servizi.
+6. Continua a guardare, preferiti, Top 10.
+7. Altri servizi, uno alla volta, dopo la verifica del vincolo geografico.

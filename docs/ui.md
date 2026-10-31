@@ -80,7 +80,7 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 | `/tv/movies`, `/tv/series` | mini-Home del tipo: hero, Top dei film/serie, *Esplora per genere*, una riga per genere |
 | `/tv/movies/[genre]`, `/tv/series/[genre]` | pagina del genere: hero corto e griglia completa |
 | `/tv/genre/[genre]` | scorciatoia su film **e** serie insieme (es. "Commedie") |
-| `/tv/title/[id]` | scheda: hero con Guarda/Riprendi, poi le schede *Episodi* (con le stagioni), *Extra* (highlights, clip, anticipazioni: solo se ce ne sono, divisi in gruppi, filtrati per la stagione scelta quando il gruppo ne ha una; *previsto*, non ancora nel prototipo), *Altri come questo*, *Dettagli*; nessuna indicazione delle fonti |
+| `/tv/title/[id]` | scheda: hero con Guarda/Riprendi, poi le schede *Episodi* (con le stagioni), *Extra* (highlights, clip, anticipazioni: solo se ce ne sono, divisi in gruppi, prima quelli della stagione scelta, poi quelli generali), *Altri come questo*, *Dettagli*; nessuna indicazione delle fonti |
 | `/tv/search` | ricerca con tastiera a griglia su schermi grandi |
 | `/watch/[id]`, `/watch/live-[channel]` | player a schermo intero |
 
@@ -166,12 +166,23 @@ in pausa).
   Con il mouse i comandi ricompaiono anche muovendolo; sul touch no, così un tocco non li
   riaccende per sbaglio.
 
-## Note sul prototipo
+## Dati
 
-- Dati finti in `maia-fe/lib/mock.ts` (titoli, canali, palinsesto, episodi: 6 per stagione).
-  Account e profili invece sono veri (maia-be); il profilo scelto è in `localStorage`
-  (`lib/session.ts`). Tutti gli episodi usano lo stesso flusso di prova.
-- Locandine e sfondi sono foto casuali di riempimento da picsum.photos.
-- Il video è un flusso HLS di prova pubblico (Mux), con più qualità.
+- **Film, serie, generi, ricerca, schede ed episodi** vengono dal catalogo di maia-be
+  (`maia-fe/lib/tv.ts`: `/tv/home`, `/tv/genres`, `/tv/titles`, `/tv/titles/:id`, `/tv/playback/:id`).
+  Locandine e sfondi sono quelli di TMDB (o di RaiPlay per i titoli che TMDB non ha); senza
+  immagine il riquadro mostra un gradiente. Le miniature degli episodi usano lo sfondo del titolo.
+- **Riproduzione**: il player chiede a maia-be cosa riprodurre e mette il link in `<video src>`
+  (HLS nativo del browser, niente hls.js per il catalogo). Se il video non parte segnala l'errore
+  e chiede la fonte successiva; senza fonti mostra "Questo contenuto ora non è disponibile". Su
+  browser senza HLS nativo (Firefox) avvisa di usare Chrome, Edge o Safari.
+- Pagine con parametro (`/tv/title/[id]`, `/watch/[id]`, generi): `generateStaticParams` restituisce
+  un solo valore segnaposto (lo richiede Cache Components); i dati li carica il browser.
+- **Dirette** (canali, palinsesto, "In onda ora"): ancora dati di prova in
+  `maia-fe/lib/live-demo.ts`, con un flusso HLS pubblico (Mux), finché canali e palinsesto non sono
+  in maia-be.
+- Non ancora fatti: "Continua a guardare" e Top 10 (servono `WatchProgress` e statistiche),
+  preferiti (il tasto + non salva ancora).
+- Account e profili sono veri (maia-be); il profilo scelto è in `localStorage` (`lib/session.ts`).
 - Aprendo il player incollando l'indirizzo, il browser blocca l'avvio automatico con audio:
   compare il tasto Play al centro.

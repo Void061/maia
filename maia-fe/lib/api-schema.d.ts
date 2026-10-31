@@ -180,6 +180,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tv/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TvController_home"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tv/genres": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TvController_genres"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tv/titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TvController_titles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tv/titles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TvController_title"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tv/playback/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TvController_playback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tv/playback/{itemId}/failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TvController_playbackFailed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/register": {
         parameters: {
             query?: never;
@@ -377,6 +473,101 @@ export interface components {
         RoleDto: {
             /** @enum {string} */
             role: "USER" | "ADMIN";
+        };
+        TitleCardDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "MOVIE" | "SERIES";
+            name: string;
+            year?: number | null;
+            genres: string[];
+            overview: string;
+            posterUrl?: string | null;
+            backdropUrl?: string | null;
+            /** @description Movies: length */
+            minutes?: number | null;
+            /** @description Series: seasons with something to watch */
+            seasons?: number | null;
+        };
+        RowDto: {
+            key: string;
+            name: string;
+            /** @description Genre slug, for "Vedi tutto" */
+            genre?: string | null;
+            items: components["schemas"]["TitleCardDto"][];
+        };
+        HomeDto: {
+            featured: components["schemas"]["TitleCardDto"][];
+            rows: components["schemas"]["RowDto"][];
+        };
+        GenreDto: {
+            slug: string;
+            name: string;
+            count: number;
+        };
+        TitlePageDto: {
+            items: components["schemas"]["TitleCardDto"][];
+            total: number;
+        };
+        EpisodeDto: {
+            id: string;
+            season: number;
+            number?: number | null;
+            name: string;
+            /** Format: date */
+            airDate?: string | null;
+            minutes?: number | null;
+        };
+        SeasonDto: {
+            number: number;
+            episodes: components["schemas"]["EpisodeDto"][];
+        };
+        ExtraDto: {
+            id: string;
+            name: string;
+            minutes?: number | null;
+        };
+        ExtraGroupDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "HIGHLIGHTS" | "CLIPS" | "PREVIEWS" | "EXTRAS";
+            label: string;
+            season?: number | null;
+            items: components["schemas"]["ExtraDto"][];
+        };
+        TitleDetailDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "MOVIE" | "SERIES";
+            name: string;
+            year?: number | null;
+            genres: string[];
+            overview: string;
+            posterUrl?: string | null;
+            backdropUrl?: string | null;
+            /** @description Movies: length */
+            minutes?: number | null;
+            /** @description Series: seasons with something to watch */
+            seasons?: number | null;
+            originalName?: string | null;
+            seasonList: components["schemas"]["SeasonDto"][];
+            extras: components["schemas"]["ExtraGroupDto"][];
+            similar: components["schemas"]["TitleCardDto"][];
+        };
+        PlaybackDto: {
+            /** @description Movie, episode or extra id */
+            itemId: string;
+            provider: string;
+            /**
+             * @description native-hls: give url to <video src>, the device resolves it
+             * @enum {string}
+             */
+            type: "native-hls";
+            url: string;
+            durationSec?: number | null;
+        };
+        PlaybackFailedDto: {
+            provider: string;
         };
         RegisterDto: {
             /** @example Ivan */
@@ -797,6 +988,159 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ErrorDto"];
                 };
+            };
+        };
+    };
+    TvController_home: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeDto"];
+                };
+            };
+        };
+    };
+    TvController_genres: {
+        parameters: {
+            query?: {
+                kind?: "MOVIE" | "SERIES";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenreDto"][];
+                };
+            };
+        };
+    };
+    TvController_titles: {
+        parameters: {
+            query?: {
+                kind?: "MOVIE" | "SERIES";
+                /** @description Genre slug */
+                genre?: string;
+                /** @description Search in the title */
+                q?: string;
+                skip?: number;
+                take?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitlePageDto"];
+                };
+            };
+        };
+    };
+    TvController_title: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleDetailDto"];
+                };
+            };
+            /** @description TITLE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    TvController_playback: {
+        parameters: {
+            query?: {
+                /** @description Providers to skip, comma separated (after a failure) */
+                exclude?: string;
+            };
+            header?: never;
+            path: {
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaybackDto"];
+                };
+            };
+            /** @description NO_SOURCE */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    TvController_playbackFailed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaybackFailedDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

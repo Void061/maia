@@ -58,8 +58,9 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     await boss.schedule(QUEUES.news, '0 */3 * * *', {}, { tz: TZ });
 
     await boss.work<DiscoverJob>(QUEUES.discover, { batchSize: 1 }, ([job]) => this.onDiscover(job));
-    // Three in parallel: TMDB calls overlap the service's, which stays one request at a time.
-    await boss.work<SyncTitleJob>(QUEUES.syncTitle, { batchSize: 1, localConcurrency: 3 }, ([job]) => this.onSyncTitle(job));
+    // Several in parallel: titles wait on TMDB and the database while the service's
+    // requests stay one at a time (polite-fetch), so this does not load the service more.
+    await boss.work<SyncTitleJob>(QUEUES.syncTitle, { batchSize: 1, localConcurrency: 8 }, ([job]) => this.onSyncTitle(job));
     await boss.work(QUEUES.due, { batchSize: 1 }, () => this.onDue());
     await boss.work(QUEUES.news, { batchSize: 1 }, () => this.onNews());
     this.logger.log('Catalog workers running');

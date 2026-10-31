@@ -51,7 +51,8 @@ export class TmdbClient {
     const isToken = this.key.startsWith('eyJ');
     if (!isToken) url.searchParams.set('api_key', this.key);
     return politeJson<T>(url.toString(), {
-      minGapMs: 60,
+      minGapMs: 40,
+      serial: false,
       headers: isToken ? { Authorization: `Bearer ${this.key}` } : {},
     });
   }

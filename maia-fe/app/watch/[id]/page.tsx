@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { channels, findTitle, titles } from "@/lib/mock";
+import { channels } from "@/lib/live-demo";
 import Player from "./player";
+import WatchTitle from "./watch-title";
 
+// Catalog titles load in the browser; Cache Components needs one param to
+// prerender the shell. Live channels are still demo data.
 export function generateStaticParams() {
-  return [...titles.map((t) => ({ id: t.id })), ...channels.map((c) => ({ id: `live-${c.id}` }))];
+  return channels.map((c) => ({ id: `live-${c.id}` }));
 }
 
 export default function Page({ params }: PageProps<"/watch/[id]">) {
@@ -22,7 +25,5 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
     if (!channel) notFound();
     return <Player live={{ channelId: channel.id }} />;
   }
-  const title = findTitle(id);
-  if (!title) notFound();
-  return <Player title={title} />;
+  return <WatchTitle id={id} />;
 }

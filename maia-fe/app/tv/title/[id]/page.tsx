@@ -1,10 +1,10 @@
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { findTitle, titles } from "@/lib/mock";
-import TitleDetail from "./title-detail";
+import TitleScreen from "./title-detail";
 
+// Titles come from the catalog at runtime; Cache Components needs one param to
+// prerender the shell, the page itself loads the title in the browser.
 export function generateStaticParams() {
-  return titles.map((t) => ({ id: t.id }));
+  return [{ id: "_" }];
 }
 
 export default function Page({ params }: PageProps<"/tv/title/[id]">) {
@@ -17,7 +17,5 @@ export default function Page({ params }: PageProps<"/tv/title/[id]">) {
 
 async function Content({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const title = findTitle(id);
-  if (!title) notFound();
-  return <TitleDetail title={title} />;
+  return <TitleScreen id={id} />;
 }
