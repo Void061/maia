@@ -2,7 +2,7 @@
 
 import type Hls from "hls.js";
 import { useEffect, useRef } from "react";
-import { demoStream } from "@/lib/mock";
+import { demoStream } from "@/lib/live-demo";
 
 // Muted live preview of a channel, like the top of the Pluto TV / Samsung TV
 // Plus guide. Remount it (key) to switch channel. Prototype: every channel is

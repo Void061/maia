@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { GenrePage } from "@/components/catalog";
-import { byGenre, genres } from "@/lib/mock";
 
+// Genres come from the catalog at runtime; Cache Components needs one param to
+// prerender the shell, the page itself loads its titles in the browser.
 export function generateStaticParams() {
-  return genres.filter((g) => byGenre(g.slug, "SERIES").length > 0).map((g) => ({ genre: g.slug }));
+  return [{ genre: "dramma" }];
 }
 
 export default function Page({ params }: PageProps<"/tv/series/[genre]">) {

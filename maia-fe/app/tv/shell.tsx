@@ -15,7 +15,7 @@ import {
 } from "@/components/icons";
 import Logo from "@/components/logo";
 import { useLogout, useMe, useProfileMutations } from "@/lib/account";
-import { apps } from "@/lib/mock";
+import { apps } from "@/lib/apps";
 import { useProfile } from "@/lib/session";
 
 const nav = [

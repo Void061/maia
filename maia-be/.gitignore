@@ -11,3 +11,8 @@ node_modules
 # Environment files with real values (only the examples are committed)
 .env.*
 !.env.example
+
+# Output of npm run catalog:probe
+/.probe
+# Build of npm run catalog:worker
+/.worker

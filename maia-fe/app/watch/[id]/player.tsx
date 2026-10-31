@@ -1,7 +1,6 @@
 "use client";
 
 import type Hls from "hls.js";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -26,21 +25,13 @@ import {
   VolumeIcon,
   VolumeLowIcon,
 } from "@/components/icons";
-import {
-  channels,
-  demoStream,
-  episodeAt,
-  episodesOf,
-  nextEpisode,
-  previousEpisode,
-  resumeEpisode,
-  scheduleAround,
-  type Episode,
-  type Title,
-} from "@/lib/mock";
+import { Art } from "@/components/poster";
+import { ApiError } from "@/lib/api";
+import { channels, demoStream, scheduleAround } from "@/lib/live-demo";
+import { episodeLabel, fetchPlayback, flatEpisodes, reportPlaybackFailed, type Episode, type TitleDetail } from "@/lib/tv";
 import { hhmm, useNow } from "@/lib/use-now";
 
-type Props = { title?: Title; live?: { channelId: string } };
+type Props = { title?: TitleDetail; live?: { channelId: string } };
 type Level = { index: number; height: number };
 // lock()/unlock() are missing from some DOM typings and from iPhone Safari.
 type OrientationWithLock = ScreenOrientation & {
@@ -68,17 +59,26 @@ export default function Player({ title, live }: Props) {
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const [channelId, setChannelId] = useState(live?.channelId);
-  // Series: which episode is playing (?s=&e= in the URL, else where "Riprendi" lands).
+  // Series: which episode is playing (?ep= in the URL, else the first one).
+  // Extras play on their own (?extra=), without episode navigation.
   const params = useSearchParams();
-  const isSeries = title?.kind === "SERIES";
+  const extraId = params.get("extra");
+  const extra = useMemo(
+    () => (extraId ? title?.extras.flatMap((g) => g.items).find((x) => x.id === extraId) ?? null : null),
+    [extraId, title],
+  );
+  const isSeries = title?.kind === "SERIES" && !extraId;
+  const episodes = useMemo(() => (title && isSeries ? flatEpisodes(title) : []), [title, isSeries]);
   const [episode, setEpisode] = useState<Episode | null>(() => {
-    if (!title || !isSeries) return null;
-    const s = Number(params.get("s"));
-    const e = Number(params.get("e"));
-    return s && e ? (episodeAt(s, e) ?? resumeEpisode(title)) : resumeEpisode(title);
+    if (!episodes.length) return null;
+    return episodes.find((e) => e.id === params.get("ep")) ?? episodes[0];
   });
-  const upNext = title && episode ? nextEpisode(title, episode.season, episode.number) : null;
-  const previous = episode ? previousEpisode(episode.season, episode.number) : null;
+  const at = episode ? episodes.findIndex((e) => e.id === episode.id) : -1;
+  const upNext = at >= 0 && at < episodes.length - 1 ? episodes[at + 1] : null;
+  const previous = at > 0 ? episodes[at - 1] : null;
+  // What the stream is for: a movie, an episode, an extra, or a live channel.
+  const playId = live ? null : (extraId ?? (isSeries ? episode?.id : title?.id) ?? null);
+  const [failure, setFailure] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -122,36 +122,75 @@ export default function Player({ title, live }: Props) {
     }, 3000);
   }, []);
 
-  // Attach the stream. hls.js where MSE exists, native HLS otherwise (Safari, iOS).
+  // Attach the stream. Live demo channels: hls.js where MSE exists, native HLS
+  // otherwise. Catalog videos: maia-be says what to play and the link goes
+  // straight into <video src>; the browser resolves it (the services check the
+  // viewer's country there) and plays it with its own HLS support. When a
+  // source does not play, the next one is asked for, excluding that service.
   useEffect(() => {
     const v = video.current;
     if (!v) return;
     let cancelled = false;
-    (async () => {
-      const { default: HlsLib } = await import("hls.js");
-      if (cancelled) return;
-      if (HlsLib.isSupported()) {
-        const h = new HlsLib();
-        hls.current = h;
-        h.loadSource(demoStream);
-        h.attachMedia(v);
-        h.on(HlsLib.Events.MANIFEST_PARSED, () => {
-          setLevels(h.levels.map((l, index) => ({ index, height: l.height })).sort((a, b) => b.height - a.height));
-          setAudio(h.audioTracks.map((t, index) => ({ index, label: t.name || t.lang || `Traccia ${index + 1}` })));
-          setSubs(h.subtitleTracks.map((t, index) => ({ index, label: t.name || t.lang || `Sottotitoli ${index + 1}` })));
-          v.play().catch(() => {});
-        });
-      } else {
-        v.src = demoStream;
-        v.play().catch(() => {});
+    const tried: string[] = [];
+    let onError: (() => void) | null = null;
+    setFailure(null);
+    setLevels([]);
+    setAudio([]);
+    setSubs([]);
+
+    const playCatalog = async (id: string) => {
+      if (!v.canPlayType("application/vnd.apple.mpegurl")) {
+        setFailure("Questo browser non riproduce i video di MAIA. Usa Chrome, Edge o Safari.");
+        return;
       }
-    })();
+      try {
+        const p = await fetchPlayback(id, tried);
+        if (cancelled) return;
+        onError = () => {
+          if (cancelled) return;
+          tried.push(p.provider);
+          void reportPlaybackFailed(id, p.provider);
+          void playCatalog(id);
+        };
+        v.addEventListener("error", onError, { once: true });
+        v.src = p.url;
+        v.play().catch(() => {});
+      } catch (err) {
+        if (!cancelled)
+          setFailure(err instanceof ApiError && err.code === "NO_SOURCE" ? "Questo contenuto ora non è disponibile." : "Il video non parte. Riprova tra poco.");
+      }
+    };
+
+    if (playId) {
+      void playCatalog(playId);
+    } else {
+      (async () => {
+        const { default: HlsLib } = await import("hls.js");
+        if (cancelled) return;
+        if (HlsLib.isSupported()) {
+          const h = new HlsLib();
+          hls.current = h;
+          h.loadSource(demoStream);
+          h.attachMedia(v);
+          h.on(HlsLib.Events.MANIFEST_PARSED, () => {
+            setLevels(h.levels.map((l, index) => ({ index, height: l.height })).sort((a, b) => b.height - a.height));
+            setAudio(h.audioTracks.map((t, index) => ({ index, label: t.name || t.lang || `Traccia ${index + 1}` })));
+            setSubs(h.subtitleTracks.map((t, index) => ({ index, label: t.name || t.lang || `Sottotitoli ${index + 1}` })));
+            v.play().catch(() => {});
+          });
+        } else {
+          v.src = demoStream;
+          v.play().catch(() => {});
+        }
+      })();
+    }
     return () => {
       cancelled = true;
+      if (onError) v.removeEventListener("error", onError);
       hls.current?.destroy();
       hls.current = null;
     };
-  }, []);
+  }, [playId]);
 
   useEffect(() => {
     // Controls start visible; just schedule the first fade-out.
@@ -277,20 +316,18 @@ export default function Player({ title, live }: Props) {
     }
   }, []);
 
-  // Plays another episode: the URL follows, the stream restarts from the top.
-  // (Prototype: every episode is the same demo stream.)
+  // Plays another episode: the URL follows and the stream effect loads its source.
   const playEpisode = useCallback(
     (ep: Episode) => {
       if (!title) return;
       setEpisode(ep);
       setPanel(null);
       setUpNextHidden(false);
+      setTime(0);
       root.current?.focus(); // keep the remote/keyboard shortcuts working
-      seekTo(0);
-      video.current?.play().catch(() => {});
-      router.replace(`/watch/${title.id}?s=${ep.season}&e=${ep.number}`, { scroll: false });
+      router.replace(`/watch/${title.id}?ep=${ep.id}`, { scroll: false });
     },
-    [title, seekTo, router],
+    [title, router],
   );
 
   const zap = useCallback(
@@ -345,7 +382,11 @@ export default function Player({ title, live }: Props) {
   }
 
   const heading = live ? onAir?.title ?? channel?.name : title?.name;
-  const subheading = episode ? `S${episode.season}:E${episode.number} · ${episode.name}` : null;
+  const subheading = extra
+    ? extra.name
+    : episode
+      ? [episode.season < 1900 ? `S${episode.season}` : null, episodeLabel(episode), episode.name].filter(Boolean).join(" · ")
+      : null;
   // "Prossimo episodio" card in the last seconds, Netflix-style; plays on its own at the end.
   const remaining = duration ? duration - time : Infinity;
   const showUpNext = !!upNext && remaining <= UP_NEXT_SECS && !panel && !upNextHidden;
@@ -542,6 +583,17 @@ export default function Player({ title, live }: Props) {
         </div>
       )}
 
+      {failure && (
+        <div role="alert" className="absolute left-1/2 top-1/2 w-[min(90vw,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-black/80 p-6 text-center">
+          <p className="text-lg font-semibold">{failure}</p>
+          {upNext && (
+            <button onClick={() => playEpisode(upNext)} className="focusable pill-focus mt-4 rounded-full bg-white px-5 py-2 font-semibold text-black">
+              Episodio successivo
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Nothing drawn over the video uses backdrop-filter: on Android Chrome a
           blurred layer over a playing video copies a stale patch of the frame
           during seeks, which shows up as a "mini player" rectangle. */}
@@ -591,13 +643,7 @@ export default function Player({ title, live }: Props) {
             className="focusable pill-focus group flex w-72 items-center gap-3 rounded-xl bg-black/80 p-2 pr-3 text-left sm:w-80"
           >
             <span className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-raised">
-              <Image
-                src={`https://picsum.photos/seed/maia-${title.id}-s${upNext.season}e${upNext.number}/320/180`}
-                alt=""
-                fill
-                unoptimized
-                className="object-cover"
-              />
+              <Art src={title.backdropUrl} seed={upNext.id} />
               <span className="absolute inset-0 grid place-items-center bg-black/30 [&>svg]:size-6">
                 <PlayIcon />
               </span>
@@ -613,9 +659,9 @@ export default function Player({ title, live }: Props) {
                 Prossimo episodio · {Math.max(0, Math.ceil(remaining))} s
               </span>
               <span className="block truncate text-sm font-semibold">
-                E{upNext.number} · {upNext.name}
+                {episodeLabel(upNext)} · {upNext.name}
               </span>
-              {upNext.season !== episode?.season && (
+              {upNext.season !== episode?.season && upNext.season < 1900 && (
                 <span className="block text-xs text-faint group-focus-visible:text-black/60">Stagione {upNext.season}</span>
               )}
             </span>
@@ -681,13 +727,14 @@ function EpisodesPanel({
   onPick,
   onClose,
 }: {
-  title: Title;
+  title: TitleDetail;
   current: Episode;
   onPick: (ep: Episode) => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [season, setSeason] = useState(current.season);
+  const episodes = title.seasonList.find((s) => s.number === season)?.episodes ?? [];
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>("[aria-current=true], button")?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -714,45 +761,39 @@ function EpisodesPanel({
           Chiudi
         </button>
       </div>
-      {(title.seasons ?? 1) > 1 && (
+      {title.seasonList.length > 1 && (
         <div className="mt-4 flex flex-wrap gap-2">
-          {Array.from({ length: title.seasons ?? 1 }, (_, i) => i + 1).map((n) => (
+          {title.seasonList.map(({ number: n }) => (
             <button
               key={n}
               onClick={() => setSeason(n)}
               aria-pressed={season === n}
               className="focusable pill-focus h-10 rounded-full px-4 text-sm font-medium text-muted aria-pressed:bg-white/15 aria-pressed:text-label"
             >
-              Stagione {n}
+              {n >= 1900 ? `Edizione ${n}` : `Stagione ${n}`}
             </button>
           ))}
         </div>
       )}
       <ol className="mt-4 grid gap-1">
-        {episodesOf(season).map((ep) => {
-          const playing = ep.season === current.season && ep.number === current.number;
+        {episodes.map((ep) => {
+          const playing = ep.id === current.id;
           return (
-            <li key={ep.number}>
+            <li key={ep.id}>
               <button
                 onClick={() => onPick(ep)}
                 aria-current={playing}
                 className="focusable pill-focus group flex w-full items-center gap-4 rounded-2xl p-2 text-left aria-[current=true]:bg-white/10"
               >
                 <span className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-raised sm:w-36">
-                  <Image
-                    src={`https://picsum.photos/seed/maia-${title.id}-s${ep.season}e${ep.number}/640/360`}
-                    alt=""
-                    fill
-                    unoptimized
-                    className="object-cover"
-                  />
+                  <Art src={title.backdropUrl} seed={ep.id} />
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm text-faint group-focus-visible:text-black/60">
-                    {playing ? "In riproduzione" : `Episodio ${ep.number}`}
+                    {playing ? "In riproduzione" : episodeLabel(ep)}
                   </span>
                   <span className="block truncate text-base font-semibold">{ep.name}</span>
-                  <span className="block text-sm text-faint group-focus-visible:text-black/60">{ep.minutes} min</span>
+                  {ep.minutes && <span className="block text-sm text-faint group-focus-visible:text-black/60">{ep.minutes} min</span>}
                 </span>
               </button>
             </li>

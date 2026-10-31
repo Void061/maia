@@ -126,7 +126,7 @@ Impostazioni account, Esci.
 1. **Account**: quali app ha (`AccountApp`), deciso dall'amministratore.
 2. **Profilo**: restrizioni decise dal titolare (`ProfileApp`).
 
-Oggi l'elenco delle app è ancora nei dati finti del frontend (`lib/mock.ts`).
+Oggi l'elenco delle app è fisso nel frontend (`maia-fe/lib/apps.ts`).
 
 ## Login sulla TV (da fare)
 

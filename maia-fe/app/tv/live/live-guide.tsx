@@ -11,7 +11,7 @@ import {
   scheduleAround,
   type Channel,
   type Program,
-} from "@/lib/mock";
+} from "@/lib/live-demo";
 import { hhmm, useNow } from "@/lib/use-now";
 
 const PX_PER_MIN = 5; // one hour = 300px

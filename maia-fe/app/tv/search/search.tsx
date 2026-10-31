@@ -1,17 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Poster from "@/components/poster";
-import { titles } from "@/lib/mock";
+import { useTitles } from "@/lib/tv";
 
 const KEYS = "abcdefghijklmnopqrstuvwxyz1234567890".split("");
 
-const normalize = (s: string) =>
-  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-
 export default function Search() {
   const [q, setQ] = useState("");
-  const results = q.trim() ? titles.filter((t) => normalize(t.name).includes(normalize(q.trim()))) : titles.slice(0, 7);
+  // Searches the catalog once typing pauses, not at every key.
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setQuery(q.trim()), 300);
+    return () => clearTimeout(id);
+  }, [q]);
+  const found = useTitles({ q: query, take: 60 }, query.length > 0);
+  const suggested = useTitles({ take: 14 });
+  const results = query ? (found.data?.items ?? []) : (suggested.data?.items ?? []);
 
   return (
     <div className="night min-h-dvh px-4 pt-20 sm:px-10 md:pt-28 lg:px-16">
@@ -48,14 +53,14 @@ export default function Search() {
           </div>
         </div>
         <div>
-          <h2 className="text-muted">{q.trim() ? `${results.length} risultati` : "Suggeriti"}</h2>
+          <h2 className="text-muted">{query ? (found.isPending ? "Cerco…" : `${found.data?.total ?? 0} risultati`) : "Suggeriti"}</h2>
           <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-6 pb-16 sm:grid-cols-4 sm:gap-x-6 xl:grid-cols-5">
             {results.map((t) => (
               <Poster key={t.id} title={t} />
             ))}
           </div>
-          {q.trim() && results.length === 0 && (
-            <p className="text-lg text-muted">Nessun titolo contiene “{q.trim()}”. Prova con meno lettere.</p>
+          {query && !found.isPending && results.length === 0 && (
+            <p className="text-lg text-muted">Nessun titolo contiene “{query}”. Prova con meno lettere.</p>
           )}
         </div>
       </div>

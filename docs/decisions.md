@@ -123,3 +123,45 @@ italiano. Rinominati i percorsi esistenti (es. `/profili` → `/profiles`, `/gua
 **Anteprima da remoto con ngrok (`npm run remote` in maia-fe)**, sempre dietro basic auth
 (`Ivan` / `12341@`), per provare le modifiche da qualsiasi rete. La basic auth la fa lo script e
 non ngrok, perché ngrok vuole password di almeno 8 caratteri.
+
+## 2026-10-31
+
+**Video riprodotto sempre sul dispositivo, mai dal server.** La VPS (Contabo, IP francese) è
+fuori dall'Italia e non si usano altre VPS, apparecchi a casa o app native. Misurato: RaiPlay
+blocca dall'estero solo il relinker (film e serie 0 su 14 da un IP estero, tutti ok dall'Italia),
+mentre il catalogo si legge da ovunque. Il browser dà il relinker a `<video src>` (HLS nativo,
+senza CORS) e Rai vede l'IP italiano dell'utente. Tolto il proxy video nel backend previsto prima.
+Limite accettato: su Firefox i contenuti Rai non partono.
+
+**Primo servizio RaiPlay, Pluto TV rimandato.** Pluto assegna il paese dall'IP (da un IP
+tedesco dà il catalogo tedesco) e le sue API accettano solo `pluto.tv`: senza IP italiano non
+si può.
+
+**Aggiornamento del catalogo a due livelli** (dati grezzi per servizio + catalogo MAIA),
+alberatura = unione delle fonti, TMDB come ossatura, coda di revisione nel pannello admin,
+ritmo di controllo che si adatta (giorno → settimana → mese, idea dall'add-on Kodi KoD) più la
+data del prossimo episodio da TMDB. Coda dei lavori con pg-boss su Postgres. Da KoD (GPL-3) si
+prendono solo idee ed endpoint, non codice.
+
+**Extra in una sezione a parte.** Highlights, clip, anticipazioni e simili si tengono (sono molti:
+nel campione RaiPlay 4141 contro 1868 episodi), ma come Extra della scheda, divisi in gruppi e
+legati alla stagione quando c'è, mai nella lista episodi. Non si abbinano a TMDB: appartengono al
+titolo su cui sono stati trovati.
+
+**Catalogo costruito con pg-boss nel backend.** I lavori (passata notturna, novità ogni 3 ore,
+titoli in scadenza ogni ora, un lavoro per titolo) girano nel container di maia-be, nello stesso
+Postgres: niente Redis né altre risorse. In sviluppo locale girano in un processo a sé
+(`npm run catalog:worker`) perché i riavvii di `start:dev` interromperebbero il riempimento.
+
+**Episodi che TMDB non ha ancora: provvisori.** Si mostrano con stagione e numero (o data) del
+servizio e si ricollocano a ogni sincronizzazione finché TMDB li aggiunge, invece di aspettare.
+Le puntate dei programmi si collocano prima per data di messa in onda, poi per numero.
+
+**Elenco completo di RaiPlay per esplorazione** delle pagine di sezione, genere, raccolta e
+collezione (6753 programmi), perché RaiPlay non ha un indice A-Z pubblico.
+
+**Frontend collegato al catalogo vero.** Film, serie, generi, ricerca, schede e player leggono
+maia-be; i dati finti restano solo per le dirette (`lib/live-demo.ts`). Le pagine con parametro
+hanno un solo parametro segnaposto in `generateStaticParams` (Cache Components ne vuole almeno uno)
+e caricano i dati nel browser, perché il catalogo cambia di continuo. Il player non usa hls.js per
+il catalogo: il link va in `<video src>` (vedi riproduzione sul dispositivo).

@@ -9,7 +9,7 @@ import { ProfileDialog, ProfileForm } from "@/components/profile-editor";
 import { Button } from "@/components/ui";
 import { useMe, useProfileMutations } from "@/lib/account";
 import type { Profile } from "@/lib/api";
-import { apps } from "@/lib/mock";
+import { apps } from "@/lib/apps";
 import { selectProfile } from "@/lib/session";
 
 const MAX_PROFILES = 5;

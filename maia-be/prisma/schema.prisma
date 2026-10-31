@@ -96,3 +96,243 @@ model Session {
   @@index([accountId])
   @@map("sessions")
 }
+
+// ─── MAIA TV catalog (docs/tv/catalog.md) ───────────────────────────────────
+// Two layers: what each service says (ProviderTitle) and what users see
+// (Title → Season → Episode). A Source links a service's video to a movie or an
+// episode; the tree a user sees is the union of the available sources.
+
+enum TitleKind {
+  MOVIE
+  SERIES
+}
+
+/// auto = merged with TMDB alone; review = waiting in the admin queue (title
+/// visible on its own meanwhile); new = no TMDB counterpart; manual = set by an
+/// admin, never overwritten by syncs.
+enum MatchVerdict {
+  AUTO
+  REVIEW
+  NEW
+  MANUAL
+}
+
+enum ReviewStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ExtraKind {
+  HIGHLIGHTS
+  CLIPS
+  PREVIEWS
+  EXTRAS
+}
+
+enum ProviderStatus {
+  OK
+  DEGRADED
+  DOWN
+}
+
+model Title {
+  id           String    @id @default(cuid())
+  kind         TitleKind
+  name         String
+  originalName String?   @map("original_name")
+  year         Int?
+  /// Unique per kind when known: the "codice fiscale" every service hooks onto.
+  tmdbId       Int?      @map("tmdb_id")
+  overview     String    @default("")
+  posterUrl    String?   @map("poster_url")
+  backdropUrl  String?   @map("backdrop_url")
+  genres       String[]
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  seasons        Season[]
+  sources        Source[]
+  extraGroups    ExtraGroup[]
+  providerTitles ProviderTitle[]
+
+  @@unique([kind, tmdbId])
+  @@map("titles")
+}
+
+model Season {
+  id      String @id @default(cuid())
+  titleId String @map("title_id")
+  number  Int
+  name    String?
+
+  title    Title     @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  episodes Episode[]
+
+  @@unique([titleId, number])
+  @@map("seasons")
+}
+
+model Episode {
+  id          String    @id @default(cuid())
+  seasonId    String    @map("season_id")
+  /// Null for puntate known only by date (shows missing from TMDB).
+  number      Int?
+  name        String    @default("")
+  airDate     DateTime? @map("air_date") @db.Date
+  /// Built from the service's data because TMDB does not have it (yet).
+  provisional Boolean   @default(false)
+
+  season  Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  sources Source[]
+
+  @@unique([seasonId, number])
+  @@index([seasonId, airDate])
+  @@map("episodes")
+}
+
+/// One playable video on one service. The stream URL is never stored: the
+/// device resolves playbackUrl (e.g. the RaiPlay relinker) at play time.
+model Source {
+  id              String    @id @default(cuid())
+  provider        String
+  externalId      String    @map("external_id")
+  providerTitleId String    @map("provider_title_id")
+  /// Exactly one of titleId (movie) and episodeId is set.
+  titleId         String?   @map("title_id")
+  episodeId       String?   @map("episode_id")
+  playbackUrl     String    @map("playback_url")
+  drm             Boolean   @default(false)
+  geoBlocked      Boolean   @default(false) @map("geo_blocked")
+  durationSec     Int?      @map("duration_sec")
+  expiresAt       DateTime? @map("expires_at")
+  available       Boolean   @default(true)
+  failCount       Int       @default(0) @map("fail_count")
+  lastSeenAt      DateTime  @default(now()) @map("last_seen_at")
+
+  providerTitle ProviderTitle @relation(fields: [providerTitleId], references: [id], onDelete: Cascade)
+  title         Title?        @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  episode       Episode?      @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([titleId])
+  @@index([episodeId])
+  @@index([providerTitleId])
+  @@map("sources")
+}
+
+/// A title as one service lists it, plus its sync state (adaptive rhythm:
+/// checked daily, weekly after 7 days without news, monthly after 14).
+model ProviderTitle {
+  id                String       @id @default(cuid())
+  provider          String
+  externalId        String       @map("external_id")
+  kind              TitleKind
+  name              String
+  year              Int?
+  titleId           String?      @map("title_id")
+  verdict           MatchVerdict?
+  matchScore        Float?       @map("match_score")
+  /// Hash of the normalized data: unchanged titles skip the merge.
+  contentHash       String?      @map("content_hash")
+  lastSeenAt        DateTime     @default(now()) @map("last_seen_at")
+  /// Consecutive discoveries that did not list it; at 2 its sources go off.
+  missCount         Int          @default(0) @map("miss_count")
+  checkIntervalDays Int          @default(1) @map("check_interval_days")
+  nextCheckAt       DateTime     @default(now()) @map("next_check_at")
+  lastChangeAt      DateTime     @default(now()) @map("last_change_at")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  title   Title?       @relation(fields: [titleId], references: [id], onDelete: SetNull)
+  sources Source[]
+  review  MatchReview?
+
+  @@unique([provider, externalId])
+  @@index([nextCheckAt])
+  @@map("provider_titles")
+}
+
+/// Doubtful TMDB matches for the admin panel, most popular first.
+model MatchReview {
+  id              String       @id @default(cuid())
+  providerTitleId String       @unique @map("provider_title_id")
+  /// [{ tmdbId, title, year, score }]
+  candidates      Json
+  status          ReviewStatus @default(PENDING)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  resolvedAt      DateTime?    @map("resolved_at")
+
+  providerTitle ProviderTitle @relation(fields: [providerTitleId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("match_reviews")
+}
+
+/// Highlights, clips, previews... shown in the title's "Extra" section.
+model ExtraGroup {
+  id           String    @id @default(cuid())
+  titleId      String    @map("title_id")
+  provider     String
+  externalId   String    @map("external_id")
+  kind         ExtraKind
+  label        String
+  seasonNumber Int?      @map("season_number")
+  position     Int
+
+  title  Title   @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  extras Extra[]
+
+  @@unique([provider, externalId])
+  @@index([titleId])
+  @@map("extra_groups")
+}
+
+model Extra {
+  id          String    @id @default(cuid())
+  groupId     String    @map("group_id")
+  externalId  String    @map("external_id")
+  name        String
+  position    Int
+  playbackUrl String    @map("playback_url")
+  drm         Boolean   @default(false)
+  durationSec Int?      @map("duration_sec")
+  expiresAt   DateTime? @map("expires_at")
+  available   Boolean   @default(true)
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+
+  group ExtraGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, externalId])
+  @@map("extras")
+}
+
+/// Circuit breaker per service: after repeated errors it pauses, alone.
+model ProviderHealth {
+  provider      String         @id
+  status        ProviderStatus @default(OK)
+  failStreak    Int            @default(0) @map("fail_streak")
+  retryAfter    DateTime?      @map("retry_after")
+  lastSuccessAt DateTime?      @map("last_success_at")
+  lastError     String?        @map("last_error")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@map("provider_health")
+}
+
+/// One discovery pass of a service (status panel; the anomaly guard compares
+/// the number of titles found with the previous pass).
+model SyncRun {
+  id         String    @id @default(cuid())
+  provider   String
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  found      Int?
+  enqueued   Int?
+  /// running | done | aborted | failed
+  status     String    @default("running")
+  note       String?
+
+  @@index([provider, startedAt])
+  @@map("sync_runs")
+}
