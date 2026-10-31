@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Notice } from "@/components/ui";
 import { api, type components } from "@/lib/api";
 
-type Service = components["schemas"]["AdminServiceDto"];
+export type Service = components["schemas"]["AdminServiceDto"];
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -26,9 +26,8 @@ export default function ServicesPanel({ enabled }: { enabled: boolean }) {
   });
 
   return (
-    <section className="mt-8">
-      <h2 className="font-display text-2xl font-bold">Servizi</h2>
-      <p className="mt-1 text-muted">
+    <section className="mt-6">
+      <p className="text-muted">
         Spegnendo un servizio MAIA smette subito di contattarlo. I titoli in coda aspettano e ripartono quando lo riaccendi.
       </p>
       {list.error && (
@@ -50,10 +49,13 @@ export default function ServicesPanel({ enabled }: { enabled: boolean }) {
             : s.status === "DOWN" && s.pausedUntil
               ? `In pausa automatica fino alle ${when(s.pausedUntil)} per errori${s.lastError ? `: ${s.lastError}` : ""}`
               : s.lastSuccessAt
-                ? `Attivo · ultima risposta ${when(s.lastSuccessAt)}`
-                : "Attivo";
+                ? `Ultima risposta ${when(s.lastSuccessAt)}`
+                : "Nessuna risposta ancora";
           return (
-            <li key={s.id} className="flex items-center gap-4 rounded-3xl bg-surface p-4 sm:p-5">
+            <li
+              key={s.id}
+              className={`flex items-center gap-4 rounded-3xl bg-surface p-4 sm:p-5 ${on ? "" : "ring-2 ring-[#ff6b6b]/60"}`}
+            >
               <div className="min-w-0 flex-1">
                 <p className="text-lg font-semibold">{s.name}</p>
                 <p className="text-sm text-faint">{s.role}</p>
@@ -62,16 +64,25 @@ export default function ServicesPanel({ enabled }: { enabled: boolean }) {
                   {s.queued > 0 && ` · ${s.queued} titoli in coda`}
                 </p>
               </div>
+              {/* The state in words too: the switch alone is easy to misread. */}
+              <span
+                aria-hidden
+                className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-bold ${on ? "bg-[#18301f] text-[#7ee2a0]" : "bg-[#3a1d1d] text-[#ffb4b4]"}`}
+              >
+                {on ? "Attivo" : "Spento"}
+              </span>
               <button
                 role="switch"
                 aria-checked={on}
                 aria-label={`${s.name}: ${on ? "attivo, premi per spegnere" : "spento, premi per riaccendere"}`}
                 disabled={pending}
                 onClick={() => flip.mutate({ id: s.id, enabled: !s.enabled })}
-                className={`focusable relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:opacity-60 ${on ? "bg-[#3ecf6e]" : "bg-white/20"}`}
+                className={`focusable relative h-9 w-16 shrink-0 rounded-full border-2 transition-colors disabled:opacity-60 ${
+                  on ? "border-[#30d158] bg-[#30d158]" : "border-white/35 bg-transparent"
+                }`}
               >
                 <span
-                  className={`absolute top-1 left-1 size-6 rounded-full bg-white shadow transition-transform ${on ? "translate-x-6" : ""}`}
+                  className={`absolute top-0.5 left-0.5 size-7 rounded-full shadow transition-transform ${on ? "translate-x-7 bg-white" : "bg-white/60"}`}
                 />
               </button>
             </li>

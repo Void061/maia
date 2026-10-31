@@ -85,10 +85,14 @@ Visibile solo agli account `ADMIN` attivi: ci si arriva dal menu del profilo nel
 rispondono 403 `NOT_ADMIN`. Il ruolo è ricontrollato sul database a ogni chiamata, quindi togliere
 il ruolo o sospendere un admin ha effetto subito.
 
-- **Servizi** (in cima): un interruttore per ogni servizio esterno (RaiPlay, TMDB) per fermare
+Due schede, ognuna con un badge su ciò che chiede attenzione: **Account** (badge: account da
+approvare) e **Servizi** (badge: servizi spenti o in pausa automatica).
+
+- **Servizi**: un interruttore per ogni servizio esterno (RaiPlay, TMDB) per fermare
   subito ogni richiesta verso quel servizio; mostra chi l'ha spento e quando, la pausa automatica
   per errori e i titoli in coda. Funzionamento in [tv/catalog.md](tv/catalog.md), "Interruttori dei
-  servizi".
+  servizi". Lo stato è scritto accanto all'interruttore ("Attivo" verde / "Spento" rosso) e la riga
+  di un servizio spento ha il bordo rosso, perché il solo interruttore si legge male.
 - **Account** — filtri con i conteggi: **Da approvare** (si apre qui), Email da confermare, Attivi, Sospesi, Tutti;
   ricerca per nome o email.
 - Ogni riga: nome, email, stato, badge Admin, data di registrazione, email confermata o no, numero
