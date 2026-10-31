@@ -5,6 +5,11 @@ import { Redis } from 'ioredis';
 // Every MAIA key in Redis starts with this, so the whole app cache can be
 // dropped at once without touching anything else stored there.
 export const CACHE_PREFIX = 'MAIA_APP_';
+// Raise it whenever the shape of a cached value changes (a DTO, a cached
+// internal type): entries written by the previous code are then never read,
+// and the next invalidation (which matches every MAIA_APP_ key) clears them.
+const CACHE_VERSION = 'v2';
+const ns = (key: string) => `${CACHE_PREFIX}${CACHE_VERSION}:${key}`;
 const FAILS = 'fails:';
 // Failure counters forget isolated errors after this long.
 const FAIL_WINDOW_SEC = 3600;
@@ -74,10 +79,10 @@ export class CacheService implements OnModuleDestroy {
   async fail(key: string): Promise<boolean> {
     if (!this.redis || !this.up) return false;
     try {
-      const counter = CACHE_PREFIX + FAILS + key;
+      const counter = ns(FAILS + key);
       const [[, count]] = (await this.redis.multi().incr(counter).expire(counter, FAIL_WINDOW_SEC).exec()) as [[null, number]];
       if (count < this.maxFails) return false;
-      await this.redis.unlink(CACHE_PREFIX + key, counter);
+      await this.redis.unlink(ns(key), counter);
       this.logger.log(`${key}: ${count} failures, dropped from the cache`);
       return true;
     } catch {
@@ -112,7 +117,7 @@ export class CacheService implements OnModuleDestroy {
     if (!this.redis || !this.up) return undefined;
     let raw: string | null;
     try {
-      raw = await this.redis.get(CACHE_PREFIX + key);
+      raw = await this.redis.get(ns(key));
     } catch {
       return undefined;
     }
@@ -121,13 +126,13 @@ export class CacheService implements OnModuleDestroy {
       return JSON.parse(raw) as T;
     } catch {
       // Unreadable entry: it can only fail again, drop it now.
-      await this.redis.unlink(CACHE_PREFIX + key).catch(() => undefined);
+      await this.redis.unlink(ns(key)).catch(() => undefined);
       return undefined;
     }
   }
 
   private async write(key: string, value: unknown) {
     if (!this.redis || !this.up) return;
-    await this.redis.set(CACHE_PREFIX + key, JSON.stringify(value), 'EX', this.ttlSec).catch(() => undefined);
+    await this.redis.set(ns(key), JSON.stringify(value), 'EX', this.ttlSec).catch(() => undefined);
   }
 }

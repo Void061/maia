@@ -59,7 +59,7 @@ function TitleDetail({ title }: { title: Detail }) {
   return (
     <div className="bg-canvas">
       <section className="relative min-h-[82vh] overflow-hidden">
-        <Art src={title.backdropUrl ?? title.posterUrl} seed={title.id} priority />
+        <Art src={title.backdropUrl ?? title.posterUrl} seed={title.id} eager />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/40" />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/30 to-transparent" />
 

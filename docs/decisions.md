@@ -222,3 +222,10 @@ restando privati (uso di casa, niente soldi né diffusione) e con le regole di "
 servizi" (docs/tv/catalog.md). Punto da tenere d'occhio: la riserva hls.js, dove il server legge
 il link del video, è la parte più vicina a un aggiramento; si toglie se emergesse un dubbio. Se
 MAIA uscisse dalla cerchia di casa: leggere il testo ufficiale e sentire un legale.
+
+**Generi uniti per identificativo e cache con versione.** La navigazione dava errori di React
+(chiavi duplicate) perché RaiPlay scrive lo stesso genere con e senza maiuscola: ora le varianti
+con lo stesso slug sono un genere solo, fatto in lettura senza `resync`. Cambiando la forma dei
+generi in cache è emerso che il codice nuovo avrebbe letto valori scritti dal vecchio: le chiavi
+hanno ora una versione (`MAIA_APP_v2:`) da alzare a ogni cambio di forma. Regola aggiunta in
+`CLAUDE.md`: niente errori o avvisi in console prima di un commit del frontend.

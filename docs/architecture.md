@@ -92,10 +92,14 @@ Le risposte pronte delle API più usate stanno in **Redis**, così il backend le
 - `src/cache/cache.service.ts`, `CacheService.wrap(chiave, calcolo)`: se la chiave c'è restituisce
   il valore, altrimenti lo calcola, lo salva e lo restituisce. Richieste uguali in contemporanea
   fanno un solo calcolo.
-- **Chiavi:** tutte iniziano con `MAIA_APP_`, seguite dalla chiave del singolo elemento:
-  `MAIA_APP_tv:home`, `MAIA_APP_tv:genres:ALL|MOVIE|SERIES`, `MAIA_APP_tv:titles:<filtri>`,
-  `MAIA_APP_tv:title:<id>`, `MAIA_APP_tv:playback:<id>`. Il prefisso permette di svuotare tutta la
-  cache di MAIA senza toccare altro.
+- **Chiavi:** tutte iniziano con `MAIA_APP_`, poi la versione della cache e la chiave del
+  singolo elemento: `MAIA_APP_v2:tv:home`, `MAIA_APP_v2:tv:genres:ALL|MOVIE|SERIES`,
+  `MAIA_APP_v2:tv:titles:<filtri>`, `MAIA_APP_v2:tv:title:<id>`, `MAIA_APP_v2:tv:playback:<id>`. Il
+  prefisso permette di svuotare tutta la cache di MAIA senza toccare altro.
+- **Versione (`CACHE_VERSION` in `cache.service.ts`): va alzata ogni volta che cambia la forma di
+  un valore in cache** (un DTO, un tipo interno messo in cache). Così il codice nuovo non legge mai
+  valori scritti dal codice vecchio, nemmeno subito dopo un deploy; le voci vecchie spariscono al
+  primo svuotamento (che cancella tutto `MAIA_APP_*`) o alla scadenza.
 - **Svuotamento:** ogni lavoro del catalogo che cambia i dati svuota tutto `MAIA_APP_*` (vedi
   [tv/catalog.md](tv/catalog.md), "Lavori"). Scadenza di sicurezza: `CACHE_TTL_SECONDS` (24 ore).
 - **Riscaldamento** (`src/tv/tv.warmer.ts`): dopo ogni svuotamento un giro automatico ripopola

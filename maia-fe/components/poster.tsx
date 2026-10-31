@@ -22,20 +22,21 @@ function Fallback({ seed }: { seed: string }) {
   );
 }
 
-function Art({ src, seed, priority }: { src: string | null | undefined; seed: string; priority?: boolean }) {
+// `eager`: the picture is the first thing on screen (hero, top of a grid).
+function Art({ src, seed, eager }: { src: string | null | undefined; seed: string; eager?: boolean }) {
   return src ? (
-    <Image src={src} alt="" fill unoptimized priority={priority} className="object-cover" />
+    <Image src={src} alt="" fill unoptimized loading={eager ? "eager" : undefined} fetchPriority={eager ? "high" : undefined} className="object-cover" />
   ) : (
     <Fallback seed={seed} />
   );
 }
 
 // Portrait poster, Max style: the title is set inside the artwork, at the bottom.
-export default function Poster({ title, className = "" }: { title: TitleCard; className?: string }) {
+export default function Poster({ title, className = "", eager }: { title: TitleCard; className?: string; eager?: boolean }) {
   return (
     <Link href={`/tv/title/${title.id}`} data-title={title.id} className={`group block shrink-0 outline-none ${className}`}>
       <span className={`${art} aspect-[2/3]`}>
-        <Art src={title.posterUrl ?? title.backdropUrl} seed={title.id} />
+        <Art src={title.posterUrl ?? title.backdropUrl} seed={title.id} eager={eager} />
         <span className={`${scrim} h-1/2`} />
         <span className="absolute inset-x-0 bottom-0 p-3 sm:p-4">
           <span className="line-clamp-3 font-display text-base leading-tight font-extrabold text-white sm:text-xl">
@@ -48,11 +49,11 @@ export default function Poster({ title, className = "" }: { title: TitleCard; cl
 }
 
 // Landscape tile (Novità): 16:9 with caption below.
-export function Tile({ title, className = "" }: { title: TitleCard; className?: string }) {
+export function Tile({ title, className = "", eager }: { title: TitleCard; className?: string; eager?: boolean }) {
   return (
     <Link href={`/tv/title/${title.id}`} data-title={title.id} className={`group block shrink-0 outline-none ${className}`}>
       <span className={`${art} aspect-video`}>
-        <Art src={title.backdropUrl ?? title.posterUrl} seed={title.id} />
+        <Art src={title.backdropUrl ?? title.posterUrl} seed={title.id} eager={eager} />
       </span>
       <span className="mt-3 block truncate text-sm font-semibold text-label sm:text-base">{title.name}</span>
       <span className="block text-sm text-faint">{subtitle(title)}</span>

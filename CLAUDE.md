@@ -35,6 +35,12 @@ Tutto ciò che è stato deciso e implementato è in [`docs/`](docs/README.md).
   prossimo controllo (anche un mese). Dopo la modifica **proponi** all'utente
   `npm run catalog -- resync raiplay` (o `--episodes`) in locale e ricordagli di lanciarlo anche in
   produzione dopo il deploy (è pesante: va confermato, vedi la regola sopra). Quando serve e quando no: `docs/tv/catalog.md`, "Rileggere tutto il catalogo".
+- **Cache Redis:** se cambia la forma di un valore messo in cache (DTO o tipo interno), alza
+  `CACHE_VERSION` in `maia-be/src/cache/cache.service.ts` (vedi `docs/architecture.md`, "Cache").
+- **Frontend senza errori in console:** dopo una modifica al frontend naviga l'app in Chrome
+  (desktop e formato telefono: home, Film, Serie, generi, una scheda, il player, ricerca) e
+  controlla che non compaiano errori o avvisi di React/Next nella console; vanno risolti prima del
+  commit.
 - Fine riga solo LF.
 - Porte locali fisse: `maia-be` su 3000, `maia-fe` su 3001.
 - **Server di sviluppo e tunnel sempre come processi separati**, mai come comandi in background

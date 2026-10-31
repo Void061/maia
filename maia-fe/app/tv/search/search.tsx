@@ -55,8 +55,9 @@ export default function Search() {
         <div>
           <h2 className="text-muted">{query ? (found.isPending ? "Cerco…" : `${found.data?.total ?? 0} risultati`) : "Suggeriti"}</h2>
           <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-6 pb-16 sm:grid-cols-4 sm:gap-x-6 xl:grid-cols-5">
-            {results.map((t) => (
-              <Poster key={t.id} title={t} />
+            {results.map((t, i) => (
+              // The first row is on screen at once: load it eagerly.
+              <Poster key={t.id} title={t} eager={i < 5} />
             ))}
           </div>
           {query && !found.isPending && results.length === 0 && (

@@ -40,7 +40,7 @@ export default function Hero({
       onBlurCapture={() => setPaused(false)}
     >
       <div key={current.id} className="absolute inset-0 animate-[fade_700ms_ease-out]">
-        <Art src={current.backdropUrl ?? current.posterUrl} seed={current.id} priority />
+        <Art src={current.backdropUrl ?? current.posterUrl} seed={current.id} eager />
       </div>
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/40" />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent" />

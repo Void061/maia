@@ -239,6 +239,13 @@ aggiungono voci e raccolte scelte a mano senza toccare il codice. I generi dei s
 traducono nei generi di MAIA con una tabella di alias (`GenreAlias`); un genere sconosciuto va in
 una lista "da associare".
 
+**Oggi (prima di `GenreAlias`)** i generi sono quelli dei titoli, con una sola unione automatica:
+le varianti che hanno lo stesso identificativo (`genreSlug`) sono **un genere solo**. RaiPlay
+scrive lo stesso genere in modi diversi ("Musica" e "musica", "Storia & arte" e "storia & arte"):
+`/tv/genres` li somma, li mostra con la maiuscola e i filtri per genere cercano tutte le varianti.
+Prima comparivano doppi e il frontend dava errori di chiavi duplicate. È fatto in lettura: nessun
+dato salvato cambia, quindi non serve `resync`.
+
 ## Modello dati
 
 Nel database (`maia-be/prisma/schema.prisma`, migrazione `catalog`):

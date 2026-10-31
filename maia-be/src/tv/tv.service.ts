@@ -78,6 +78,13 @@ const KEY = {
   playback: (itemId: string) => `tv:playback:${itemId}`,
 };
 
+// A genre as shown, plus every spelling the services use for it: RaiPlay
+// writes the same genre as "Musica" and "musica", "Storia & arte" and
+// "storia & arte". They share the slug and count as one.
+type GenreGroup = GenreDto & { names: string[] };
+
+const capitalize = (s: string) => s.charAt(0).toLocaleUpperCase('it-IT') + s.slice(1);
+
 type TitlesQuery = { kind?: TitleKind; genre?: string; q?: string; skip: number; take: number };
 
 @Injectable()
@@ -95,11 +102,15 @@ export class TvService {
   }
 
   // Genres of the visible titles, most used first.
-  genres(kind?: TitleKind): Promise<GenreDto[]> {
+  async genres(kind?: TitleKind): Promise<GenreDto[]> {
+    return (await this.genreGroups(kind)).map(({ slug, name, count }) => ({ slug, name, count }));
+  }
+
+  private genreGroups(kind?: TitleKind): Promise<GenreGroup[]> {
     return this.cache.wrap(KEY.genres(kind), () => this.loadGenres(kind));
   }
 
-  private async loadGenres(kind?: TitleKind): Promise<GenreDto[]> {
+  private async loadGenres(kind?: TitleKind): Promise<GenreGroup[]> {
     const kindFilter = kind ? Prisma.sql`AND t.kind = ${kind}::"TitleKind"` : Prisma.empty;
     const rows = await this.prisma.$queryRaw<{ name: string; count: number }[]>`
       SELECT g AS name, count(*)::int AS count
@@ -112,11 +123,24 @@ export class TvService {
              ${kindFilter}
        GROUP BY g
        ORDER BY count DESC, g`;
-    return rows.map((r) => ({ slug: genreSlug(r.name), name: r.name, count: r.count }));
+    const bySlug = new Map<string, GenreGroup>();
+    for (const r of rows) {
+      const slug = genreSlug(r.name);
+      const group = bySlug.get(slug);
+      // Rows come most used first: the first spelling names the genre.
+      if (group) {
+        group.count += r.count;
+        group.names.push(r.name);
+      } else {
+        bySlug.set(slug, { slug, name: capitalize(r.name), count: r.count, names: [r.name] });
+      }
+    }
+    return [...bySlug.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'it'));
   }
 
-  private async genreName(slug: string): Promise<string | null> {
-    return (await this.genres()).find((g) => g.slug === slug)?.name ?? null;
+  // Every spelling of the genre behind a slug (empty = unknown genre).
+  private async genreNames(slug: string): Promise<string[]> {
+    return (await this.genreGroups()).find((g) => g.slug === slug)?.names ?? [];
   }
 
   home(): Promise<HomeDto> {
@@ -130,8 +154,8 @@ export class TvService {
       { key: 'movies', name: 'Film', genre: null, items: await this.cards({ kind: 'MOVIE' }) },
       { key: 'series', name: 'Serie e programmi', genre: null, items: await this.cards({ kind: 'SERIES' }) },
     ];
-    for (const g of (await this.genres()).slice(0, HOME_GENRES)) {
-      rows.push({ key: `genre-${g.slug}`, name: g.name, genre: g.slug, items: await this.cards({ genres: { has: g.name } }) });
+    for (const g of (await this.genreGroups()).slice(0, HOME_GENRES)) {
+      rows.push({ key: `genre-${g.slug}`, name: g.name, genre: g.slug, items: await this.cards({ genres: { hasSome: g.names } }) });
     }
     return { featured, rows: rows.filter((r) => r.items.length > 0) };
   }
@@ -151,9 +175,9 @@ export class TvService {
     const where: Prisma.TitleWhereInput = {};
     if (q.kind) where.kind = q.kind;
     if (q.genre) {
-      const name = await this.genreName(q.genre);
-      if (!name) return { items: [], total: 0 };
-      where.genres = { has: name };
+      const names = await this.genreNames(q.genre);
+      if (!names.length) return { items: [], total: 0 };
+      where.genres = { hasSome: names };
     }
     if (q.q) where.name = { contains: q.q, mode: 'insensitive' };
     const [items, total] = await Promise.all([

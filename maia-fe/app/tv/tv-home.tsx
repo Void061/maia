@@ -49,8 +49,9 @@ export default function TvHome() {
 
         {newest && (
           <Rail title={newest.name}>
-            {newest.items.map((t) => (
-              <Tile key={t.id} title={t} className="w-64 sm:w-80 xl:w-96" />
+            {newest.items.map((t, i) => (
+              // Right under the hero: on phones its first tiles are on screen at once.
+              <Tile key={t.id} title={t} eager={i < 2} className="w-64 sm:w-80 xl:w-96" />
             ))}
           </Rail>
         )}
