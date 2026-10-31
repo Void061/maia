@@ -26,3 +26,9 @@ Tutto ciò che è stato deciso e implementato è in [`docs/`](docs/README.md).
 - Prisma resta sulla versione fissata nel `package.json` del backend: non usare `prisma@latest`.
 - Fine riga solo LF.
 - Porte locali fisse: `maia-be` su 3000, `maia-fe` su 3001.
+- **Server di sviluppo e tunnel sempre come processi separati**, mai come comandi in background
+  dell'agente (vengono chiusi dopo 2 ore). Da PowerShell, log in `%TEMP%\maia-logs\`:
+  `Start-Process cmd.exe -ArgumentList '/c','npm run dev > "%TEMP%\maia-logs\fe.log" 2>&1' -WorkingDirectory maia-fe -WindowStyle Hidden`
+  (stesso schema per `npm run start:dev` in maia-be → `be.log` e `npm run remote` in maia-fe →
+  `remote.log`, che contiene l'URL ngrok). Prima di rilanciarli, controllare che le porte
+  3000/3001 non siano già occupate.

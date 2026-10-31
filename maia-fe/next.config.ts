@@ -6,7 +6,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Dev only: lets phones and TVs on the home Wi-Fi load the dev scripts when
   // opening http://<PC IP>:3001. Without it the page renders but nothing reacts.
-  allowedDevOrigins: ["192.168.1.*"],
+  // The ngrok domains are for the public tunnel (npm run remote).
+  allowedDevOrigins: ["192.168.1.*", "*.ngrok-free.app", "*.ngrok-free.dev", "*.ngrok.app", "*.ngrok.dev"],
   // The floating "N" badge sits on top of the avatar when previewing on a
   // phone or TV; build/runtime errors are still shown without it.
   devIndicators: false,

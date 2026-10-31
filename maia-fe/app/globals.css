@@ -42,9 +42,11 @@ body {
   }
 }
 
-/* Translucent material for bars and overlays (nav, tab bar, player panels). */
+/* Translucent material for small controls over artwork (nav pill, round
+   buttons). Opaque enough to stay readable where backdrop-filter is not
+   applied (some Android browsers); panels with text use bg-surface instead. */
 .glass {
-  background: rgb(30 30 32 / 0.62);
+  background: rgb(30 30 32 / 0.85);
   backdrop-filter: saturate(180%) blur(28px);
   -webkit-backdrop-filter: saturate(180%) blur(28px);
 }

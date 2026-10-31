@@ -66,6 +66,28 @@ In sviluppo sono disattivati i pulsanti flottanti che coprivano l'app su telefon
 l'indicatore "N" di Next (`devIndicators: false` in `next.config.ts`; gli errori compaiono
 comunque) e i devtools di React Query (pacchetto rimosso).
 
+## Vedere l'app da fuori casa (ngrok)
+
+Con backend e frontend accesi, da `maia-fe/`:
+
+```bash
+npm run remote    # stampa "MAIA remote: https://….ngrok-free.app" (Ctrl+C per chiudere)
+```
+
+Il link è **sempre protetto da basic auth**: utente `Ivan`, password `12341@` (si possono
+cambiare con `REMOTE_USER` / `REMOTE_PASSWORD`). L'URL cambia a ogni avvio (piano gratuito).
+
+- Lo script (`maia-fe/scripts/remote.mjs`) usa `@ngrok/ngrok`, non serve il programma `ngrok`.
+  Il token si legge da `NGROK_AUTHTOKEN` o dal file di configurazione di ngrok
+  (`%LOCALAPPDATA%\ngrok\ngrok.yml` o `~/.ngrok2/ngrok.yml`).
+- La basic auth la controlla un piccolo proxy dentro lo script, davanti a `next dev` (anche il
+  WebSocket del ricaricamento automatico): quella di ngrok vuole password di almeno 8 caratteri.
+- Basta esporre il frontend: il gateway `/api` porta le chiamate al backend lato server.
+- `next.config.ts` ammette i domini ngrok in `allowedDevOrigins`, altrimenti i pulsanti non
+  funzionano.
+- Al primo accesso ngrok gratuito mostra una pagina di avviso: si clicca "Visit Site".
+- I link nelle email puntano ancora ad `APP_URL` (localhost).
+
 ## Problemi noti
 
 - **Prisma:** non installare `prisma@latest` (punta a una release candidate della 8 che blocca

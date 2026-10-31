@@ -159,14 +159,14 @@ function Layer({ onClose, title, children }: { onClose: () => void; title: strin
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 md:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 md:items-center" onClick={onClose}>
       <div
         ref={ref}
         data-focus-trap
         role="dialog"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="glass w-full max-w-md rounded-t-[2rem] p-6 md:rounded-[2rem] md:p-8"
+        className="w-full max-w-md rounded-t-[2rem] bg-surface p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:rounded-[2rem] md:p-8"
       >
         <h2 className="font-display text-2xl font-bold">{title}</h2>
         <div className="mt-6">{children}</div>

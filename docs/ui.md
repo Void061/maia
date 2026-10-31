@@ -32,8 +32,10 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 
 - **Font:** *Inter* (`next/font/google`), l'alternativa libera più vicina a SF Pro; titoli con
   spaziatura stretta (`-0.025em`), pesi 700-800.
-- **Materiale vetro** (`.glass`): sfondo grigio traslucido con sfocatura, per menu in alto, barra
-  in basso del telefono, pannelli e comandi del player.
+- **Materiale vetro** (`.glass`): sfondo grigio quasi opaco (85%) con sfocatura, solo per comandi
+  piccoli sopra le immagini (pillola del menu, pulsanti tondi). **Pannelli e finestre con testo**
+  (menu profilo, "Le tue app", modifica profilo) sono **opachi** (`surface`): su alcuni browser
+  Android la sfocatura non viene applicata e con il vetro al 62% si leggeva il testo sottostante.
 - **Velo notte** (`.night`): gradiente blu/viola in cima alle pagine senza immagine, alla Max.
 - **Selezione stile tvOS:** l'elemento selezionato si solleva (`.lift`, scala 1.06) con un bordo
   bianco sottile e un'ombra profonda; i pulsanti e le voci a pillola (`.pill-focus`) diventano
