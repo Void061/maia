@@ -1,4 +1,4 @@
-import { decide, normalizeTitle, titleSimilarity, type Candidate } from './score.js';
+import { decide, normalizeTitle, resolveSeason, titleSimilarity, type Candidate } from './score.js';
 
 const movie = (over: Partial<Candidate>): Candidate => ({
   tmdbId: 1,
@@ -13,6 +13,10 @@ describe('normalizeTitle', () => {
   it('drops accents, case and punctuation', () => {
     expect(normalizeTitle("L'Amica Geniale: Storia del nuovo cognome")).toBe('l amica geniale storia del nuovo cognome');
     expect(normalizeTitle('Perché sì & no')).toBe('perche si e no');
+  });
+  it('spells out ligatures and drops the service qualifiers', () => {
+    expect(normalizeTitle('Memoriæ')).toBe(normalizeTitle('Memoriae'));
+    expect(normalizeTitle('The Beach (Serie tv)')).toBe('the beach');
   });
 });
 
@@ -45,6 +49,37 @@ describe('decide', () => {
   it('creates a new title when nothing is close', () => {
     expect(decide({ title: 'Domenica In', year: 2025 }, [movie({ title: 'Sunday', originalTitle: 'Sunday' })]).verdict).toBe('new');
     expect(decide({ title: 'Domenica In', year: 2025 }, []).verdict).toBe('new');
+  });
+
+  it('matches long-running shows listed by edition year', () => {
+    // RaiPlay: "Ballando con le Stelle", year 2026, season "2026" with 5 episodes so far.
+    const subject = { title: 'Ballando con le Stelle', year: 2026, seasonEpisodeCounts: { 2026: 5 } };
+    const show: Candidate = {
+      tmdbId: 46376,
+      title: 'Ballando con le Stelle',
+      originalTitle: 'Ballando con le Stelle',
+      year: 2005,
+      lastYear: 2026,
+      seasonEpisodeCounts: { 20: 10, 21: 9 },
+      seasonYears: { 20: 2025, 21: 2026 },
+    };
+    expect(resolveSeason(2026, show)).toBe(21);
+    expect(decide(subject, [show]).verdict).toBe('auto');
+  });
+
+  it('still matches when TMDB has not added the current edition yet', () => {
+    const subject = { title: 'Ballando con le Stelle', year: 2026, seasonEpisodeCounts: { 2026: 5 } };
+    const show: Candidate = {
+      tmdbId: 46376,
+      title: 'Ballando con le Stelle',
+      originalTitle: 'Ballando con le Stelle',
+      year: 2005,
+      lastYear: 2025,
+      seasonEpisodeCounts: { 20: 10 },
+      seasonYears: { 20: 2025 },
+    };
+    expect(resolveSeason(2026, show)).toBeNull();
+    expect(decide(subject, [show]).verdict).toBe('auto');
   });
 
   it('uses the season structure for series', () => {

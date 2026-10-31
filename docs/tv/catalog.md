@@ -239,19 +239,42 @@ Come è fatto RaiPlay (verificato il 2026-10-31):
 - Scadenza: `availabilities.expiration_date_iso` (sempre nei film, a volte negli episodi).
 - Film: il JSON di `first_item_path` ha `video.content_url` (il relinker) e la durata.
 - Numerazioni da gestire: soap con "Daily - Stagione 3…11" più "Stagione 1-2"; programmi per
-  edizione con stagione = anno (2026) e puntate "Puntata del 24/10/2026" (data letta dal nome);
-  serie straniere con anno RaiPlay sbagliato ("Ready or not" 2025, in realtà 2019).
+  edizione con anno del titolo e stagione = anno dell'edizione in corso (2026, mentre TMDB ha
+  la prima edizione, 2005, e stagioni numerate) e puntate "Puntata del 24/10/2026" (data letta
+  dal nome); qualificatori nel nome ("The Beach (Serie tv)").
 
-Prima misura senza TMDB (21 titoli: 5 per sezione film, serie italiane, serie internazionali,
-programmi, più la soap e Mare fuori): 1868 video letti su 1868 dichiarati, 23 con DRM (un film
-e due serie intere), 1845 riproducibili; in più **4141 extra** in 121 gruppi (es. Mare fuori: 74
-episodi + 173 extra; i programmi ne hanno molti più delle puntate: La Pennicanza 10 + 1214).
-Il confronto con TMDB parte quando c'è `TMDB_API_KEY`.
+### Misura (2026-10-31)
+
+Campione di 21 titoli: 5 per sezione (film, serie italiane, serie internazionali, programmi)
+più la soap e Mare fuori.
+
+| | Risultato |
+|---|---|
+| Video letti | 1868 su 1868 dichiarati; 23 con DRM (un film, due serie intere), 1845 riproducibili |
+| Extra | 4141 in 121 gruppi (Mare fuori 74 episodi + 173 extra; La Pennicanza 10 + 1214) |
+| Abbinati a TMDB da soli | **19 su 21 (90%)**: tutti i film, le fiction, le serie straniere, la soap, i programmi |
+| Da rivedere | 1: "Memoriae" (RaiPlay 12 episodi, TMDB meno: probabilmente puntate divise in due) |
+| Titoli nuovi | 1: "La Pennicanza" (programma radio, assente da TMDB): la scheda nasce dai dati RaiPlay |
+| Episodi delle serie abbinate che coincidono subito | **98%** (stagione e numero uguali a TMDB) |
+
+Accorgimenti che hanno portato dal 67% al 90%:
+- nel confronto "æ" vale "ae" ("Memoriæ" su TMDB) e si tolgono i qualificatori come "(Serie tv)",
+  anche dalla ricerca;
+- per le serie conta come anno giusto qualsiasi anno tra la prima e l'ultima puntata TMDB, più
+  l'anno dopo (edizione non ancora aggiunta a TMDB);
+- le stagioni numerate per anno ("Stagione 2026") si abbinano alla stagione TMDB andata in onda
+  in quell'anno; un'edizione più recente di tutte quelle su TMDB non pesa né a favore né contro;
+- la ricerca TMDB si fa sia con l'anno sia senza, perché l'anno del servizio può essere quello
+  dell'edizione in corso.
+
+Ancora da fare: le puntate dei programmi senza numero o con numerazione per edizione (Ballando,
+Splendida Cornice: 0% diretti) vanno abbinate per **data di messa in onda**, leggendo le date
+degli episodi delle stagioni TMDB (una chiamata per stagione).
 
 ## Ordine di sviluppo previsto
 
 1. Prototipo di misura: adapter **RaiPlay** su circa 20 titoli per misurare quanti si abbinano
-   da soli a TMDB (in corso, vedi sopra).
+   da soli a TMDB (fatto: 90%, vedi sopra). Manca l'abbinamento per data delle puntate.
 2. Schema Prisma del catalogo, coda pg-boss, fase 1 completa per RaiPlay.
 3. Endpoint di playback e player collegato al backend (HLS nativo per RaiPlay).
 4. Fase 2 (aggiornamento continuo) e pannello stato.

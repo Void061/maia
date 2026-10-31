@@ -7,7 +7,7 @@
 //   npm run catalog:probe -- marefuori    only the given slugs
 import 'dotenv/config';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { decide, type Subject, type Verdict } from './matching/score.js';
+import { decide, resolveSeason, searchTitle, type Subject, type Verdict } from './matching/score.js';
 import { TmdbClient } from './matching/tmdb.client.js';
 import type { ProviderTitle } from './providers/provider.types.js';
 import { RaiPlayAdapter } from './providers/raiplay/raiplay.adapter.js';
@@ -78,8 +78,9 @@ async function probe(slug: string): Promise<Row> {
     title.kind === 'MOVIE'
       ? { title: title.name, year: title.year, runtimeMin: title.video?.durationSec ? Math.round(title.video.durationSec / 60) : null }
       : { title: title.name, year: title.year, seasonEpisodeCounts: seasonCounts(title) };
+  const query = searchTitle(title.name);
   const candidates =
-    title.kind === 'MOVIE' ? await tmdb.movieCandidates(title.name, title.year) : await tmdb.tvCandidates(title.name, title.year);
+    title.kind === 'MOVIE' ? await tmdb.movieCandidates(query, title.year) : await tmdb.tvCandidates(query, title.year);
   const { verdict, ranked } = decide(subject, candidates);
   row.verdict = verdict;
   const best = ranked[0];
@@ -87,14 +88,17 @@ async function probe(slug: string): Promise<Row> {
     row.tmdb = { id: best.candidate.tmdbId, title: best.candidate.title, year: best.candidate.year, score: round(best.score) };
     row.runnerUp = ranked[1] ? round(ranked[1].score) : undefined;
   }
-  // Episodes whose season/number exist in TMDB as they are; the rest need a date or a mapping rule.
+  // Episodes whose season (number or edition year) and number exist in TMDB;
+  // the rest need an air date or a mapping rule.
   if (title.kind === 'SERIES' && verdict !== 'new' && best?.candidate.seasonEpisodeCounts) {
-    const tmdbSeasons = best.candidate.seasonEpisodeCounts;
-    row.directEpisodes = videos.length
-      ? title.seasons
-          .flatMap((s) => s.episodes)
-          .filter((e) => e.season !== null && e.episode !== null && (tmdbSeasons[e.season] ?? 0) >= e.episode).length
-      : 0;
+    const candidate = best.candidate;
+    row.directEpisodes = title.seasons
+      .flatMap((s) => s.episodes)
+      .filter((e) => {
+        if (e.season === null || e.episode === null) return false;
+        const tmdbSeason = resolveSeason(e.season, candidate);
+        return tmdbSeason !== null && (candidate.seasonEpisodeCounts?.[tmdbSeason] ?? 0) >= e.episode;
+      }).length;
   }
   return row;
 }

@@ -8,7 +8,10 @@ const API = 'https://api.themoviedb.org/3';
 type SearchMovie = { id: number; title: string; original_title: string; release_date?: string };
 type SearchTv = { id: number; name: string; original_name: string; first_air_date?: string };
 type MovieDetails = { runtime?: number | null };
-type TvDetails = { seasons?: { season_number: number; episode_count: number }[] };
+type TvDetails = {
+  last_air_date?: string | null;
+  seasons?: { season_number: number; episode_count: number; air_date?: string | null }[];
+};
 
 export class TmdbClient {
   constructor(private readonly key: string) {}
@@ -51,20 +54,29 @@ export class TmdbClient {
       top.map(async (s) => {
         const details = await this.get<TvDetails>(`/tv/${s.id}`, {});
         const seasonEpisodeCounts: Record<number, number> = {};
-        for (const season of details.seasons ?? []) seasonEpisodeCounts[season.season_number] = season.episode_count;
+        const seasonYears: Record<number, number> = {};
+        for (const season of details.seasons ?? []) {
+          seasonEpisodeCounts[season.season_number] = season.episode_count;
+          const year = toYear(season.air_date ?? undefined);
+          // Season 0 holds the specials, aired over many years: not an edition.
+          if (season.season_number > 0 && year) seasonYears[season.season_number] = year;
+        }
         return {
           tmdbId: s.id,
           title: s.name,
           originalTitle: s.original_name,
           year: toYear(s.first_air_date),
+          lastYear: toYear(details.last_air_date ?? undefined),
           seasonEpisodeCounts,
+          seasonYears,
         };
       }),
     );
   }
 
-  // Results with the year first, then without it: services often get the year
-  // wrong (RaiPlay lists "Ready or not", 2019, as 2025). The scorer sorts it out.
+  // Results with the year first, then without it: the service's year can be the
+  // current edition's (RaiPlay: "Ballando con le Stelle" 2026, on TMDB since 2005)
+  // or plain wrong. The scorer sorts it out.
   private async searchWithFallback<T extends { id: number }>(
     path: string,
     query: string,
