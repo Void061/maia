@@ -138,3 +138,8 @@ alberatura = unione delle fonti, TMDB come ossatura, coda di revisione nel panne
 ritmo di controllo che si adatta (giorno → settimana → mese, idea dall'add-on Kodi KoD) più la
 data del prossimo episodio da TMDB. Coda dei lavori con pg-boss su Postgres. Da KoD (GPL-3) si
 prendono solo idee ed endpoint, non codice.
+
+**Extra in una sezione a parte.** Highlights, clip, anticipazioni e simili si tengono (sono molti:
+nel campione RaiPlay 4141 contro 1868 episodi), ma come Extra della scheda, divisi in gruppi e
+legati alla stagione quando c'è, mai nella lista episodi. Non si abbinano a TMDB: appartengono al
+titolo su cui sono stati trovati.

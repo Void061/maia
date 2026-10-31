@@ -72,6 +72,13 @@ altro servizio anche il 4, in MAIA la stagione ha 4 episodi (il 4 con una sola f
 episodio compare se ha almeno una fonte disponibile e non protetta; senza fonti si nasconde ma
 non si cancella (progressi e preferiti restano).
 
+**Extra**: highlights, clip, anticipazioni, backstage e simili non sono episodi. Si salvano come
+`Extra` agganciati alla scheda (e alla stagione, quando il servizio la indica), divisi in
+gruppi con il tipo (`HIGHLIGHTS`, `CLIPS`, `PREVIEWS`, `EXTRAS`) e il nome dato dal servizio
+("Highlights · Stagione 6", "Ciro per sempre"). Compaiono nella sezione *Extra* della scheda,
+mai nella lista episodi. Non si abbinano a TMDB e non si uniscono tra servizi: appartengono al
+titolo su cui sono stati trovati. Si riproducono come gli episodi (dal dispositivo).
+
 ### Riconoscere lo stesso contenuto
 
 **TMDB fa da ossatura**: stagioni ed episodi (con date) vengono da TMDB, i servizi agganciano
@@ -198,6 +205,8 @@ Source (→ Title film o Episode; provider, externalId, drm, available, maxHeigh
         audioLangs, subLangs, failCount)
 ProviderTitle (provider, externalId, name, year, lastSeenAt, titleId?) ─ ProviderEpisode
         (season/episode del servizio, airDate, duration, availableUntil, drm, lastSeenAt)
+ExtraGroup (titleId, seasonNumber?, kind, label, provider, position) ─ Extra (externalId, title,
+        duration, drm, availableUntil, playbackUrl)
 MatchReview (providerTitleId, candidato TMDB, punteggio, stato)
 MappingRule (titleId, provider, regola, manual)
 SyncState (titolo/servizio: interval 1|7|30, nextCheckAt, lastChangeAt)
@@ -218,8 +227,10 @@ Come è fatto RaiPlay (verificato il 2026-10-31):
 
 - `/programmi/<slug>.json`: `program_info` (nome, anno, `layout` `single` = film / `multi` =
   serie o programma, tipologia, generi) e `blocks` → `sets`. Le puntate intere stanno nel
-  blocco "Episodi" o "Puntate"; gli altri blocchi (Clip, Extra, Highlights, Anticipazioni) e i
-  gruppi con quei nomi si scartano.
+  blocco "Episodi" o "Puntate"; gli altri blocchi (Clip, Extra, Highlights, Anticipazioni,
+  "Esibizioni e giudizi", spin-off come "Ballando segreto"…) e i gruppi con quei nomi dentro il
+  blocco episodi diventano **Extra**. Nei film solo i blocchi con un nome da extra (il blocco
+  principale contiene il film stesso).
 - Il JSON di ogni gruppo (stagione) ha **tutti** gli episodi in una sola risposta (anche 174 per
   una stagione della soap) con stagione, numero, titolo, durata, relinker (`video_url`) e
   `rights_management`: non serve aprire episodio per episodio.
@@ -233,7 +244,9 @@ Come è fatto RaiPlay (verificato il 2026-10-31):
 
 Prima misura senza TMDB (21 titoli: 5 per sezione film, serie italiane, serie internazionali,
 programmi, più la soap e Mare fuori): 1868 video letti su 1868 dichiarati, 23 con DRM (un film
-e due serie intere), 1845 riproducibili. Il confronto con TMDB parte quando c'è `TMDB_API_KEY`.
+e due serie intere), 1845 riproducibili; in più **4141 extra** in 121 gruppi (es. Mare fuori: 74
+episodi + 173 extra; i programmi ne hanno molti più delle puntate: La Pennicanza 10 + 1214).
+Il confronto con TMDB parte quando c'è `TMDB_API_KEY`.
 
 ## Ordine di sviluppo previsto
 

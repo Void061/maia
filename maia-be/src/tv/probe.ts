@@ -26,6 +26,8 @@ type Row = {
   declared: number;
   drm: number;
   playable: number;
+  extras: number;
+  extraGroups: string[];
   verdict?: Verdict;
   tmdb?: { id: number; title: string; year: number | null; score: number };
   runnerUp?: number;
@@ -55,7 +57,7 @@ function seasonCounts(title: ProviderTitle): Record<number, number> {
 
 async function probe(slug: string): Promise<Row> {
   const title = await rai.getTitle(slug);
-  if (!title) return { slug, kind: '-', name: '(non trovato)', year: null, episodes: 0, declared: 0, drm: 0, playable: 0 };
+  if (!title) return { slug, kind: '-', name: '(non trovato)', year: null, episodes: 0, declared: 0, drm: 0, playable: 0, extras: 0, extraGroups: [] };
 
   const videos = title.kind === 'MOVIE' ? (title.video ? [title.video] : []) : title.seasons.flatMap((s) => s.episodes);
   const row: Row = {
@@ -67,6 +69,8 @@ async function probe(slug: string): Promise<Row> {
     declared: title.kind === 'MOVIE' ? videos.length : title.seasons.reduce((n, s) => n + (s.declaredCount ?? s.episodes.length), 0),
     drm: videos.filter((v) => v.drm).length,
     playable: videos.filter((v) => !v.drm && v.playback).length,
+    extras: title.extras.reduce((n, g) => n + g.videos.length, 0),
+    extraGroups: title.extras.map((g) => `${g.kind} "${g.label}" (${g.videos.length})`),
   };
   if (!tmdb) return row;
 
@@ -109,24 +113,25 @@ for (const slug of slugs) {
     const tmdbPart = row.verdict
       ? `${row.verdict.padEnd(6)} ${row.tmdb ? `TMDB ${row.tmdb.id} "${row.tmdb.title}" ${row.tmdb.year ?? '?'} (${row.tmdb.score}${row.runnerUp !== undefined ? ` vs ${row.runnerUp}` : ''})` : ''}`
       : '';
-    const eps = row.kind === 'SERIES' ? `${row.episodes}/${row.declared} ep` : '';
+    const eps = `${row.kind === 'SERIES' ? `${row.episodes}/${row.declared} ep ` : ''}+${row.extras} extra`;
     const direct = row.directEpisodes !== undefined ? ` diretti ${pct(row.directEpisodes, row.episodes)}` : '';
     console.log(
-      `${row.kind.padEnd(6)} ${row.name.slice(0, 34).padEnd(34)} ${String(row.year ?? '?').padEnd(4)} ${eps.padEnd(11)} DRM ${row.drm}  ${tmdbPart}${direct}`,
+      `${row.kind.padEnd(6)} ${row.name.slice(0, 34).padEnd(34)} ${String(row.year ?? '?').padEnd(4)} ${eps.padEnd(24)} DRM ${row.drm}  ${tmdbPart}${direct}`,
     );
   } catch (err) {
-    rows.push({ slug, kind: '-', name: slug, year: null, episodes: 0, declared: 0, drm: 0, playable: 0, error: String(err) });
+    rows.push({ slug, kind: '-', name: slug, year: null, episodes: 0, declared: 0, drm: 0, playable: 0, extras: 0, extraGroups: [], error: String(err) });
     console.log(`ERRORE ${slug}: ${String(err)}`);
   }
 }
 
 const ok = rows.filter((r) => !r.error && r.kind !== '-');
 const series = ok.filter((r) => r.kind === 'SERIES');
-const sum = (list: Row[], key: 'episodes' | 'declared' | 'drm' | 'playable' | 'directEpisodes') =>
+const sum = (list: Row[], key: 'episodes' | 'declared' | 'drm' | 'playable' | 'extras' | 'directEpisodes') =>
   list.reduce((n, r) => n + (r[key] ?? 0), 0);
 console.log('\nRiepilogo');
 console.log(`  titoli letti: ${ok.length}/${rows.length} (film ${ok.length - series.length}, serie/programmi ${series.length})`);
 console.log(`  video: ${sum(ok, 'episodes')} (dichiarati da RaiPlay ${sum(ok, 'declared')}), con DRM ${sum(ok, 'drm')}, riproducibili ${sum(ok, 'playable')}`);
+console.log(`  extra (sezione a parte): ${sum(ok, 'extras')} video in ${ok.reduce((n, r) => n + r.extraGroups.length, 0)} gruppi`);
 if (tmdb) {
   const by = (v: Verdict) => ok.filter((r) => r.verdict === v).length;
   console.log(`  TMDB: automatici ${by('auto')} (${pct(by('auto'), ok.length)}), da rivedere ${by('review')}, nuovi ${by('new')}`);

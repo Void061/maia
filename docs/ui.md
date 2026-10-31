@@ -80,7 +80,7 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 | `/tv/movies`, `/tv/series` | mini-Home del tipo: hero, Top dei film/serie, *Esplora per genere*, una riga per genere |
 | `/tv/movies/[genre]`, `/tv/series/[genre]` | pagina del genere: hero corto e griglia completa |
 | `/tv/genre/[genre]` | scorciatoia su film **e** serie insieme (es. "Commedie") |
-| `/tv/title/[id]` | scheda: hero con Guarda/Riprendi, poi le schede *Episodi* (con le stagioni), *Altri come questo*, *Dettagli*; nessuna indicazione delle fonti |
+| `/tv/title/[id]` | scheda: hero con Guarda/Riprendi, poi le schede *Episodi* (con le stagioni), *Extra* (highlights, clip, anticipazioni: solo se ce ne sono, divisi in gruppi, filtrati per la stagione scelta quando il gruppo ne ha una; *previsto*, non ancora nel prototipo), *Altri come questo*, *Dettagli*; nessuna indicazione delle fonti |
 | `/tv/search` | ricerca con tastiera a griglia su schermi grandi |
 | `/watch/[id]`, `/watch/live-[channel]` | player a schermo intero |
 

@@ -1,7 +1,9 @@
 import { HttpError, politeJson } from '../polite-fetch.js';
 import type {
+  ExtraKind,
   ProviderAdapter,
   ProviderEpisode,
+  ProviderExtraGroup,
   ProviderSeason,
   ProviderTitle,
   ProviderVideo,
@@ -26,8 +28,11 @@ type RaiProgram = {
     description?: string;
     genres?: { name: string }[];
   };
-  blocks?: { name: string; sets?: { name: string; path_id: string; episode_size?: { number?: number } }[] }[];
+  blocks?: RaiBlock[];
 };
+
+type RaiSet = { name: string; path_id: string; episode_size?: { number?: number } };
+type RaiBlock = { name: string; sets?: RaiSet[] };
 
 type RaiSetItem = {
   path_id: string;
@@ -52,8 +57,15 @@ type RaiItem = {
 
 // Blocks that hold the full episodes; the others are clips, extras, previews.
 const EPISODE_BLOCK = /^(episodi|puntate)$/i;
-// Sets of short videos that can sit next to the episodes in the same block.
+// Names of short-video groups, in blocks or as sets next to the episodes.
 const CLIP_SET = /highlight|clip|extra|anticipazion|promo|backstage|trailer|speciale/i;
+
+function extraKind(name: string): ExtraKind {
+  if (/highlight/i.test(name)) return 'HIGHLIGHTS';
+  if (/clip/i.test(name)) return 'CLIPS';
+  if (/anticipazion|promo|trailer/i.test(name)) return 'PREVIEWS';
+  return 'EXTRAS';
+}
 
 export class RaiPlayAdapter implements ProviderAdapter {
   readonly id = 'raiplay' as const;
@@ -92,26 +104,64 @@ export class RaiPlayAdapter implements ProviderAdapter {
       description: info.description ?? '',
     };
 
+    const blocks = program.blocks ?? [];
+
     if (isMovie) {
       const item = program.first_item_path
         ? await politeJson<RaiItem>(HOST + toJsonPath(program.first_item_path))
         : null;
-      return { ...base, kind: 'MOVIE', video: item ? movieVideo(item) : null, seasons: [] };
+      // A film's own block holds the film itself; only clearly named ones are extras.
+      const extraSets = blocks
+        .filter((b) => CLIP_SET.test(b.name))
+        .flatMap((b) => (b.sets ?? []).map((set) => ({ block: b.name, set })));
+      return {
+        ...base,
+        kind: 'MOVIE',
+        video: item ? movieVideo(item) : null,
+        seasons: [],
+        extras: await this.extras(extraSets),
+      };
     }
 
-    const block = program.blocks?.find((b) => EPISODE_BLOCK.test(b.name)) ?? program.blocks?.[0];
+    const episodeBlock = blocks.find((b) => EPISODE_BLOCK.test(b.name)) ?? blocks[0];
     const seasons: ProviderSeason[] = [];
-    for (const set of (block?.sets ?? []).filter((s) => !CLIP_SET.test(s.name))) {
+    const extraSets: { block: string; set: RaiSet }[] = [];
+    for (const block of blocks) {
+      for (const set of block.sets ?? []) {
+        if (block !== episodeBlock || CLIP_SET.test(set.name)) extraSets.push({ block: block.name, set });
+      }
+    }
+    for (const set of (episodeBlock?.sets ?? []).filter((s) => !CLIP_SET.test(s.name))) {
       const data = await politeJson<{ items?: RaiSetItem[] }>(HOST + set.path_id);
       seasons.push({
-        number: toInt(set.name.match(/stagione\s*(\d+)/i)?.[1]),
+        number: seasonNumber(set.name),
         label: set.name,
         declaredCount: set.episode_size?.number ?? null,
         episodes: (data.items ?? []).filter((it) => !it.forma || it.forma === 'Integrale').map(toEpisode),
       });
     }
-    return { ...base, kind: 'SERIES', video: null, seasons };
+    return { ...base, kind: 'SERIES', video: null, seasons, extras: await this.extras(extraSets) };
   }
+
+  // Groups of short videos, labelled "<block> · <set>" when both say something.
+  private async extras(sets: { block: string; set: RaiSet }[]): Promise<ProviderExtraGroup[]> {
+    const groups: ProviderExtraGroup[] = [];
+    for (const { block, set } of sets) {
+      const data = await politeJson<{ items?: RaiSetItem[] }>(HOST + set.path_id);
+      const videos = (data.items ?? []).map((item) => {
+        const { externalId, title, durationSec, drm, geoBlocked, expiresAt, playback } = toEpisode(item);
+        return { externalId, title: item.name || title, durationSec, drm, geoBlocked, expiresAt, playback };
+      });
+      if (!videos.length) continue;
+      const label = block === set.name || EPISODE_BLOCK.test(block) ? set.name : `${block} · ${set.name}`;
+      groups.push({ kind: extraKind(`${block} ${set.name}`), label, season: seasonNumber(set.name), videos });
+    }
+    return groups;
+  }
+}
+
+function seasonNumber(label: string): number | null {
+  return toInt(label.match(/stagione\s*(\d+)/i)?.[1]);
 }
 
 function movieVideo(item: RaiItem): ProviderVideo {

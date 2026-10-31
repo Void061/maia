@@ -35,6 +35,21 @@ export type ProviderSeason = {
   episodes: ProviderEpisode[];
 };
 
+// Short videos around a title (highlights, clips, previews, backstage). Shown in
+// the title's "Extra" section, never mixed with the episodes, and not matched to
+// TMDB: they belong to the title they were found on.
+export type ExtraKind = 'HIGHLIGHTS' | 'CLIPS' | 'PREVIEWS' | 'EXTRAS';
+
+export type ProviderExtra = ProviderVideo & { externalId: string; title: string };
+
+export type ProviderExtraGroup = {
+  kind: ExtraKind;
+  // As the service names it: "Highlights · Stagione 6", "Ciro per sempre".
+  label: string;
+  season: number | null;
+  videos: ProviderExtra[];
+};
+
 export type ProviderTitle = {
   provider: ProviderId;
   externalId: string;
@@ -47,6 +62,7 @@ export type ProviderTitle = {
   video: ProviderVideo | null;
   // Series only.
   seasons: ProviderSeason[];
+  extras: ProviderExtraGroup[];
 };
 
 export interface ProviderAdapter {
