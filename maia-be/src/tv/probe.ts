@@ -7,9 +7,10 @@
 //   npm run catalog:probe -- marefuori    only the given slugs
 import 'dotenv/config';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { decide, resolveSeason, searchTitle, type Subject, type Verdict } from './matching/score.js';
+import { placeEpisode, type TmdbSeasonEpisodes } from './matching/episodes.js';
+import { decide, searchTitle, type Verdict } from './matching/score.js';
+import { subjectOf } from './matching/subject.js';
 import { TmdbClient } from './matching/tmdb.client.js';
-import type { ProviderTitle } from './providers/provider.types.js';
 import { RaiPlayAdapter } from './providers/raiplay/raiplay.adapter.js';
 
 const SECTIONS = ['film', 'serieitaliane', 'serieinternazionali', 'programmi'];
@@ -45,16 +46,6 @@ async function sample(): Promise<string[]> {
   return [...new Set([...slugs, ...EXTRAS])];
 }
 
-function seasonCounts(title: ProviderTitle): Record<number, number> {
-  const counts: Record<number, number> = {};
-  for (const season of title.seasons)
-    for (const ep of season.episodes) {
-      const n = ep.season ?? season.number;
-      if (n !== null) counts[n] = (counts[n] ?? 0) + 1;
-    }
-  return counts;
-}
-
 async function probe(slug: string): Promise<Row> {
   const title = await rai.getTitle(slug);
   if (!title) return { slug, kind: '-', name: '(non trovato)', year: null, episodes: 0, declared: 0, drm: 0, playable: 0, extras: 0, extraGroups: [] };
@@ -74,10 +65,7 @@ async function probe(slug: string): Promise<Row> {
   };
   if (!tmdb) return row;
 
-  const subject: Subject =
-    title.kind === 'MOVIE'
-      ? { title: title.name, year: title.year, runtimeMin: title.video?.durationSec ? Math.round(title.video.durationSec / 60) : null }
-      : { title: title.name, year: title.year, seasonEpisodeCounts: seasonCounts(title) };
+  const subject = subjectOf(title);
   const query = searchTitle(title.name);
   const candidates =
     title.kind === 'MOVIE' ? await tmdb.movieCandidates(query, title.year) : await tmdb.tvCandidates(query, title.year);
@@ -88,17 +76,13 @@ async function probe(slug: string): Promise<Row> {
     row.tmdb = { id: best.candidate.tmdbId, title: best.candidate.title, year: best.candidate.year, score: round(best.score) };
     row.runnerUp = ranked[1] ? round(ranked[1].score) : undefined;
   }
-  // Episodes whose season (number or edition year) and number exist in TMDB;
-  // the rest need an air date or a mapping rule.
-  if (title.kind === 'SERIES' && verdict !== 'new' && best?.candidate.seasonEpisodeCounts) {
-    const candidate = best.candidate;
-    row.directEpisodes = title.seasons
-      .flatMap((s) => s.episodes)
-      .filter((e) => {
-        if (e.season === null || e.episode === null) return false;
-        const tmdbSeason = resolveSeason(e.season, candidate);
-        return tmdbSeason !== null && (candidate.seasonEpisodeCounts?.[tmdbSeason] ?? 0) >= e.episode;
-      }).length;
+  // Episodes placed in TMDB's structure (by air date, then season + number),
+  // as the catalog ingest does; the rest would be provisional.
+  if (title.kind === 'SERIES' && verdict !== 'new' && best) {
+    const id = best.candidate.tmdbId;
+    const seasons: TmdbSeasonEpisodes[] = [];
+    for (const n of await tmdb.seasonNumbers(id)) seasons.push(await tmdb.season(id, n));
+    row.directEpisodes = title.seasons.flatMap((s) => s.episodes).filter((e) => placeEpisode(e, seasons).how !== 'none').length;
   }
   return row;
 }
@@ -140,7 +124,7 @@ if (tmdb) {
   const by = (v: Verdict) => ok.filter((r) => r.verdict === v).length;
   console.log(`  TMDB: automatici ${by('auto')} (${pct(by('auto'), ok.length)}), da rivedere ${by('review')}, nuovi ${by('new')}`);
   const matched = series.filter((r) => r.directEpisodes !== undefined);
-  console.log(`  episodi delle serie abbinate che coincidono subito con TMDB: ${pct(sum(matched, 'directEpisodes'), sum(matched, 'episodes'))}`);
+  console.log(`  episodi delle serie abbinate collocati in TMDB (data o numero): ${pct(sum(matched, 'directEpisodes'), sum(matched, 'episodes'))}`);
 }
 
 mkdirSync('.probe', { recursive: true });

@@ -1,6 +1,6 @@
 # MAIA TV: catalogo e riproduzione
 
-*Stato: progettato. Nel prototipo UI i dati sono finti (`maia-fe/lib/mock.ts`).*
+*Stato: aggiornamento del catalogo RaiPlay costruito nel backend (`maia-be/src/tv/`, vedi "Implementazione"); il frontend usa ancora i dati finti (`maia-fe/lib/mock.ts`) finché non ci sono gli endpoint del catalogo.*
 
 ## Servizi
 
@@ -196,34 +196,84 @@ aggiungono voci e raccolte scelte a mano senza toccare il codice. I generi dei s
 traducono nei generi di MAIA con una tabella di alias (`GenreAlias`); un genere sconosciuto va in
 una lista "da associare".
 
-## Modello dati (bozza)
+## Modello dati
+
+Nel database (`maia-be/prisma/schema.prisma`, migrazione `catalog`):
 
 ```
-Title (kind, name, year, tmdbId, overview, posterUrl) ─┬─ TitleGenre ─ Genre ─ GenreAlias
-                                                         └─ Season ─ Episode (number, airDate, provisional)
-Source (→ Title film o Episode; provider, externalId, drm, available, maxHeight,
-        audioLangs, subLangs, failCount)
-ProviderTitle (provider, externalId, name, year, lastSeenAt, titleId?) ─ ProviderEpisode
-        (season/episode del servizio, airDate, duration, availableUntil, drm, lastSeenAt)
-ExtraGroup (titleId, seasonNumber?, kind, label, provider, position) ─ Extra (externalId, title,
-        duration, drm, availableUntil, playbackUrl)
-MatchReview (providerTitleId, candidato TMDB, punteggio, stato)
-MappingRule (titleId, provider, regola, manual)
-SyncState (titolo/servizio: interval 1|7|30, nextCheckAt, lastChangeAt)
-Channel (provider, externalId, name, number, category, logoUrl) ─ Program (title, description, startsAt, endsAt)
-MenuEntry (label, parentId, position, kind?, genreId?)
-ProviderHealth (provider, status, failStreak, retryAfter)
-WatchProgress / Favorite → per Profile
+Title (kind, name, originalName, year, tmdbId unico per tipo, overview, posterUrl, backdropUrl, genres[])
+  ├─ Season (number) ─ Episode (number?, name, airDate, provisional)
+  └─ ExtraGroup (provider, kind, label, seasonNumber?, position) ─ Extra (name, playbackUrl, drm, durata, scadenza, available)
+Source (provider + externalId unici; → Title se film o Episode; providerTitleId, playbackUrl,
+        drm, geoBlocked, durata, scadenza, available, failCount, lastSeenAt)
+ProviderTitle (provider + externalId unici; kind, name, year, titleId, verdict AUTO|REVIEW|NEW|MANUAL,
+        matchScore, contentHash, lastSeenAt, missCount, checkIntervalDays, nextCheckAt, lastChangeAt)
+MatchReview (providerTitleId, candidati TMDB con punteggio, stato PENDING|ACCEPTED|REJECTED)
+ProviderHealth (provider, status OK|DEGRADED|DOWN, failStreak, retryAfter, lastSuccessAt, lastError)
+SyncRun (provider, inizio/fine, trovati, messi in coda, stato, nota)
 ```
 
-## Prototipo RaiPlay (in corso)
+Previsti, non ancora fatti: generi come tabella (`Genre`, `GenreAlias`; oggi `genres[]` testuale
+da TMDB o dal servizio), `MappingRule` (regole di numerazione decise a mano), `MenuEntry`,
+`Channel`/`Program` (dirette e palinsesto), `WatchProgress`/`Favorite`.
 
-Codice in `maia-be/src/tv/`: `providers/raiplay/raiplay.adapter.ts` (lettura e
-normalizzazione), `providers/polite-fetch.ts` (una richiesta alla volta per host, pausa minima,
-tentativi), `matching/score.ts` (punteggio e verdetto, con test), `matching/tmdb.client.ts`,
-`probe.ts` (`npm run catalog:probe`, vedi [../dev.md](../dev.md)).
+## Implementazione
 
-Come è fatto RaiPlay (verificato il 2026-10-31):
+Codice in `maia-be/src/tv/`:
+
+| File | Cosa fa |
+|---|---|
+| `providers/raiplay/raiplay.adapter.ts` | legge RaiPlay: esplorazione completa (`discover`), sezioni, titolo con stagioni, episodi, extra, immagini, DRM, scadenze |
+| `providers/polite-fetch.ts` | una richiesta alla volta per host con pausa minima (RaiPlay 250 ms, TMDB 60 ms), timeout, tentativi |
+| `matching/score.ts`, `subject.ts` | punteggio e verdetto dell'abbinamento a TMDB |
+| `matching/episodes.ts` | colloca un episodio nella struttura TMDB: per **data di messa in onda** (±1 giorno, stagione speciali esclusa), poi stagione + numero (anche "Stagione 2026" = edizione andata in onda nel 2026) |
+| `matching/tmdb.client.ts` | ricerca, candidati, metadati in italiano, episodi per stagione |
+| `catalog/catalog.service.ts` | inserimento nel catalogo, fonti, extra, spegnimenti, ritmo, stato del servizio |
+| `catalog/catalog.worker.ts` | code e lavori pg-boss |
+| `catalog/worker.main.ts` | worker in un processo a sé (sviluppo locale) |
+| `probe.ts` | misura su un campione, senza scrivere nel database |
+
+**Inserimento di un titolo** (`CatalogService.ingest`):
+1. Salva o aggiorna il `ProviderTitle`. Se l'hash dei dati è uguale all'ultima volta, si ferma
+   lì ("invariato") e pianifica il prossimo controllo.
+2. Se il titolo non è ancora collegato, lo abbina a TMDB: *auto* → scheda TMDB (creata la prima
+   volta con trama, locandina, sfondo e generi in italiano, oppure riusata se un altro servizio
+   l'ha già portata); *review* → scheda dai dati del servizio + `MatchReview`; *new* → scheda dai
+   dati del servizio. Un titolo già collegato non viene riabbinato.
+3. Film: una `Source` sul titolo. Serie: ogni episodio nuovo (o provvisorio) viene collocato con
+   `placeEpisode`; se TMDB non lo ha, diventa **provvisorio** con stagione e numero (o data) del
+   servizio e viene ricollocato a ogni sincronizzazione finché TMDB non lo aggiunge; i provvisori
+   rimasti senza fonti si cancellano. Le puntate senza numero si riconoscono per data.
+4. Extra: gruppi ed extra aggiornati; quelli non più elencati diventano non disponibili.
+5. Le fonti di quel servizio non più elencate per il titolo diventano non disponibili.
+6. Ritmo: serie ogni giorno finché cambia qualcosa, ogni 7 giorni dopo 7 giorni senza novità,
+   ogni 30 dopo 14; mai più tardi della mattina dopo il prossimo episodio indicato da TMDB. Film
+   ogni 30 giorni (la sparizione la vede la passata notturna, la scadenza il controllo orario).
+
+**Lavori** (pg-boss, schema `pgboss`):
+
+| Coda | Quando | Cosa |
+|---|---|---|
+| `catalog-discover` | ogni notte alle 3 (`refresh`) o a mano (`fill`) | elenco completo del servizio; *fill* mette in coda tutti i titoli, *refresh* solo i nuovi; i titoli non elencati contano una mancanza (alla seconda di fila le fonti si spengono); se trova meno del 70% dei titoli della passata precedente si annulla |
+| `catalog-sync-title` | dai lavori sopra o a mano | un titolo: lettura + inserimento; una richiesta per titolo alla volta (politica `stately` con chiave), 3 tentativi con attesa crescente, 3 titoli in parallelo |
+| `catalog-due` | ogni ora al minuto 15 | mette in coda i titoli arrivati al prossimo controllo; spegne fonti ed extra scaduti |
+| `catalog-news` | ogni 3 ore | rilegge le liste in evidenza delle sezioni (dove compaiono le novità) |
+
+Stato del servizio: un errore di rete o 5xx incrementa il contatore; dopo 5 di fila il servizio
+va in pausa 30 minuti (i suoi lavori riprovano dopo). Un 404 su un titolo conta come titolo
+sparito, non come guasto del servizio.
+
+Comandi (vedi [../dev.md](../dev.md)): `npm run catalog -- fill|refresh raiplay`,
+`npm run catalog -- sync raiplay <slug...>`, `npm run catalog -- status`,
+`npm run catalog:worker`, `npm run catalog:probe`.
+
+Ancora da fare: endpoint del catalogo e del playback per il frontend, pannello admin per la
+coda di revisione e per le regole di numerazione, pannello stato, riabbinamento periodico dei
+titoli *review*/*new* (TMDB può aggiungerli in seguito).
+
+## RaiPlay
+
+Come è fatto (verificato il 2026-10-31):
 
 - `/programmi/<slug>.json`: `program_info` (nome, anno, `layout` `single` = film / `multi` =
   serie o programma, tipologia, generi) e `blocks` → `sets`. Le puntate intere stanno nel
@@ -267,15 +317,20 @@ Accorgimenti che hanno portato dal 67% al 90%:
 - la ricerca TMDB si fa sia con l'anno sia senza, perché l'anno del servizio può essere quello
   dell'edizione in corso.
 
-Ancora da fare: le puntate dei programmi senza numero o con numerazione per edizione (Ballando,
-Splendida Cornice: 0% diretti) vanno abbinate per **data di messa in onda**, leggendo le date
-degli episodi delle stagioni TMDB (una chiamata per stagione).
+Le puntate dei programmi si collocano per **data di messa in onda** (`matching/episodes.ts`).
+Quando TMDB non ha ancora l'edizione in corso (es. Ballando 2026), le puntate restano provvisorie
+finché TMDB la aggiunge.
+
+Elenco completo: gli indici di sezione mostrano solo una selezione (245 film, 165 serie
+italiane, 229 programmi), ma rimandano a pagine di genere (`/genere/…`), raccolte, collezioni e
+blocchi caricati a parte. Seguendole dalle 10 sezioni on demand si arriva a **6753 programmi**
+(1250 pagine, circa 5 minuti e mezzo).
 
 ## Ordine di sviluppo previsto
 
-1. Prototipo di misura: adapter **RaiPlay** su circa 20 titoli per misurare quanti si abbinano
-   da soli a TMDB (fatto: 90%, vedi sopra). Manca l'abbinamento per data delle puntate.
-2. Schema Prisma del catalogo, coda pg-boss, fase 1 completa per RaiPlay.
-3. Endpoint di playback e player collegato al backend (HLS nativo per RaiPlay).
-4. Fase 2 (aggiornamento continuo) e pannello stato.
+1. ~~Prototipo di misura RaiPlay~~ (fatto: 90% abbinati da soli).
+2. ~~Schema Prisma del catalogo, coda pg-boss, fase 1 e fase 2 per RaiPlay~~ (fatto, vedi
+   "Implementazione").
+3. Endpoint del catalogo e del playback, frontend collegato (HLS nativo per RaiPlay).
+4. Pannello admin: coda di revisione, regole di numerazione, stato dei servizi.
 5. Altri servizi, uno alla volta, dopo la verifica del vincolo geografico.

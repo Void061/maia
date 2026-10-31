@@ -143,3 +143,15 @@ prendono solo idee ed endpoint, non codice.
 nel campione RaiPlay 4141 contro 1868 episodi), ma come Extra della scheda, divisi in gruppi e
 legati alla stagione quando c'è, mai nella lista episodi. Non si abbinano a TMDB: appartengono al
 titolo su cui sono stati trovati.
+
+**Catalogo costruito con pg-boss nel backend.** I lavori (passata notturna, novità ogni 3 ore,
+titoli in scadenza ogni ora, un lavoro per titolo) girano nel container di maia-be, nello stesso
+Postgres: niente Redis né altre risorse. In sviluppo locale girano in un processo a sé
+(`npm run catalog:worker`) perché i riavvii di `start:dev` interromperebbero il riempimento.
+
+**Episodi che TMDB non ha ancora: provvisori.** Si mostrano con stagione e numero (o data) del
+servizio e si ricollocano a ogni sincronizzazione finché TMDB li aggiunge, invece di aspettare.
+Le puntate dei programmi si collocano prima per data di messa in onda, poi per numero.
+
+**Elenco completo di RaiPlay per esplorazione** delle pagine di sezione, genere, raccolta e
+collezione (6753 programmi), perché RaiPlay non ha un indice A-Z pubblico.

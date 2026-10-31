@@ -29,7 +29,20 @@ e rigenera il client Prisma).
 
 **Tipi del frontend:** dopo una modifica alle API, con maia-be acceso, `npm run gen:api` in maia-fe.
 
-**Prototipo catalogo RaiPlay:** `npm run catalog:probe` in maia-be legge un campione di titoli
+**Catalogo MAIA TV:** in locale i lavori del catalogo girano in un processo a sé, così i
+riavvii di `start:dev` non interrompono un riempimento di ore (`.env`: `CATALOG_WORKERS=false`
+li tiene fuori dal server web). Da maia-be, con `TMDB_API_KEY` in `.env`:
+
+```bash
+npm run catalog:worker                       # i worker (lasciarlo acceso, come processo separato)
+npm run catalog -- fill raiplay              # primo riempimento: tutto RaiPlay (qualche ora)
+npm run catalog -- sync raiplay marefuori    # solo i titoli indicati, subito
+npm run catalog -- status                    # titoli, abbinamenti, episodi, fonti, coda
+```
+
+Log del worker avviato come processo separato: `%TEMP%\maia-logs\catalog-worker.log`.
+
+**Misura catalogo RaiPlay:** `npm run catalog:probe` in maia-be legge un campione di titoli
 RaiPlay (o solo quelli indicati: `npm run catalog:probe -- marefuori`) e, con `TMDB_API_KEY`,
 misura quanti si abbinano da soli a TMDB. Non scrive nel database; il resoconto completo va in
 `maia-be/.probe/report.json` (ignorato da git). Vedi [tv/catalog.md](tv/catalog.md).
@@ -44,7 +57,7 @@ le due modalità insieme.
 
 | File | Contenuto |
 |---|---|
-| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo) |
+| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo), `CATALOG_WORKERS` (`false` = lavori del catalogo fuori dal server web) |
 | `maia-fe/.env.local` | `API_URL=http://localhost:3000` (dove il gateway `/api` trova maia-be) |
 
 Sono ignorati da git; i modelli sono i rispettivi `.env.example`.

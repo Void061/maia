@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProfilesController } from './profiles/profiles.controller.js';
+import { CatalogModule } from './tv/catalog/catalog.module.js';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ProfilesController } from './profiles/profiles.controller.js';
     PrismaModule,
     MailModule,
     AuthModule,
+    CatalogModule,
   ],
   controllers: [AppController, AccountController, ProfilesController, AdminController],
   providers: [AppService, AdminGuard, { provide: APP_GUARD, useClass: ThrottlerGuard }],

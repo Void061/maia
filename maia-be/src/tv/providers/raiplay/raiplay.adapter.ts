@@ -27,6 +27,7 @@ type RaiProgram = {
     typology?: string;
     description?: string;
     genres?: { name: string }[];
+    images?: { portrait?: string; portrait_logo?: string; portrait43?: string; landscape?: string };
   };
   blocks?: RaiBlock[];
 };
@@ -73,16 +74,31 @@ export class RaiPlayAdapter implements ProviderAdapter {
   // Slugs of the programs linked from a section index (film, serieitaliane, ...).
   async listSection(section: string): Promise<string[]> {
     const index = await politeJson<unknown>(`${HOST}/tipologia/${section}/index.json`);
-    const slugs = new Set<string>();
-    const walk = (node: unknown): void => {
-      if (!node || typeof node !== 'object') return;
-      const path = (node as { path_id?: unknown }).path_id;
-      const match = typeof path === 'string' ? path.match(/^\/programmi\/([^/]+)\.json$/) : null;
-      if (match) slugs.add(match[1]);
-      for (const value of Object.values(node)) walk(value);
-    };
-    walk(index);
-    return [...slugs];
+    return [...collectLinks(index).programs];
+  }
+
+  // The whole catalog: a section index only shows a selection, but links to
+  // genre, collection and lazily loaded block pages that list the rest.
+  async discover(sections = SECTIONS, onPage?: (pages: number, programs: number) => void): Promise<string[]> {
+    const programs = new Set<string>();
+    const seen = new Set<string>();
+    const queue = sections.map((s) => `/tipologia/${s}/index.json`);
+    while (queue.length) {
+      const page = queue.shift()!;
+      if (seen.has(page)) continue;
+      seen.add(page);
+      let data: unknown;
+      try {
+        data = await politeJson<unknown>(HOST + page);
+      } catch {
+        continue; // a broken listing page must not stop the discovery
+      }
+      const links = collectLinks(data);
+      for (const slug of links.programs) programs.add(slug);
+      for (const next of links.listings) if (!seen.has(next)) queue.push(next);
+      onPage?.(seen.size, programs.size);
+    }
+    return [...programs];
   }
 
   async getTitle(slug: string): Promise<ProviderTitle | null> {
@@ -102,6 +118,9 @@ export class RaiPlayAdapter implements ProviderAdapter {
       year: toInt(info.year),
       genres: (info.genres ?? []).map((g) => g.name),
       description: info.description ?? '',
+      // "portrait" is often empty; the versions with the title logo are the posters.
+      posterUrl: imageUrl(info.images?.portrait_logo || info.images?.portrait || info.images?.portrait43),
+      backdropUrl: imageUrl(info.images?.landscape),
     };
 
     const blocks = program.blocks ?? [];
@@ -154,10 +173,45 @@ export class RaiPlayAdapter implements ProviderAdapter {
       });
       if (!videos.length) continue;
       const label = block === set.name || EPISODE_BLOCK.test(block) ? set.name : `${block} · ${set.name}`;
-      groups.push({ kind: extraKind(`${block} ${set.name}`), label, season: seasonNumber(set.name), videos });
+      groups.push({
+        externalId: set.path_id,
+        kind: extraKind(`${block} ${set.name}`),
+        label,
+        season: seasonNumber(set.name),
+        videos,
+      });
     }
     return groups;
   }
+}
+
+// On-demand sections (live channels, radio and news are not catalog content).
+export const SECTIONS = [
+  'film',
+  'serieitaliane',
+  'serieinternazionali',
+  'programmi',
+  'documentari',
+  'bambini',
+  'teen',
+  'musica-e-teatro',
+  'techerai',
+  'learning',
+];
+
+// Listing pages worth following: genres, collections, curated lists, lazy blocks.
+const LISTING = /^\/(?:genere|raccolta|collezioni)\/[^?#]+\.json$|^\/tipologia\/[^/]+\/(?:PublishingBlock-[^/]+|[^/]+\/index)\.json$/;
+
+function collectLinks(node: unknown, out = { programs: new Set<string>(), listings: new Set<string>() }) {
+  if (!node || typeof node !== 'object') return out;
+  const path = (node as { path_id?: unknown }).path_id;
+  if (typeof path === 'string') {
+    const program = path.match(/^\/programmi\/([^/]+)\.json$/);
+    if (program) out.programs.add(program[1]);
+    else if (LISTING.test(path)) out.listings.add(path);
+  }
+  for (const value of Object.values(node)) collectLinks(value, out);
+  return out;
 }
 
 function seasonNumber(label: string): number | null {
@@ -192,6 +246,11 @@ function rights(rm: RaiRights | undefined): { drm: boolean; geoBlocked: boolean 
     drm: rm?.rights?.drm?.VOD === true,
     geoBlocked: rm?.rights?.geoprotection?.["Fuori dall'Italia"] === true,
   };
+}
+
+function imageUrl(path: string | undefined): string | null {
+  if (!path) return null;
+  return path.startsWith('http') ? path : HOST + path;
 }
 
 function toJsonPath(path: string): string {

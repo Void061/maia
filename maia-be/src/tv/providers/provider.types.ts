@@ -43,6 +43,7 @@ export type ExtraKind = 'HIGHLIGHTS' | 'CLIPS' | 'PREVIEWS' | 'EXTRAS';
 export type ProviderExtra = ProviderVideo & { externalId: string; title: string };
 
 export type ProviderExtraGroup = {
+  externalId: string;
   kind: ExtraKind;
   // As the service names it: "Highlights · Stagione 6", "Ciro per sempre".
   label: string;
@@ -58,6 +59,9 @@ export type ProviderTitle = {
   year: number | null;
   genres: string[];
   description: string;
+  // The service's artwork, used when TMDB has none for the title.
+  posterUrl: string | null;
+  backdropUrl: string | null;
   // Movies only.
   video: ProviderVideo | null;
   // Series only.

@@ -5,7 +5,7 @@ database PostgreSQL gestito da Coolify.
 
 | Risorsa | Base directory | Porta | Variabili |
 |---|---|---|---|
-| maia-be | `/maia-be` | 3000 | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (pubblico, `https://`), `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa) |
+| maia-be | `/maia-be` | 3000 | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (pubblico, `https://`), `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo) |
 | maia-fe | `/maia-fe` | 3001 | `API_URL` (indirizzo interno di maia-be, es. `http://maia-be:3000`), a runtime |
 
 maia-be non va esposto su internet: il browser passa sempre da maia-fe (`/api/*`).
@@ -13,6 +13,14 @@ maia-be non va esposto su internet: il browser passa sempre da maia-fe (`/api/*`
 cookie diventano `Secure` da soli).
 Il primo amministratore in produzione si crea dal terminale del container maia-be,
 `npm run account:approve -- persona@esempio.it --admin`; gli altri account dal pannello `/admin`.
+
+## Catalogo MAIA TV
+
+Il backend in produzione esegue anche i lavori del catalogo (pg-boss, tabelle nello schema
+`pgboss` dello stesso database): passata notturna alle 3, novità ogni 3 ore, controlli dei titoli in
+scadenza ogni ora. Non serve un'altra risorsa. Il primo riempimento si avvia una volta dal
+terminale del container maia-be con `npm run catalog -- fill raiplay` (qualche ora; avanzamento con
+`npm run catalog -- status`). `CATALOG_WORKERS=false` li spegne.
 
 ## Email con Resend
 
@@ -27,8 +35,8 @@ Frontend e backend stanno sulla VPS (Coolify); Cloudflare sta **davanti** come D
 (nuvola arancione): HTTPS, cache dei file statici, protezione da attacchi. Il frontend non può
 essere un sito statico (gateway `/api`, `proxy.ts`, pagine dinamiche). Turnstile (anti-bot) si può
 aggiungere ai moduli di registrazione e password dimenticata indipendentemente da dove gira l'app.
-Quando i video passeranno dal proxy del backend, conviene servirli da un sottodominio **non**
-proxato da Cloudflare (nuvola grigia): i termini dei piani gratuiti limitano il traffico video.
+I video non passano mai da qui: li scarica il dispositivo direttamente dai servizi (vedi
+[tv/catalog.md](tv/catalog.md)), quindi niente traffico video su VPS e Cloudflare.
 
 ## Immagini
 
