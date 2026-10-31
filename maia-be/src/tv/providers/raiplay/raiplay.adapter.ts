@@ -250,7 +250,8 @@ function toEpisode(item: RaiSetItem): ProviderEpisode {
     season: toInt(item.season),
     episode: toInt(item.episode),
     title: item.episode_title || item.toptitle || item.name,
-    airDate: parseItalianDate(item.name),
+    // The date may be only in the episode title ("Da Grande" / "Puntata del 19/09/2021").
+    airDate: parseItalianDate(item.name) ?? parseItalianDate(item.episode_title ?? '') ?? parseItalianDate(item.toptitle ?? ''),
     imageUrl: imageUrl(item.images?.landscape),
     durationSec: parseDuration(item.duration),
     ...rights(item.rights_management),

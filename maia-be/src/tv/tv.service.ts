@@ -3,6 +3,7 @@ import { CacheService } from '../cache/cache.service.js';
 import { Prisma, type TitleKind } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CatalogService } from './catalog/catalog.service.js';
+import { presentExtras } from './extras.js';
 import type { GenreDto, HomeDto, PlaybackDto, TitleCardDto, TitleDetailDto, TitlePageDto } from './tv.dto.js';
 
 // A video users can watch: listed by the service right now and not DRM-protected.
@@ -251,15 +252,19 @@ export class TvService {
       seasons: t.kind === 'SERIES' ? seasonList.length : null,
       originalName: t.originalName,
       seasonList,
-      extras: t.extraGroups
-        .filter((g) => g.extras.length > 0)
-        .map((g) => ({
-          id: g.id,
-          kind: g.kind,
-          label: g.label,
-          season: g.seasonNumber,
-          items: g.extras.map((x) => ({ id: x.id, name: x.name, minutes: minutes(x.durationSec), imageUrl: sized(x.imageUrl, THUMB) })),
-        })),
+      extras: presentExtras(
+        t.extraGroups
+          .filter((g) => g.extras.length > 0)
+          .map((g) => ({
+            id: g.id,
+            kind: g.kind,
+            label: g.label,
+            season: g.seasonNumber,
+            items: g.extras.map((x) => ({ id: x.id, name: x.name, minutes: minutes(x.durationSec), imageUrl: sized(x.imageUrl, THUMB) })),
+          })),
+        t.name,
+        new Set(seasonList.flatMap((s) => s.episodes.map((e) => e.airDate).filter((d): d is string => !!d))),
+      ),
       similar,
     };
   }

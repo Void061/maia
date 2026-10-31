@@ -229,3 +229,9 @@ con lo stesso slug sono un genere solo, fatto in lettura senza `resync`. Cambian
 generi in cache è emerso che il codice nuovo avrebbe letto valori scritti dal vecchio: le chiavi
 hanno ora una versione (`MAIA_APP_v2:`) da alzare a ogni cambio di forma. Regola aggiunta in
 `CLAUDE.md`: niente errori o avvisi in console prima di un commit del frontend.
+
+**Programmi che non seguono lo schema delle serie** (segnalato dall'utente su "Da Grande": su
+RaiPlay due serate e molte clip, in MAIA "2 stagioni" con una puntata ciascuna e 22 clip ammucchiate
+negli extra). La data della puntata si legge anche dal titolo dell'episodio, così le puntate si
+collocano nella stessa stagione; le clip si mostrano raggruppate per puntata e con nomi ripuliti, in
+lettura. Misurato: 21 programmi divisi come "Da Grande" e 82 con puntate provvisorie senza data.

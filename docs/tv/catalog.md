@@ -369,9 +369,23 @@ sincronizzazione (se il servizio non ne dà una si tiene quella che c'era) e le 
 ritagliata 640×360. Non si usano le immagini degli episodi di TMDB: quelle di RaiPlay sono del
 video che si guarda davvero e ci sono anche per le puntate provvisorie.
 
-**Date delle puntate.** La data nel nome ("Puntata del 12/03/1988") vale solo se esiste davvero:
+**Date delle puntate.** La data si cerca nel nome dell'elemento e, se non c'è, nel titolo
+dell'episodio (RaiPlay a volte chiama una puntata solo "Da Grande" e scrive "Puntata del
+19/09/2021" nel titolo): senza data la puntata restava provvisoria in una "Edizione 2021" separata
+dalla stagione TMDB in cui stava l'altra. La data vale solo se esiste davvero:
 RaiPlay a volte scrive segnaposto come "00/00/1992", che prima bloccavano la sincronizzazione
 dell'intero programma (Telefono giallo: 32 puntate su 41).
+
+**Extra presentati per puntata** (`maia-be/src/tv/extras.ts`, in lettura: i dati salvati restano
+quelli del servizio). Programmi come i talk e gli show hanno molte clip delle puntate in un unico
+gruppo "Clip". L'API:
+- ripulisce i nomi: toglie le parti che ripetono il nome del titolo o sono solo una data
+  ("Lillo diventa Adriano Celentano - Da Grande - 26/09/2021" → "Lillo diventa Adriano Celentano");
+- se le clip di un gruppo hanno quasi tutte una data e le date sono da 2 a 12, divide il gruppo per
+  data, dalla più recente: "Clip · puntata del 26 settembre 2021" (o "Clip · 26 settembre 2021" se
+  quella puntata non c'è); le clip senza data restano nel gruppo originale;
+- oltre 12 date (programmi quotidiani) il gruppo resta unico, in ordine dalla più recente, per non
+  avere una riga al giorno.
 
 **Immagini RaiPlay ritagliate.** RaiPlay fornisce locandine e sfondi a piena misura (una locandina
 1536×2048 pesa 0,5-1 MB; la home ne mostra quasi 200). Le API le restituiscono passando dal

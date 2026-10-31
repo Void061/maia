@@ -93,11 +93,12 @@ Le risposte pronte delle API più usate stanno in **Redis**, così il backend le
   il valore, altrimenti lo calcola, lo salva e lo restituisce. Richieste uguali in contemporanea
   fanno un solo calcolo.
 - **Chiavi:** tutte iniziano con `MAIA_APP_`, poi la versione della cache e la chiave del
-  singolo elemento: `MAIA_APP_v2:tv:home`, `MAIA_APP_v2:tv:genres:ALL|MOVIE|SERIES`,
-  `MAIA_APP_v2:tv:titles:<filtri>`, `MAIA_APP_v2:tv:title:<id>`, `MAIA_APP_v2:tv:playback:<id>`. Il
+  singolo elemento: `MAIA_APP_v3:tv:home`, `MAIA_APP_v3:tv:genres:ALL|MOVIE|SERIES`,
+  `MAIA_APP_v3:tv:titles:<filtri>`, `MAIA_APP_v3:tv:title:<id>`, `MAIA_APP_v3:tv:playback:<id>`. Il
   prefisso permette di svuotare tutta la cache di MAIA senza toccare altro.
-- **Versione (`CACHE_VERSION` in `cache.service.ts`): va alzata ogni volta che cambia la forma di
-  un valore in cache** (un DTO, un tipo interno messo in cache). Così il codice nuovo non legge mai
+- **Versione (`CACHE_VERSION` in `cache.service.ts`): va alzata ogni volta che un valore in cache
+  cambia a parità di dati**: la sua forma (un DTO, un tipo interno messo in cache) o il modo in cui
+  l'API lo calcola (es. come raggruppa gli extra). Così il codice nuovo non legge mai
   valori scritti dal codice vecchio, nemmeno subito dopo un deploy; le voci vecchie spariscono al
   primo svuotamento (che cancella tutto `MAIA_APP_*`) o alla scadenza.
 - **Svuotamento:** ogni lavoro del catalogo che cambia i dati svuota tutto `MAIA_APP_*` (vedi

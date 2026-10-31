@@ -5,10 +5,11 @@ import { Redis } from 'ioredis';
 // Every MAIA key in Redis starts with this, so the whole app cache can be
 // dropped at once without touching anything else stored there.
 export const CACHE_PREFIX = 'MAIA_APP_';
-// Raise it whenever the shape of a cached value changes (a DTO, a cached
-// internal type): entries written by the previous code are then never read,
-// and the next invalidation (which matches every MAIA_APP_ key) clears them.
-const CACHE_VERSION = 'v2';
+// Raise it whenever a cached value changes for the same data: its shape (a
+// DTO, a cached internal type) or how it is computed (e.g. how extras are
+// grouped). Entries written by the previous code are then never read, and the
+// next invalidation (which matches every MAIA_APP_ key) clears them.
+const CACHE_VERSION = 'v3';
 const ns = (key: string) => `${CACHE_PREFIX}${CACHE_VERSION}:${key}`;
 const FAILS = 'fails:';
 // Failure counters forget isolated errors after this long.
