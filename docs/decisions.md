@@ -184,3 +184,7 @@ uscita). Ora si mette in pausa, esce dallo schermo intero e riprende dallo stess
 `CODECS`), mentre hls.js sì. Il relinker non ha CORS, quindi il link diretto lo legge il backend
 (una richiesta, il video passa comunque dal dispositivo). Corregge la decisione "niente hls.js per
 il catalogo": resta l'HLS nativo come prima scelta, hls.js è la riserva.
+
+**Riscaldamento della cache dopo ogni svuotamento** (idea dell'utente: un "mini bot" che dopo il
+job fa un giro di MAIA). Fatto dentro il backend chiamando direttamente `TvService` invece che con
+richieste HTTP: niente sessione da gestire e chiavi identiche a quelle delle API per costruzione.

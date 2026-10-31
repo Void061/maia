@@ -273,6 +273,7 @@ Al termine di `catalog-discover`, `catalog-due` e di ogni `catalog-sync-title` c
 titolo (non quelli "invariati"), il worker **svuota tutta la cache di MAIA** in Redis. Le modifiche
 ravvicinate (es. tanti titoli di fila) si raccolgono in un solo svuotamento dopo 10 secondi.
 `catalog-news` mette solo in coda titoli: lo svuotamento arriva dai loro `sync-title`.
+Subito dopo lo svuotamento parte il riscaldamento della cache (pagine, poi tutte le schede).
 
 Stato del servizio: un errore di rete o 5xx incrementa il contatore; dopo 5 di fila il servizio
 va in pausa 30 minuti (i suoi lavori riprovano dopo). Un 404 su un titolo conta come titolo

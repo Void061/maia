@@ -98,6 +98,15 @@ Le risposte pronte delle API più usate stanno in **Redis**, così il backend le
   cache di MAIA senza toccare altro.
 - **Svuotamento:** ogni lavoro del catalogo che cambia i dati svuota tutto `MAIA_APP_*` (vedi
   [tv/catalog.md](tv/catalog.md), "Lavori"). Scadenza di sicurezza: `CACHE_TTL_SECONDS` (24 ore).
+- **Riscaldamento** (`src/tv/tv.warmer.ts`): dopo ogni svuotamento un giro automatico ripopola
+  la cache come farebbe un visitatore, così nessuno trova la cache vuota. Prima le pagine (home,
+  generi, suggerimenti della ricerca, liste per tipo e per genere esattamente come le chiede
+  maia-fe), poi tutte le schede dei titoli visibili, 4 alla volta, dalle più aggiornate. Usa gli
+  stessi metodi di `TvService` delle API, quindi le chiavi coincidono sempre. Se arriva un altro
+  svuotamento il giro in corso si ferma e ne parte uno nuovo. Misurato in locale: 497 pagine e
+  6490 schede in ~6 minuti, ~115 MB in Redis. Gira nel processo che svuota la cache (il backend in
+  produzione, `npm run catalog:worker` in locale). Non scalda la fonte di ogni episodio (52 mila,
+  già veloce: ~20 ms).
 - **Errori:** `CacheService.fail(chiave)` conta gli errori di un valore in cache (contatore
   `MAIA_APP_fails:<chiave>`, dimenticato dopo un'ora). Alla `CACHE_MAX_FAILS`-esima volta (3) il
   valore viene cancellato e ricalcolato. Oggi lo usa la fonte scelta per un video: quando un

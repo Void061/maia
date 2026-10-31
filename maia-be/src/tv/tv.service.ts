@@ -10,7 +10,7 @@ const PLAYABLE = { available: true, drm: false } as const;
 
 // Titles with at least one playable video (the tree a user sees is the union
 // of the available sources: docs/tv/catalog.md).
-const VISIBLE: Prisma.TitleWhereInput = {
+export const VISIBLE: Prisma.TitleWhereInput = {
   OR: [
     { kind: 'MOVIE', sources: { some: PLAYABLE } },
     { kind: 'SERIES', seasons: { some: { episodes: { some: { sources: { some: PLAYABLE } } } } } },

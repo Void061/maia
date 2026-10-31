@@ -15,6 +15,7 @@ import { ProfilesController } from './profiles/profiles.controller.js';
 import { CatalogModule } from './tv/catalog/catalog.module.js';
 import { TvController } from './tv/tv.controller.js';
 import { TvService } from './tv/tv.service.js';
+import { TvCacheWarmer } from './tv/tv.warmer.js';
 
 @Module({
   imports: [
@@ -28,6 +29,6 @@ import { TvService } from './tv/tv.service.js';
     CatalogModule,
   ],
   controllers: [AppController, AccountController, ProfilesController, AdminController, TvController],
-  providers: [AppService, AdminGuard, TvService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [AppService, AdminGuard, TvService, TvCacheWarmer, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

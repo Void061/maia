@@ -21,6 +21,7 @@ export class CacheService implements OnModuleDestroy {
   // Same key requested while it is being computed: one computation, shared.
   private readonly inflight = new Map<string, Promise<unknown>>();
   private up = false;
+  private readonly invalidatedListeners: (() => void)[] = [];
 
   constructor(config: ConfigService) {
     this.ttlSec = Number(config.get('CACHE_TTL_SECONDS') ?? 86_400);
@@ -84,6 +85,11 @@ export class CacheService implements OnModuleDestroy {
     }
   }
 
+  // Called after every invalidateAll (e.g. to warm the cache up again).
+  onInvalidated(listener: () => void) {
+    this.invalidatedListeners.push(listener);
+  }
+
   // Drops the whole MAIA cache (the catalog changed). Returns the keys removed.
   async invalidateAll(): Promise<number> {
     if (!this.redis || !this.up) return 0;
@@ -98,6 +104,7 @@ export class CacheService implements OnModuleDestroy {
     } catch (err) {
       this.logger.warn(`Cache invalidation failed: ${String(err)}`);
     }
+    for (const listener of this.invalidatedListeners) listener();
     return removed;
   }
 

@@ -2,6 +2,8 @@
 
 Deploy su **Coolify** nella VPS, come Yuma: due risorse con Build Pack Dockerfile più un
 database PostgreSQL e un **Redis** gestiti da Coolify (Redis senza persistenza: è solo cache).
+Il catalogo intero in cache occupa ~115 MB: dare a Redis almeno 256 MB con
+`maxmemory-policy allkeys-lru` (se si riempie butta le voci meno usate invece di dare errore).
 
 | Risorsa | Base directory | Porta | Variabili |
 |---|---|---|---|
