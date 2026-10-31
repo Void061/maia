@@ -38,6 +38,32 @@ Prove fatte da IP italiano (casa) e da un IP di data center a Francoforte:
   accettano solo l'origine `pluto.tv`. Senza un IP italiano non si può avere il catalogo
   italiano.
 
+## Rispetto dei servizi (regola per ogni provider)
+
+MAIA usa servizi di altri (RaiPlay, TMDB e quelli che verranno). Non deve mai pesare su di loro
+né sembrare un abuso: rischieremmo un blocco o problemi legali. Vale per **qualsiasi provider**,
+di catalogo o di metadati, presente o futuro:
+
+- **Tutte le richieste a un servizio passano da `polite-fetch`**: una alla volta per host, al
+  massimo **1 al secondo** (`DEFAULT_GAP_MS`). Più veloce solo per un'API ufficiale che pubblica
+  limiti più alti, restando molto sotto (TMDB: ~50/s consentite, noi 4/s).
+- **Mai richieste in parallelo verso lo stesso servizio**, nemmeno con più worker.
+- **Se il servizio dice di rallentare o ci blocca (HTTP 429 o 403)** ci si ferma subito: niente
+  nuovi tentativi, il servizio va in pausa per 6 ore (gli altri errori: pausa di 30 minuti dopo 5
+  di fila). Tra un tentativo e l'altro dopo un errore 5xx si aspettano 5-10 secondi.
+- **Il lavoro pesante si fa di notte** (passata alle 3) e il ritmo dei controlli si adatta
+  (giorno → settimana → mese): si rilegge solo quello che può essere cambiato.
+- **Il server non scarica video.** Video e immagini li chiede il dispositivo di chi guarda, come
+  sul sito del servizio; il server chiede al massimo un link quando l'utente avvia un video.
+- **Le pagine dell'app non chiamano i servizi**: leggono dal database e dalla cache.
+- **Operazioni massicce** (`fill`, `resync`, misure su molti titoli, test ripetuti) solo **con
+  la conferma dell'utente**, dicendo prima quante richieste comportano, e una volta sola.
+- Un nuovo adapter va scritto con queste regole dall'inizio; se un servizio pubblica limiti o
+  termini d'uso per le sue API, valgono quelli se più severi.
+
+Volumi attuali (RaiPlay): un titolo = 2-5 richieste; ~20 titoli al minuto; passata notturna
+~qualche migliaio di richieste in qualche ora.
+
 ## Riproduzione: sempre sul dispositivo
 
 **Il video non passa mai dal server.** Il backend sceglie la fonte e consegna al frontend
@@ -234,7 +260,7 @@ Codice in `maia-be/src/tv/`:
 | File | Cosa fa |
 |---|---|
 | `providers/raiplay/raiplay.adapter.ts` | legge RaiPlay: esplorazione completa (`discover`), sezioni, titolo con stagioni, episodi, extra, immagini, DRM, scadenze |
-| `providers/polite-fetch.ts` | una richiesta alla volta per host con pausa minima (RaiPlay 250 ms, TMDB 60 ms), timeout, tentativi |
+| `providers/polite-fetch.ts` | una richiesta alla volta per host con pausa minima (1 s per i servizi, 250 ms per l'API di TMDB), timeout, tentativi con attesa lunga; vedi "Rispetto dei servizi" |
 | `matching/score.ts`, `subject.ts` | punteggio e verdetto dell'abbinamento a TMDB |
 | `matching/episodes.ts` | colloca un episodio nella struttura TMDB: per **data di messa in onda** (±1 giorno, stagione speciali esclusa), poi stagione + numero (anche "Stagione 2026" = edizione andata in onda nel 2026) |
 | `matching/tmdb.client.ts` | ricerca, candidati, metadati in italiano, episodi per stagione |
@@ -291,14 +317,16 @@ dato nuovo (o a leggerlo in modo diverso), i titoli già presenti lo prendono so
 controllo, quindi anche dopo settimane. In quel caso si rilegge tutto subito:
 
 ```bash
-npm run catalog -- resync raiplay              # tutti i titoli già nel catalogo (~6750, qualche ora)
-npm run catalog -- resync raiplay --episodes   # solo quelli con puntate o extra (~2700, ~1 ora)
+npm run catalog -- resync raiplay              # tutti i titoli già nel catalogo (~6750, ~5-6 ore)
+npm run catalog -- resync raiplay --episodes   # solo quelli con puntate o extra (~2700, ~2 ore e mezza)
 npm run catalog -- status                      # avanzamento ("sync-title created" = ancora da fare)
 ```
 
 Mette in coda un `catalog-sync-title` per ogni titolo, dai più aggiornati di recente (quelli che si
 guardano prendono prima i dati nuovi). Il worker deve essere acceso; i titoli sono letti con la
-solita calma verso RaiPlay (~40 al minuto). La cache si svuota e si riscalda da sola man mano.
+solita calma verso RaiPlay (~20 al minuto). È un'operazione pesante per il servizio (migliaia di
+richieste): si lancia **una volta sola** e **solo con la conferma dell'utente** (vedi "Rispetto
+dei servizi"). La cache si svuota e si riscalda da sola man mano.
 
 **Quando serve** (va fatto in locale *e* in produzione dopo il deploy):
 - l'adapter di un servizio restituisce un campo nuovo o diverso (es. immagini delle puntate,

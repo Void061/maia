@@ -52,7 +52,7 @@ if ((command === 'fill' || command === 'refresh') && provider) {
   await withBoss(async (boss) => {
     for (const r of rows) await boss.send('catalog-sync-title', { provider, externalId: r.external_id }, { singletonKey: `${provider}:${r.external_id}` });
   });
-  console.log(`${provider}: ${rows.length} titoli in coda da rileggere (circa ${Math.ceil(rows.length / 40)} minuti). Avanzamento: npm run catalog -- status`);
+  console.log(`${provider}: ${rows.length} titoli in coda da rileggere (circa ${Math.ceil(rows.length / 20)} minuti, ~20 al minuto). Avanzamento: npm run catalog -- status`);
 } else if (command === 'status') {
   const client = new pg.Client({ connectionString: url });
   await client.connect();

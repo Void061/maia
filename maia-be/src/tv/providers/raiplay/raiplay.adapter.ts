@@ -92,7 +92,8 @@ export class RaiPlayAdapter implements ProviderAdapter {
       let data: unknown;
       try {
         data = await politeJson<unknown>(HOST + page);
-      } catch {
+      } catch (err) {
+        if (err instanceof HttpError && err.slowDown) throw err; // RaiPlay says stop: stop the whole pass
         continue; // a broken listing page must not stop the discovery
       }
       const links = collectLinks(data);

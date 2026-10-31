@@ -16,6 +16,8 @@ const DAY = 86_400_000;
 // After this many consecutive errors a service pauses (circuit breaker).
 const MAX_FAIL_STREAK = 5;
 const PAUSE_MS = 30 * 60_000;
+// The service asked us to slow down (429) or blocked us (403): pause at once, longer.
+const SLOW_DOWN_PAUSE_MS = 6 * 3600_000;
 // A discovery finding fewer titles than this share of the previous one is
 // treated as a broken listing: nothing is hidden.
 const MIN_DISCOVERY_RATIO = 0.7;
@@ -57,8 +59,10 @@ export class CatalogService {
     try {
       data = await this.adapter(provider).getTitle(externalId);
     } catch (err) {
-      // A single broken title (4xx) says nothing about the service's health.
-      if (!(err instanceof HttpError && err.status < 500)) await this.recordFailure(provider, err);
+      // A single broken title (4xx) says nothing about the service's health,
+      // except "slow down" / "blocked", which pauses the service right away.
+      if (err instanceof HttpError && err.slowDown) await this.recordFailure(provider, err, SLOW_DOWN_PAUSE_MS);
+      else if (!(err instanceof HttpError && err.status < 500)) await this.recordFailure(provider, err);
       throw err;
     }
     await this.recordSuccess(provider);
@@ -359,6 +363,7 @@ export class CatalogService {
   async discover(provider: string, mode: 'fill' | 'refresh'): Promise<string[]> {
     const adapter = this.adapter(provider);
     if (!adapter.discover) throw new Error(`${provider} cannot list its whole catalog`);
+    await this.assertNotPaused(provider);
     const run = await this.prisma.syncRun.create({ data: { provider } });
     try {
       const found = await adapter.discover();
@@ -390,6 +395,7 @@ export class CatalogService {
       return toSync;
     } catch (err) {
       await this.prisma.syncRun.update({ where: { id: run.id }, data: { status: 'failed', finishedAt: new Date(), note: String(err) } });
+      if (err instanceof HttpError && err.slowDown) await this.recordFailure(provider, err, SLOW_DOWN_PAUSE_MS);
       throw err;
     }
   }
@@ -430,16 +436,17 @@ export class CatalogService {
       throw new ProviderPausedError(`${provider} paused until ${health.retryAfter.toISOString()}`);
   }
 
-  private async recordFailure(provider: string, err: unknown) {
+  // `pauseNowMs`: pause at once for that long instead of after MAX_FAIL_STREAK errors.
+  private async recordFailure(provider: string, err: unknown, pauseNowMs?: number) {
     const health = await this.prisma.providerHealth.upsert({
       where: { provider },
       create: { provider, failStreak: 1, lastError: String(err) },
       update: { failStreak: { increment: 1 }, lastError: String(err) },
     });
-    if (health.failStreak >= MAX_FAIL_STREAK) {
+    if (pauseNowMs || health.failStreak >= MAX_FAIL_STREAK) {
       await this.prisma.providerHealth.update({
         where: { provider },
-        data: { status: 'DOWN', retryAfter: new Date(Date.now() + PAUSE_MS) },
+        data: { status: 'DOWN', retryAfter: new Date(Date.now() + (pauseNowMs ?? PAUSE_MS)) },
       });
       this.logger.error(`${provider} paused after ${health.failStreak} errors: ${String(err)}`);
     }

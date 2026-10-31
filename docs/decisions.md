@@ -198,3 +198,10 @@ stati rimessi in coda una volta tutti i titoli con puntate o extra (2737).
 presenti. Serve quando cambia il nostro codice del catalogo (non RaiPlay): il ritmo adattivo
 aggiornerebbe i titoli fermi solo dopo settimane. La regola è anche in `CLAUDE.md`, così viene
 ricordata a ogni modifica di questo tipo e al deploy.
+
+**Rispetto dei servizi come regola per ogni provider** (chiesto dall'utente: non dare fastidio ai
+servizi, rischio di blocchi e denunce). RaiPlay passa da una richiesta ogni 250 ms a una al secondo
+(~20 titoli al minuto invece di ~40), TMDB da richieste sovrapposte ogni 40 ms a una alla volta
+ogni 250 ms; 429/403 fermano subito il servizio per 6 ore; attese più lunghe tra i tentativi;
+operazioni massicce solo con conferma. Il primo riempimento e i `resync` durano circa il doppio:
+accettato, girano di notte o una volta sola.
