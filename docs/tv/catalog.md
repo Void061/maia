@@ -4,47 +4,170 @@
 
 ## Servizi
 
-Solo servizi gratuiti e legali: RaiPlay, Pluto TV, La7, Mediaset Infinity (parte gratuita),
-Rakuten TV (sezione gratis), YouTube, eventuali altri.
+Solo servizi gratuiti e legali. Primo servizio: **RaiPlay**. Poi, uno alla volta, gli altri
+(La7, Mediaset Infinity parte gratuita, YouTube…), ognuno dopo aver verificato che funziona
+con i vincoli sotto.
 
 | Tipo di contenuto | In MAIA |
 |---|---|
 | Flusso non protetto (HLS/DASH) | riprodotto nel player di MAIA |
 | Protetto da DRM | **non riproducibile**: niente aggiramento della protezione |
 
-Limiti noti: i link dei flussi scadono (vanno chiesti al momento), molti contenuti Rai funzionano
-solo da IP italiano, i sistemi interni dei servizi possono cambiare senza preavviso.
+### Vincolo geografico (misurato il 2026-10-31)
+
+Backend e frontend girano sulla VPS Contabo (`207.180.247.225`), che per i servizi è un IP
+**francese**. Non si usano altre VPS né apparecchi a casa, e MAIA resta una **web app**.
+Prove fatte da IP italiano (casa) e da un IP di data center a Francoforte:
+
+| | Da IP italiano | Da IP estero (data center) |
+|---|---|---|
+| Pluto TV: paese | IT, 1328 titoli | DE, 1662 titoli **tedeschi** |
+| RaiPlay: catalogo (JSON) | leggibile | leggibile |
+| RaiPlay: film (6) | 5 ok, 1 con DRM | 0 |
+| RaiPlay: serie italiane (8) | 8 ok | 0 |
+| RaiPlay: programmi (8) | 8 ok | 5 |
+
+- Il blocco di RaiPlay sta **solo nel relinker** (`mediapolis(vod).rai.it/relinker/...`), che
+  dall'estero restituisce `video_no_available.mp4`. Il link ottenuto da un IP italiano si apre
+  da ovunque e i file video hanno CORS `*`.
+- Il relinker non ha CORS, quindi il browser non può leggerne la risposta con `fetch`, ma lo
+  può dare direttamente a `<video src>`: Chrome 146, Edge, Safari/iOS e Android riproducono
+  l'HLS in modo nativo, e un elemento video non ha bisogno di CORS. Provato con "Mare fuori"
+  da una pagina di un altro dominio: parte.
+- **Pluto TV rimandato**: assegna il paese dall'IP (sessione `boot.pluto.tv`) e le sue API
+  accettano solo l'origine `pluto.tv`. Senza un IP italiano non si può avere il catalogo
+  italiano.
+
+## Riproduzione: sempre sul dispositivo
+
+**Il video non passa mai dal server.** Il backend sceglie la fonte e consegna al frontend
+cosa riprodurre; è il browser dell'utente (in Italia) a chiedere il flusso al servizio e a
+riprodurlo.
+
+- RaiPlay: `<video src="<relinker>">` con HLS nativo del browser. Il relinker viene richiesto
+  dal dispositivo, con il suo IP italiano.
+- Altri servizi: hls.js quando il flusso ha CORS aperto, altrimenti HLS nativo come sopra.
+- Il link del flusso **non si salva**: si ottiene al momento del play.
+- Limiti: **Firefox** non ha HLS nativo (i contenuti Rai non partono lì); il player nativo dà
+  meno controllo di hls.js su qualità e sottotitoli (da verificare cosa espone); dall'estero i
+  contenuti bloccati non partono, come sull'app ufficiale.
+- DRM: se il player non riesce a riprodurre una fonte (protetta o rotta), il frontend lo
+  segnala al backend, che la segna e passa alla successiva.
 
 ## Catalogo unico nel database
 
-Il backend tiene una copia del catalogo di tutti i servizi, in un formato unico. Il frontend legge
-solo dal backend. Vantaggi: velocità, ricerca su tutto, un servizio guasto non blocca gli altri.
+Il backend tiene una copia del catalogo di tutti i servizi, in un formato unico. Il frontend
+legge solo dal backend.
+
+### Due livelli
+
+- **Livello fonti**: quello che dice ogni servizio, così com'è (`ProviderTitle`,
+  `ProviderEpisode`: identificativo e numerazione del servizio, `lastSeenAt`,
+  `availableUntil`).
+- **Livello MAIA**: quello che vede l'utente (`Title` → `Season` → `Episode`). Una `Source`
+  collega un episodio (o un film) di un servizio all'episodio MAIA.
+
+**L'alberatura è l'unione delle fonti.** Se RaiPlay ha gli episodi 1-3 di una stagione e un
+altro servizio anche il 4, in MAIA la stagione ha 4 episodi (il 4 con una sola fonte). Un
+episodio compare se ha almeno una fonte disponibile e non protetta; senza fonti si nasconde ma
+non si cancella (progressi e preferiti restano).
+
+### Riconoscere lo stesso contenuto
+
+**TMDB fa da ossatura**: stagioni ed episodi (con date) vengono da TMDB, i servizi agganciano
+solo le fonti.
+
+- Film: ricerca TMDB per titolo + anno, controllo su titolo originale e durata. Punteggio:
+  alto → unito da solo; medio → **coda di revisione** nel pannello admin; basso → titolo nuovo.
+  Un titolo in revisione resta visibile da solo (al più un doppione, mai un buco).
+- Serie: abbinata una volta; episodi per (serie TMDB, stagione, episodio).
+- Numerazione diversa: per data di messa in onda (es. "Puntata del 12/03" di RaiPlay), oppure
+  con una **regola di mappatura** salvata per serie e servizio (es. stagione divisa in due
+  parti, numerazione assoluta).
+- Episodio uscito oggi che TMDB non ha ancora: episodio *provvisorio* dai dati del servizio,
+  riconciliato quando TMDB lo aggiunge. Contenuti assenti da TMDB: la scheda nasce dai dati
+  del servizio.
+- Le scelte fatte a mano nel pannello admin (unire, separare, mappature) non vengono mai
+  sovrascritte dagli aggiornamenti.
 
 ### Adapter per servizio
 
-Ogni servizio ha un adapter con la stessa interfaccia:
+Stessa interfaccia per ogni servizio; il catalogo lo legge il backend (RaiPlay lo permette
+anche dall'estero), il link del video no:
 
 ```ts
 interface ProviderAdapter {
-  id: 'pluto' | 'raiplay' | 'la7' | ...;
-  syncChannels(): Promise<ChannelDto[]>;
-  syncEpg(from: Date, to: Date): Promise<EpgDto[]>;
-  syncCatalog(): Promise<TitleDto[]>;
-  resolvePlayback(externalId: string): Promise<PlaybackDto>;
+  id: 'raiplay' | 'la7' | ...;
+  listCatalog(): AsyncIterable<ProviderTitleDto>;      // indici per categoria
+  getTitle(externalId: string): Promise<ProviderTitleDto>; // stagioni, episodi, scadenze
+  listNew(): Promise<ProviderTitleDto[]>;               // "ultimi arrivi"
+  playback(externalId: string): PlaybackRecipe;         // cosa dare al player (es. relinker)
 }
 ```
 
-### Aggiornamenti
+Endpoint RaiPlay utili (visti anche nell'add-on Kodi KoD, GPL: si riprendono solo le idee, non
+il codice): `/tipologia/<categoria>/index.json`, `/programmi/<slug>.json` con
+`first_item_path` e blocchi stagione, ricerca `/atomatic/raiplay-search-service/api/v1/msearch`,
+palinsesto `/palinsesto/onAir.json` e `/palinsesto/app/<canale>/<data>.json`.
 
-Con `@nestjs/schedule`: palinsesto ogni ora, catalogo on demand una volta al giorno. Upsert per
-`provider + externalId`; i titoli spariti si marcano come non disponibili, senza cancellarli.
+## Aggiornamento del catalogo
 
-### Arricchimento con TMDB
+### Fase 1: primo riempimento (catalogo vuoto, una volta per servizio)
 
-Locandine, sfondi, trame in italiano, generi e cast da TMDB (API gratuita per uso non commerciale).
-Serve anche a riconoscere lo stesso titolo su servizi diversi: film per ID TMDB (o titolo + anno),
-episodi per ID TMDB della serie + stagione + episodio. I casi dubbi finiscono in una coda di
-controllo manuale invece di essere uniti per sbaglio.
+1. Elenco completo dagli indici del servizio.
+2. Dettagli di ogni titolo (stagioni, episodi, date, scadenze), poche richieste al secondo.
+3. Salvataggio nel livello fonti, con ripresa da dove si era interrotto.
+4. Abbinamento con TMDB in blocco; i dubbi in coda, ordinati per popolarità.
+5. Il servizio diventa visibile in app solo a passata finita.
+
+### Fase 2: aggiornamento continuo
+
+| Cosa | Quando |
+|---|---|
+| Liste "ultimi arrivi" | ogni 3 ore |
+| Ogni serie, con **ritmo che si adatta** | ogni giorno; se ferma da 7 giorni ogni settimana; da 14 ogni mese (idea presa da KoD) |
+| Serie con episodio in uscita | il giorno indicato da TMDB, qualunque sia il ritmo |
+| Controllo completo (titoli tolti) | ogni notte |
+| Scadenze "disponibile fino al" | all'ora esatta |
+| Metadati TMDB (API *changes*) | ogni giorno |
+| Fonte che non parte al play | subito: segnata, si passa alla successiva |
+
+### Fase 3: nuovo servizio
+
+Si rifà la fase 1 solo per lui: le sue fonti si agganciano ai titoli già presenti (niente
+doppioni) e riempiono gli episodi mancanti.
+
+### Reti di sicurezza
+
+- Ogni lavoro si può ripetere: upsert per `provider + externalId`, mai doppioni.
+- Coda dei lavori su Postgres (**pg-boss**, niente Redis), con ripresa dopo un'interruzione.
+- Freno per servizio (limite di richieste) e *circuit breaker*: dopo molti errori il servizio
+  va in pausa senza toccare gli altri (`ProviderHealth`).
+- Una passata che trova molti meno titoli del solito si annulla; un titolo è "sparito" solo
+  se manca due passate di fila.
+- Mai cancellare: titoli ed episodi senza fonti si nascondono.
+- Pannello stato per servizio (ultimo aggiornamento, titoli, errori) e prova giornaliera di un
+  titolo noto, con email se fallisce.
+
+## Fonti multiple e scelta della migliore
+
+**Le fonti sono invisibili all'utente**: in nessuna schermata compare da quale servizio arriva
+un contenuto, né che ne esistono più di uno, e l'utente non può sceglierle.
+
+Al play (`GET /playback/:itemId`) il backend ordina le fonti disponibili e non protette:
+1. stato del servizio (OK prima di DEGRADED; i servizi DOWN sono esclusi),
+2. qualità massima,
+3. presenza di sottotitoli / lingua scelta,
+4. tasso di successo recente;
+
+e restituisce la prima. Se non parte, il player richiede
+`/playback/:itemId?exclude=<servizio>` e riprende dallo stesso punto (`WatchProgress` è legato
+al contenuto, non alla fonte), senza avvisi.
+
+## Arricchimento con TMDB
+
+Locandine, sfondi, trame in italiano, generi e cast da TMDB (API gratuita per uso non
+commerciale), oltre al riconoscimento dei titoli descritto sopra.
 
 ## Categorie
 
@@ -66,45 +189,18 @@ aggiungono voci e raccolte scelte a mano senza toccare il codice. I generi dei s
 traducono nei generi di MAIA con una tabella di alias (`GenreAlias`); un genere sconosciuto va in
 una lista "da associare".
 
-## Fonti multiple e scelta della migliore
-
-**Le fonti sono invisibili all'utente**: in nessuna schermata compare da quale servizio arriva un
-contenuto, né che ne esistono più di uno, e l'utente non può sceglierle. È MAIA a decidere e a
-cambiarle.
-
-Una `Source` è collegata al **film** o al **singolo episodio** (non alla serie). Un contenuto può
-averne più di una (es. RaiPlay e Pluto TV).
-
-Al play (`GET /playback/:itemId`) il backend ordina le fonti disponibili e non protette:
-1. stato del servizio (OK prima di DEGRADED; i servizi DOWN sono esclusi),
-2. qualità massima,
-3. presenza di sottotitoli / lingua scelta,
-4. tasso di successo recente;
-
-e prova in ordine finché una risponde. Lo stato dei servizi (`ProviderHealth`) segue il pattern
-*circuit breaker*: dopo più errori di fila il servizio è escluso per un po' e poi riprovato.
-
-**Passaggio a metà visione:** se la riproduzione si interrompe, il player richiede
-`/playback/:itemId?exclude=<servizio>` e riprende dallo stesso punto (`WatchProgress` è legato al
-contenuto, non alla fonte), senza avvisi: al massimo un breve caricamento.
-
-## Riproduzione
-
-- Il link del flusso **non si salva**: si chiede all'adapter al momento del play.
-- **Proxy nel backend** per indici e segmenti video: aggira i blocchi CORS, aggiunge intestazioni
-  richieste dai servizi (es. `Referer`) e, se il backend gira in Italia, risolve le restrizioni
-  geografiche.
-- Player nel frontend con **hls.js** (Safari/iOS usano l'HLS nativo). Qualità, sottotitoli e
-  tracce audio sono quelle presenti nel flusso: il player non può aggiungerle.
-
 ## Modello dati (bozza)
 
 ```
 Title (kind, name, year, tmdbId, overview, posterUrl) ─┬─ TitleGenre ─ Genre ─ GenreAlias
-                                                         ├─ Season ─ Episode
-                                                         └─ Source (provider, externalId, drm,
-                                                                    available, maxHeight,
-                                                                    audioLangs, subLangs, failCount)
+                                                         └─ Season ─ Episode (number, airDate, provisional)
+Source (→ Title film o Episode; provider, externalId, drm, available, maxHeight,
+        audioLangs, subLangs, failCount)
+ProviderTitle (provider, externalId, name, year, lastSeenAt, titleId?) ─ ProviderEpisode
+        (season/episode del servizio, airDate, duration, availableUntil, drm, lastSeenAt)
+MatchReview (providerTitleId, candidato TMDB, punteggio, stato)
+MappingRule (titleId, provider, regola, manual)
+SyncState (titolo/servizio: interval 1|7|30, nextCheckAt, lastChangeAt)
 Channel (provider, externalId, name, number, category, logoUrl) ─ Program (title, description, startsAt, endsAt)
 MenuEntry (label, parentId, position, kind?, genreId?)
 ProviderHealth (provider, status, failStreak, retryAfter)
@@ -113,7 +209,10 @@ WatchProgress / Favorite → per Profile
 
 ## Ordine di sviluppo previsto
 
-1. Schema Prisma + adapter **Pluto TV** (canali live e palinsesto).
-2. Endpoint di playback + proxy + player collegato al backend.
-3. Catalogo on demand di Pluto TV + TMDB.
-4. Adapter **RaiPlay**, contenuto per contenuto, marcando quelli con DRM.
+1. Prototipo di misura: adapter **RaiPlay** su circa 20 titoli scelti apposta (una soap
+   quotidiana, una serie divisa in parti, un programma con puntate per data) per misurare
+   quanti si abbinano da soli a TMDB.
+2. Schema Prisma del catalogo, coda pg-boss, fase 1 completa per RaiPlay.
+3. Endpoint di playback e player collegato al backend (HLS nativo per RaiPlay).
+4. Fase 2 (aggiornamento continuo) e pannello stato.
+5. Altri servizi, uno alla volta, dopo la verifica del vincolo geografico.

@@ -119,3 +119,22 @@ italiano. Rinominati i percorsi esistenti (es. `/profili` → `/profiles`, `/gua
 `RESEND_API_KEY`, e senza chiave le email vanno a Mailpit. `COOKIE_SECURE` eliminata: i cookie sono
 `Secure` quando `APP_URL` è `https://`. Variabili del backend: `DATABASE_URL`, `JWT_SECRET`,
 `APP_URL`, `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa).
+
+## 2026-10-31
+
+**Video riprodotto sempre sul dispositivo, mai dal server.** La VPS (Contabo, IP francese) è
+fuori dall'Italia e non si usano altre VPS, apparecchi a casa o app native. Misurato: RaiPlay
+blocca dall'estero solo il relinker (film e serie 0 su 14 da un IP estero, tutti ok dall'Italia),
+mentre il catalogo si legge da ovunque. Il browser dà il relinker a `<video src>` (HLS nativo,
+senza CORS) e Rai vede l'IP italiano dell'utente. Tolto il proxy video nel backend previsto prima.
+Limite accettato: su Firefox i contenuti Rai non partono.
+
+**Primo servizio RaiPlay, Pluto TV rimandato.** Pluto assegna il paese dall'IP (da un IP
+tedesco dà il catalogo tedesco) e le sue API accettano solo `pluto.tv`: senza IP italiano non
+si può.
+
+**Aggiornamento del catalogo a due livelli** (dati grezzi per servizio + catalogo MAIA),
+alberatura = unione delle fonti, TMDB come ossatura, coda di revisione nel pannello admin,
+ritmo di controllo che si adatta (giorno → settimana → mese, idea dall'add-on Kodi KoD) più la
+data del prossimo episodio da TMDB. Coda dei lavori con pg-boss su Postgres. Da KoD (GPL-3) si
+prendono solo idee ed endpoint, non codice.
