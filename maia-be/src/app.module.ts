@@ -8,6 +8,7 @@ import { AdminGuard } from './admin/admin.guard.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
+import { CacheModule } from './cache/cache.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProfilesController } from './profiles/profiles.controller.js';
@@ -21,6 +22,7 @@ import { TvService } from './tv/tv.service.js';
     // Default limit for the whole API; auth endpoints set a stricter one.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,
+    CacheModule,
     MailModule,
     AuthModule,
     CatalogModule,

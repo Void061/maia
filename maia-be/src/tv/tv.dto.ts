@@ -79,8 +79,11 @@ export class TitleDetailDto extends TitleCardDto {
 export class PlaybackDto {
   @ApiProperty({ description: 'Movie, episode or extra id' }) itemId: string;
   @ApiProperty() provider: string;
-  @ApiProperty({ enum: ['native-hls'], description: 'native-hls: give url to <video src>, the device resolves it' })
-  type: 'native-hls';
+  @ApiProperty({
+    enum: ['native-hls', 'hls'],
+    description: 'native-hls: give url to <video src>, the device resolves it; hls: direct playlist URL for hls.js, expires in minutes',
+  })
+  type: 'native-hls' | 'hls';
   @ApiProperty() url: string;
   @ApiPropertyOptional({ nullable: true, type: Number }) durationSec: number | null;
 }
@@ -132,6 +135,13 @@ export class PlaybackQueryDto {
   @IsString()
   @Length(1, 200)
   exclude?: string;
+}
+
+export class StreamQueryDto {
+  @ApiProperty({ description: 'Provider whose source the device could not play natively' })
+  @IsString()
+  @Length(1, 40)
+  provider: string;
 }
 
 export class PlaybackFailedDto {

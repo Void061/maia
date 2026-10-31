@@ -112,6 +112,11 @@ in pausa).
   schermo intero, quindi il tasto ci entra se serve; uscendo dallo schermo intero la rotazione
   si sblocca. Su iPhone (Safari non permette il blocco) apre lo schermo intero nativo del video,
   che segue la rotazione del telefono. Il tasto schermo intero da solo non ruota.
+- **Uscendo dal player il video si ferma.** Con Cache Components Next non smonta le pagine
+  visitate, le nasconde (`<Activity>`, `display: none`): un `<video>` nascosto continuerebbe a
+  suonare. Lasciando il player (Indietro, un link, il gesto indietro del sistema) il video va in
+  pausa, smette di scaricare, esce dallo schermo intero e la rotazione si sblocca; tornando sulla
+  pagina riparte dal punto in cui era.
 - **Volume** (`VolumeControl`), come Netflix: l'icona apre una piccola finestra **verticale**
   sopra di sé, **chiusa di base**, che si apre solo premendo l'icona. Dentro: percentuale,
   cursore verticale con perno (trascinabile, o ↑/↓ col focus) e tasto muto. Si chiude premendo
@@ -172,12 +177,15 @@ in pausa).
 
 - **Film, serie, generi, ricerca, schede ed episodi** vengono dal catalogo di maia-be
   (`maia-fe/lib/tv.ts`: `/tv/home`, `/tv/genres`, `/tv/titles`, `/tv/titles/:id`, `/tv/playback/:id`).
-  Locandine e sfondi sono quelli di TMDB (o di RaiPlay per i titoli che TMDB non ha); senza
-  immagine il riquadro mostra un gradiente. Le miniature degli episodi usano lo sfondo del titolo.
+  Locandine e sfondi sono quelli di TMDB (o di RaiPlay per i titoli che TMDB non ha, ritagliate
+  da RaiPlay alla misura delle schede: vedi [tv/catalog.md](tv/catalog.md)); senza immagine il
+  riquadro mostra un gradiente. Le miniature degli episodi usano lo sfondo del titolo.
 - **Riproduzione**: il player chiede a maia-be cosa riprodurre e mette il link in `<video src>`
-  (HLS nativo del browser, niente hls.js per il catalogo). Se il video non parte segnala l'errore
-  e chiede la fonte successiva; senza fonti mostra "Questo contenuto ora non è disponibile". Su
-  browser senza HLS nativo (Firefox) avvisa di usare Chrome, Edge o Safari.
+  (HLS nativo del browser). Se l'HLS nativo rifiuta il flusso, chiede a maia-be il link diretto
+  (`/tv/playback/:id/stream`) e lo riproduce con hls.js; se non parte nemmeno così segnala
+  l'errore e chiede la fonte successiva; senza fonti mostra "Questo contenuto ora non è
+  disponibile". Su browser senza HLS nativo (Firefox) usa direttamente il link diretto con
+  hls.js; senza né HLS nativo né MSE avvisa di usare Chrome, Edge o Safari.
 - Pagine con parametro (`/tv/title/[id]`, `/watch/[id]`, generi): `generateStaticParams` restituisce
   un solo valore segnaposto (lo richiede Cache Components); i dati li carica il browser.
 - **Dirette** (canali, palinsesto, "In onda ora"): ancora dati di prova in

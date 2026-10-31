@@ -74,4 +74,8 @@ export interface ProviderAdapter {
   // External ids of the titles listed in one section of the service.
   listSection(section: string): Promise<string[]>;
   getTitle(externalId: string): Promise<ProviderTitle | null>;
+  // Fallback when the device cannot play the recipe as it is: the direct
+  // stream URL, resolved from the server (short-lived, never stored). Null if
+  // the service refuses it from here (geo-blocked).
+  resolveStream?(recipeUrl: string): Promise<string | null>;
 }

@@ -78,8 +78,31 @@ dal codice sono riesportati da `lib/api.ts` (`Account`, `Profile`).
 - Prisma 7 usa il driver adapter `@prisma/adapter-pg` (`src/prisma/prisma.service.ts`).
   `prisma migrate dev` **non** rigenera più il client: usare `npm run db:migrate` (migrate +
   generate) o lanciare `npx prisma generate`.
-- Moduli: `prisma` (globale), `mail` (SMTP), `auth` (registrazione, sessioni, guard), `account`
-  (`/me`), `profiles`. Configurazione con `@nestjs/config` dal file `.env`; validazione con
+- Moduli: `prisma` (globale), `cache` (globale, Redis), `mail` (SMTP), `auth` (registrazione,
+  sessioni, guard), `account` (`/me`), `profiles`. Configurazione con `@nestjs/config` dal file `.env`; validazione con
   `class-validator` (`ValidationPipe` con `whitelist`); limite di richieste con `@nestjs/throttler`.
 - Swagger su `/docs`. Gli errori di dominio hanno sempre `{ code, message }` (es.
   `INVALID_CREDENTIALS`), così il frontend sceglie la schermata giusta senza leggere i testi.
+
+## Cache (Redis)
+
+Le risposte pronte delle API più usate stanno in **Redis**, così il backend le restituisce subito
+(la home passa da ~1,5-2 s a ~15 ms) invece di ricalcolarle dal database a ogni navigazione.
+
+- `src/cache/cache.service.ts`, `CacheService.wrap(chiave, calcolo)`: se la chiave c'è restituisce
+  il valore, altrimenti lo calcola, lo salva e lo restituisce. Richieste uguali in contemporanea
+  fanno un solo calcolo.
+- **Chiavi:** tutte iniziano con `MAIA_APP_`, seguite dalla chiave del singolo elemento:
+  `MAIA_APP_tv:home`, `MAIA_APP_tv:genres:ALL|MOVIE|SERIES`, `MAIA_APP_tv:titles:<filtri>`,
+  `MAIA_APP_tv:title:<id>`, `MAIA_APP_tv:playback:<id>`. Il prefisso permette di svuotare tutta la
+  cache di MAIA senza toccare altro.
+- **Svuotamento:** ogni lavoro del catalogo che cambia i dati svuota tutto `MAIA_APP_*` (vedi
+  [tv/catalog.md](tv/catalog.md), "Lavori"). Scadenza di sicurezza: `CACHE_TTL_SECONDS` (24 ore).
+- **Errori:** `CacheService.fail(chiave)` conta gli errori di un valore in cache (contatore
+  `MAIA_APP_fails:<chiave>`, dimenticato dopo un'ora). Alla `CACHE_MAX_FAILS`-esima volta (3) il
+  valore viene cancellato e ricalcolato. Oggi lo usa la fonte scelta per un video: quando un
+  dispositivo segnala che non parte. Un valore illeggibile si cancella subito.
+- **Redis non è indispensabile:** senza `REDIS_URL`, o con Redis spento, ogni richiesta calcola il
+  valore dal database come prima (un avviso nei log).
+- Non vanno in cache: la fonte scelta escludendo servizi (dipende dal dispositivo) e il link
+  diretto per hls.js (scade in pochi minuti).

@@ -2,7 +2,7 @@
 
 import type Hls from "hls.js";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BackIcon,
   ChevronDownIcon,
@@ -28,7 +28,15 @@ import {
 import { Art } from "@/components/poster";
 import { ApiError } from "@/lib/api";
 import { channels, demoStream, scheduleAround } from "@/lib/live-demo";
-import { episodeLabel, fetchPlayback, flatEpisodes, reportPlaybackFailed, type Episode, type TitleDetail } from "@/lib/tv";
+import {
+  episodeLabel,
+  fetchPlayback,
+  fetchStream,
+  flatEpisodes,
+  reportPlaybackFailed,
+  type Episode,
+  type TitleDetail,
+} from "@/lib/tv";
 import { hhmm, useNow } from "@/lib/use-now";
 
 type Props = { title?: TitleDetail; live?: { channelId: string } };
@@ -78,6 +86,12 @@ export default function Player({ title, live }: Props) {
   const previous = at > 0 ? episodes[at - 1] : null;
   // What the stream is for: a movie, an episode, an extra, or a live channel.
   const playId = live ? null : (extraId ?? (isSeries ? episode?.id : title?.id) ?? null);
+  const playIdRef = useRef(playId);
+  useLayoutEffect(() => {
+    playIdRef.current = playId;
+  }, [playId]);
+  // Where to pick up when a hidden player page is shown again.
+  const resume = useRef<{ id: string | null; at: number } | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -125,35 +139,84 @@ export default function Player({ title, live }: Props) {
   // Attach the stream. Live demo channels: hls.js where MSE exists, native HLS
   // otherwise. Catalog videos: maia-be says what to play and the link goes
   // straight into <video src>; the browser resolves it (the services check the
-  // viewer's country there) and plays it with its own HLS support. When a
-  // source does not play, the next one is asked for, excluding that service.
+  // viewer's country there) and plays it with its own HLS support. Some
+  // playlists are rejected by native HLS (Chrome cannot parse them): then
+  // maia-be resolves the direct link and hls.js plays it. When a source does
+  // not play either way, the next one is asked for, excluding that service.
   useEffect(() => {
     const v = video.current;
     if (!v) return;
     let cancelled = false;
     const tried: string[] = [];
     let onError: (() => void) | null = null;
+    // Back on a page that was only hidden: start where it was left.
+    const startAt = resume.current?.id === playId ? resume.current.at : 0;
     setFailure(null);
     setLevels([]);
     setAudio([]);
     setSubs([]);
 
+    const nativeHls = v.canPlayType("application/vnd.apple.mpegurl") !== "";
+    const mse = "MediaSource" in window || "ManagedMediaSource" in window;
+
+    // hls.js on `url`; false where MSE is missing (iPhone before iOS 17.1).
+    const attachHls = async (url: string, onFatal?: () => void) => {
+      const { default: HlsLib } = await import("hls.js");
+      if (cancelled || !HlsLib.isSupported()) return false;
+      hls.current?.destroy();
+      const h = new HlsLib(startAt ? { startPosition: startAt } : undefined);
+      hls.current = h;
+      h.loadSource(url);
+      h.attachMedia(v);
+      h.on(HlsLib.Events.MANIFEST_PARSED, () => {
+        setLevels(h.levels.map((l, index) => ({ index, height: l.height })).sort((a, b) => b.height - a.height));
+        setAudio(h.audioTracks.map((t, index) => ({ index, label: t.name || t.lang || `Traccia ${index + 1}` })));
+        setSubs(h.subtitleTracks.map((t, index) => ({ index, label: t.name || t.lang || `Sottotitoli ${index + 1}` })));
+        v.play().catch(() => {});
+      });
+      if (onFatal) h.on(HlsLib.Events.ERROR, (_, data) => data.fatal && !cancelled && onFatal());
+      return true;
+    };
+
+    const nextSource = (id: string, provider: string) => {
+      if (cancelled) return;
+      hls.current?.destroy();
+      hls.current = null;
+      tried.push(provider);
+      void reportPlaybackFailed(id, provider);
+      void playCatalog(id);
+    };
+
+    const playResolved = async (id: string, provider: string) => {
+      try {
+        const s = await fetchStream(id, provider);
+        if (cancelled) return;
+        if (!(await attachHls(s.url, () => nextSource(id, provider)))) nextSource(id, provider);
+      } catch {
+        nextSource(id, provider);
+      }
+    };
+
     const playCatalog = async (id: string) => {
-      if (!v.canPlayType("application/vnd.apple.mpegurl")) {
+      if (!nativeHls && !mse) {
         setFailure("Questo browser non riproduce i video di MAIA. Usa Chrome, Edge o Safari.");
         return;
       }
       try {
         const p = await fetchPlayback(id, tried);
         if (cancelled) return;
+        if (!nativeHls) {
+          void playResolved(id, p.provider);
+          return;
+        }
         onError = () => {
           if (cancelled) return;
-          tried.push(p.provider);
-          void reportPlaybackFailed(id, p.provider);
-          void playCatalog(id);
+          v.removeAttribute("src");
+          void playResolved(id, p.provider);
         };
         v.addEventListener("error", onError, { once: true });
         v.src = p.url;
+        if (startAt) v.currentTime = startAt;
         v.play().catch(() => {});
       } catch (err) {
         if (!cancelled)
@@ -164,33 +227,41 @@ export default function Player({ title, live }: Props) {
     if (playId) {
       void playCatalog(playId);
     } else {
-      (async () => {
-        const { default: HlsLib } = await import("hls.js");
-        if (cancelled) return;
-        if (HlsLib.isSupported()) {
-          const h = new HlsLib();
-          hls.current = h;
-          h.loadSource(demoStream);
-          h.attachMedia(v);
-          h.on(HlsLib.Events.MANIFEST_PARSED, () => {
-            setLevels(h.levels.map((l, index) => ({ index, height: l.height })).sort((a, b) => b.height - a.height));
-            setAudio(h.audioTracks.map((t, index) => ({ index, label: t.name || t.lang || `Traccia ${index + 1}` })));
-            setSubs(h.subtitleTracks.map((t, index) => ({ index, label: t.name || t.lang || `Sottotitoli ${index + 1}` })));
-            v.play().catch(() => {});
-          });
-        } else {
-          v.src = demoStream;
-          v.play().catch(() => {});
-        }
-      })();
+      void attachHls(demoStream).then((ok) => {
+        if (ok || cancelled) return;
+        v.src = demoStream;
+        v.play().catch(() => {});
+      });
     }
     return () => {
       cancelled = true;
       if (onError) v.removeEventListener("error", onError);
       hls.current?.destroy();
       hls.current = null;
+      // Stop sound and download now: the page may only be hidden, not removed.
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
     };
   }, [playId]);
+
+  // Next keeps visited pages mounted but hidden (React Activity) instead of
+  // unmounting them, and a hidden <video> keeps playing. Leaving the player
+  // (back, a link, the system back gesture) pauses it, leaves fullscreen and
+  // releases the rotation lock; coming back resumes from the same point.
+  useLayoutEffect(() => {
+    const v = video.current as (HTMLVideoElement & { webkitDisplayingFullscreen?: boolean; webkitExitFullscreen?: () => void }) | null;
+    return () => {
+      if (v) {
+        // 0 = nothing loaded yet (or React's double run in dev): keep the last point.
+        if (v.currentTime > 0) resume.current = { id: playIdRef.current, at: v.currentTime };
+        v.pause();
+        if (v.webkitDisplayingFullscreen) v.webkitExitFullscreen?.();
+      }
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      (screen.orientation as OrientationWithLock).unlock?.();
+    };
+  }, []);
 
   useEffect(() => {
     // Controls start visible; just schedule the first fade-out.
@@ -320,6 +391,7 @@ export default function Player({ title, live }: Props) {
   const playEpisode = useCallback(
     (ep: Episode) => {
       if (!title) return;
+      resume.current = null;
       setEpisode(ep);
       setPanel(null);
       setUpNextHidden(false);

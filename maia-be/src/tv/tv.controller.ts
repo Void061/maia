@@ -9,6 +9,7 @@ import {
   PlaybackDto,
   PlaybackFailedDto,
   PlaybackQueryDto,
+  StreamQueryDto,
   TitleDetailDto,
   TitlePageDto,
   TitlesQueryDto,
@@ -55,6 +56,15 @@ export class TvController {
   @ApiNotFoundResponse({ type: ErrorDto, description: 'NO_SOURCE' })
   playback(@Param('itemId') itemId: string, @Query() q: PlaybackQueryDto): Promise<PlaybackDto> {
     return this.tv.playback(itemId, q.exclude?.split(',').filter(Boolean) ?? []);
+  }
+
+  // Fallback when the device's native HLS rejects the source: the direct
+  // playlist URL for hls.js, resolved by the server (see TvService.stream).
+  @Get('playback/:itemId/stream')
+  @ApiOkResponse({ type: PlaybackDto })
+  @ApiNotFoundResponse({ type: ErrorDto, description: 'NO_SOURCE' })
+  stream(@Param('itemId') itemId: string, @Query() q: StreamQueryDto): Promise<PlaybackDto> {
+    return this.tv.stream(itemId, q.provider);
   }
 
   @Post('playback/:itemId/failed')

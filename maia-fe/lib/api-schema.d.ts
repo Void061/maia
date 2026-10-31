@@ -260,6 +260,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tv/playback/{itemId}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TvController_stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tv/playback/{itemId}/failed": {
         parameters: {
             query?: never;
@@ -559,10 +575,10 @@ export interface components {
             itemId: string;
             provider: string;
             /**
-             * @description native-hls: give url to <video src>, the device resolves it
+             * @description native-hls: give url to <video src>, the device resolves it; hls: direct playlist URL for hls.js, expires in minutes
              * @enum {string}
              */
-            type: "native-hls";
+            type: "native-hls" | "hls";
             url: string;
             durationSec?: number | null;
         };
@@ -1093,6 +1109,39 @@ export interface operations {
             query?: {
                 /** @description Providers to skip, comma separated (after a failure) */
                 exclude?: string;
+            };
+            header?: never;
+            path: {
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaybackDto"];
+                };
+            };
+            /** @description NO_SOURCE */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    TvController_stream: {
+        parameters: {
+            query: {
+                /** @description Provider whose source the device could not play natively */
+                provider: string;
             };
             header?: never;
             path: {

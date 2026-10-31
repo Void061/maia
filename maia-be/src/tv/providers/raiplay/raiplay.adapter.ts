@@ -13,6 +13,7 @@ import type {
 // The catalog is readable from abroad; only the relinker (the video link) is
 // geo-checked, so playback is resolved by the viewer's device, never here.
 const HOST = 'https://www.raiplay.it';
+const RELINKER_HOST = 'mediapolisvod.rai.it';
 
 type RaiRights = { rights?: { drm?: Record<string, boolean>; geoprotection?: Record<string, boolean> } };
 type RaiAvailabilities = { expiration_date_iso?: string } | null;
@@ -99,6 +100,20 @@ export class RaiPlayAdapter implements ProviderAdapter {
       onPage?.(seen.size, programs.size);
     }
     return [...programs];
+  }
+
+  // The relinker as JSON (output=62) instead of a redirect. Some playlists
+  // (one muxed rendition, no CODECS) are rejected by Chrome's native HLS but
+  // play with hls.js, which needs the final URL: the relinker has no CORS, so
+  // the browser cannot read it. Videos without geoprotection resolve from
+  // anywhere; geo-blocked ones get Rai's "not available" clip from abroad.
+  async resolveStream(relinkerUrl: string): Promise<string | null> {
+    const url = new URL(relinkerUrl);
+    if (url.hostname !== RELINKER_HOST) return null;
+    url.searchParams.set('output', '62');
+    const res = await politeJson<{ video?: string[] }>(url.toString(), { serial: false, retries: 1, timeoutMs: 8000 });
+    const stream = res.video?.[0];
+    return stream && !stream.includes('video_no_available') ? stream : null;
   }
 
   async getTitle(slug: string): Promise<ProviderTitle | null> {

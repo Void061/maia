@@ -165,3 +165,22 @@ maia-be; i dati finti restano solo per le dirette (`lib/live-demo.ts`). Le pagin
 hanno un solo parametro segnaposto in `generateStaticParams` (Cache Components ne vuole almeno uno)
 e caricano i dati nel browser, perché il catalogo cambia di continuo. Il player non usa hls.js per
 il catalogo: il link va in `<video src>` (vedi riproduzione sul dispositivo).
+
+**Cache delle API in Redis** (chiesto dall'utente: la navigazione era lenta, la home impiegava
+~1,5-2 s). Chiavi `MAIA_APP_<chiave dell'elemento>`; ogni lavoro del catalogo che cambia i dati
+svuota tutta la cache di MAIA; un valore che va in errore 3 volte (`CACHE_MAX_FAILS`) si cancella e
+si ricalcola. Redis è solo un acceleratore: senza, l'app funziona come prima. Cambia la decisione
+precedente "niente Redis": quella riguardava la coda dei lavori, che resta su pg-boss/Postgres.
+
+**Immagini RaiPlay ritagliate dal loro servizio `cropgd`.** Le locandine originali pesano 0,5-1 MB
+(1536×2048) e la home ne carica quasi 200; ritagliate a 384×512 pesano ~45 KB.
+
+**Il player si ferma quando si esce.** Con Cache Components Next nasconde le pagine visitate invece
+di smontarle, e il video nascosto continuava a suonare (segnalato dopo schermo intero + rotazione e
+uscita). Ora si mette in pausa, esce dallo schermo intero e riprende dallo stesso punto al ritorno.
+
+**Riserva hls.js per i flussi che l'HLS nativo rifiuta.** "Le staffette della memoria" risultava
+"non disponibile": la fonte c'era, ma Chrome non legge la sua playlist (una sola qualità senza
+`CODECS`), mentre hls.js sì. Il relinker non ha CORS, quindi il link diretto lo legge il backend
+(una richiesta, il video passa comunque dal dispositivo). Corregge la decisione "niente hls.js per
+il catalogo": resta l'HLS nativo come prima scelta, hls.js è la riserva.

@@ -46,9 +46,19 @@ riprodurlo.
 
 - RaiPlay: `<video src="<relinker>">` con HLS nativo del browser. Il relinker viene richiesto
   dal dispositivo, con il suo IP italiano.
+- **Riserva per i flussi che l'HLS nativo rifiuta.** Alcune playlist RaiPlay (una sola qualità,
+  audio e video insieme, senza `CODECS`, es. molti contenuti Rai Storia) danno a Chrome
+  `DEMUXER_ERROR_COULD_NOT_PARSE`, mentre hls.js le riproduce. hls.js però ha bisogno del link
+  finale, e il relinker non ha CORS: il browser non può leggerlo. Allora il player chiede a
+  maia-be `GET /tv/playback/:id/stream?provider=`: il backend chiede al relinker la versione JSON
+  (`output=62`) e restituisce il link della playlist (scade in pochi minuti, non si salva né va in
+  cache). Il video continua a passare dal dispositivo; il server legge solo il link. Dall'estero
+  (VPS) funziona per i contenuti senza blocco geografico; per quelli bloccati Rai risponde con il
+  suo video "non disponibile" e l'API dà `NO_SOURCE`.
 - Altri servizi: hls.js quando il flusso ha CORS aperto, altrimenti HLS nativo come sopra.
 - Il link del flusso **non si salva**: si ottiene al momento del play.
-- Limiti: **Firefox** non ha HLS nativo (i contenuti Rai non partono lì); il player nativo dà
+- Limiti: **Firefox** non ha HLS nativo: lì si usa solo la riserva sopra (partono i contenuti
+  senza blocco geografico); il player nativo dà
   meno controllo di hls.js su qualità e sottotitoli (da verificare cosa espone); dall'estero i
   contenuti bloccati non partono, come sull'app ufficiale.
 - DRM: se il player non riesce a riprodurre una fonte (protetta o rotta), il frontend lo
@@ -259,6 +269,11 @@ Codice in `maia-be/src/tv/`:
 | `catalog-due` | ogni ora al minuto 15 | mette in coda i titoli arrivati al prossimo controllo; spegne fonti ed extra scaduti |
 | `catalog-news` | ogni 3 ore | rilegge le liste in evidenza delle sezioni (dove compaiono le novità) |
 
+Al termine di `catalog-discover`, `catalog-due` e di ogni `catalog-sync-title` che ha cambiato il
+titolo (non quelli "invariati"), il worker **svuota tutta la cache di MAIA** in Redis. Le modifiche
+ravvicinate (es. tanti titoli di fila) si raccolgono in un solo svuotamento dopo 10 secondi.
+`catalog-news` mette solo in coda titoli: lo svuotamento arriva dai loro `sync-title`.
+
 Stato del servizio: un errore di rete o 5xx incrementa il contatore; dopo 5 di fila il servizio
 va in pausa 30 minuti (i suoi lavori riprovano dopo). Un 404 su un titolo conta come titolo
 sparito, non come guasto del servizio.
@@ -270,8 +285,19 @@ Comandi (vedi [../dev.md](../dev.md)): `npm run catalog -- fill|refresh raiplay`
 **API per il frontend** (`maia-be/src/tv/tv.controller.ts`, solo con sessione): `GET /tv/home`,
 `GET /tv/genres?kind=`, `GET /tv/titles?kind&genre&q&skip&take`, `GET /tv/titles/:id` (stagioni ed
 episodi disponibili, extra, simili), `GET /tv/playback/:itemId?exclude=` (film, episodio o extra:
-la fonte migliore, prima i servizi OK e con meno errori), `POST /tv/playback/:itemId/failed`.
+la fonte migliore, prima i servizi OK e con meno errori), `GET /tv/playback/:itemId/stream?provider=`
+(link diretto per hls.js, vedi riproduzione), `POST /tv/playback/:itemId/failed`.
 Un titolo è visibile solo se ha almeno un video disponibile e senza DRM.
+
+**Immagini RaiPlay ritagliate.** RaiPlay fornisce locandine e sfondi a piena misura (una locandina
+1536×2048 pesa 0,5-1 MB; la home ne mostra quasi 200). Le API le restituiscono passando dal
+servizio immagini di RaiPlay, `https://www.raiplay.it/cropgd/<L>x<A>/<percorso>`: locandine
+384×512 (~45 KB), sfondi 1280×720. Nel database resta il link originale; quelle di TMDB sono già
+nella misura giusta (`w500`, `w1280`).
+
+**Cache delle risposte (Redis).** Home, generi, elenchi, schede e fonte scelta per un video sono
+in cache (vedi [../architecture.md](../architecture.md), "Cache"): ogni lavoro del catalogo che
+cambia qualcosa la svuota tutta.
 
 Ancora da fare: pannello admin per la
 coda di revisione e per le regole di numerazione, pannello stato, riabbinamento periodico dei

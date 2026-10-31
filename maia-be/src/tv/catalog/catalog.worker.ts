@@ -1,6 +1,7 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PgBoss, type Job } from 'pg-boss';
+import { CacheService } from '../../cache/cache.service.js';
 import { SECTIONS } from '../providers/raiplay/raiplay.adapter.js';
 import { CatalogService, ProviderPausedError } from './catalog.service.js';
 
@@ -16,6 +17,8 @@ export type DiscoverJob = { provider: string; mode: 'fill' | 'refresh' };
 export type SyncTitleJob = { provider: string; externalId: string };
 
 const TZ = 'Europe/Rome';
+// Catalog changes close together (a burst of titles) drop the cache once.
+const INVALIDATE_DELAY_MS = 10_000;
 
 // Runs the catalog jobs. On by default (production runs everything in the
 // backend container); off with CATALOG_WORKERS=false, e.g. in local dev where
@@ -24,10 +27,12 @@ const TZ = 'Europe/Rome';
 export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CatalogWorker.name);
   private boss: PgBoss | null = null;
+  private invalidateTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly catalog: CatalogService,
     private readonly config: ConfigService,
+    private readonly cache: CacheService,
   ) {}
 
   async onModuleInit() {
@@ -37,6 +42,20 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     await this.boss?.stop({ graceful: true, timeout: 30_000 });
+    if (this.invalidateTimer) await this.invalidateNow();
+  }
+
+  // Every catalog job that ran drops the whole MAIA cache: the API serves
+  // fresh data on the next request and caches it again.
+  private catalogChanged() {
+    this.invalidateTimer ??= setTimeout(() => void this.invalidateNow(), INVALIDATE_DELAY_MS);
+  }
+
+  private async invalidateNow() {
+    if (this.invalidateTimer) clearTimeout(this.invalidateTimer);
+    this.invalidateTimer = null;
+    const removed = await this.cache.invalidateAll();
+    if (removed) this.logger.log(`Catalog changed: ${removed} cache entries dropped`);
   }
 
   async start() {
@@ -83,6 +102,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     const { provider, mode } = job.data;
     const ids = await this.catalog.discover(provider, mode);
     await this.enqueueTitles(provider, ids);
+    this.catalogChanged(); // titles no longer listed lose their sources
     this.logger.log(`${provider} ${mode}: ${ids.length} titles queued`);
   }
 
@@ -90,7 +110,11 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     const { provider, externalId } = job.data;
     try {
       const outcome = await this.catalog.syncTitle(provider, externalId);
-      if (outcome !== 'unchanged') this.logger.debug(`${provider}/${externalId}: ${outcome}`);
+      // An unchanged title leaves the catalog as it was: the cache stays.
+      if (outcome !== 'unchanged') {
+        this.catalogChanged();
+        this.logger.debug(`${provider}/${externalId}: ${outcome}`);
+      }
     } catch (err) {
       if (!(err instanceof ProviderPausedError)) this.logger.warn(`${provider}/${externalId}: ${String(err)}`);
       throw err; // pg-boss retries with backoff
@@ -100,6 +124,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   private async onDue() {
     const due = await this.catalog.dueTitles();
     for (const t of due) await this.enqueueTitles(t.provider, [t.externalId]);
+    this.catalogChanged(); // expired videos were switched off
     if (due.length) this.logger.log(`${due.length} titles due for a check`);
   }
 

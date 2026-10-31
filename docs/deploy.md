@@ -1,11 +1,11 @@
 # Deploy
 
 Deploy su **Coolify** nella VPS, come Yuma: due risorse con Build Pack Dockerfile più un
-database PostgreSQL gestito da Coolify.
+database PostgreSQL e un **Redis** gestiti da Coolify (Redis senza persistenza: è solo cache).
 
 | Risorsa | Base directory | Porta | Variabili |
 |---|---|---|---|
-| maia-be | `/maia-be` | 3000 | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (pubblico, `https://`), `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo) |
+| maia-be | `/maia-be` | 3000 | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (pubblico, `https://`), `RESEND_API_KEY`, `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo), `REDIS_URL` (indirizzo interno del Redis di Coolify; facoltativa ma senza la cache l'app è lenta) |
 | maia-fe | `/maia-fe` | 3001 | `API_URL` (indirizzo interno di maia-be, es. `http://maia-be:3000`), a runtime |
 
 maia-be non va esposto su internet: il browser passa sempre da maia-fe (`/api/*`).
