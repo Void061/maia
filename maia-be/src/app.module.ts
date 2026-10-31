@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AccountController } from './account/account.controller.js';
 import { AdminController } from './admin/admin.controller.js';
 import { AdminGuard } from './admin/admin.guard.js';
+import { AdminServicesController } from './admin/services.controller.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -28,7 +29,7 @@ import { TvCacheWarmer } from './tv/tv.warmer.js';
     AuthModule,
     CatalogModule,
   ],
-  controllers: [AppController, AccountController, ProfilesController, AdminController, TvController],
+  controllers: [AppController, AccountController, ProfilesController, AdminController, AdminServicesController, TvController],
   providers: [AppService, AdminGuard, TvService, TvCacheWarmer, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

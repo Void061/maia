@@ -2,7 +2,8 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@ne
 import { ConfigService } from '@nestjs/config';
 import { PgBoss, type Job } from 'pg-boss';
 import { CacheService } from '../../cache/cache.service.js';
-import { HttpError } from '../providers/polite-fetch.js';
+import { HttpError, ServiceStoppedError } from '../providers/polite-fetch.js';
+import { ServiceSwitches } from '../providers/service-switches.js';
 import { SECTIONS } from '../providers/raiplay/raiplay.adapter.js';
 import { CatalogService, ProviderPausedError } from './catalog.service.js';
 
@@ -20,6 +21,8 @@ export type SyncTitleJob = { provider: string; externalId: string };
 const TZ = 'Europe/Rome';
 // Catalog changes close together (a burst of titles) drop the cache once.
 const INVALIDATE_DELAY_MS = 10_000;
+// A title whose service is switched off waits this long before trying again.
+const STOPPED_RETRY_SEC = 600;
 
 // Runs the catalog jobs. On by default (production runs everything in the
 // backend container); off with CATALOG_WORKERS=false, e.g. in local dev where
@@ -34,7 +37,13 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     private readonly catalog: CatalogService,
     private readonly config: ConfigService,
     private readonly cache: CacheService,
+    private readonly switches: ServiceSwitches,
   ) {}
+
+  // The services a job needs: the catalog service itself, and TMDB for matching.
+  private stopped(provider: string) {
+    return this.switches.isStopped(provider) || this.switches.isStopped('tmdb');
+  }
 
   async onModuleInit() {
     if (process.env.VITEST || this.config.get('CATALOG_WORKERS') === 'false') return;
@@ -101,7 +110,15 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
 
   private async onDiscover(job: Job<DiscoverJob>) {
     const { provider, mode } = job.data;
-    const ids = await this.catalog.discover(provider, mode);
+    // Switched off: this pass is skipped (the next scheduled one runs as usual).
+    if (this.switches.isStopped(provider)) return this.logger.warn(`${provider} ${mode} skipped: service switched off`);
+    let ids: string[];
+    try {
+      ids = await this.catalog.discover(provider, mode);
+    } catch (err) {
+      if (err instanceof ServiceStoppedError) return this.logger.warn(`${provider} ${mode} stopped: service switched off`);
+      throw err;
+    }
     await this.enqueueTitles(provider, ids);
     this.catalogChanged(); // titles no longer listed lose their sources
     this.logger.log(`${provider} ${mode}: ${ids.length} titles queued`);
@@ -109,6 +126,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
 
   private async onSyncTitle(job: Job<SyncTitleJob>) {
     const { provider, externalId } = job.data;
+    if (this.stopped(provider)) return this.deferTitle(job.data);
     try {
       const outcome = await this.catalog.syncTitle(provider, externalId);
       // An unchanged title leaves the catalog as it was: the cache stays.
@@ -117,9 +135,16 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
         this.logger.debug(`${provider}/${externalId}: ${outcome}`);
       }
     } catch (err) {
+      // Switched off halfway: the title waits, it is not a failure (no retry used up).
+      if (err instanceof ServiceStoppedError) return this.deferTitle(job.data);
       if (!(err instanceof ProviderPausedError)) this.logger.warn(`${provider}/${externalId}: ${String(err)}`);
       throw err; // pg-boss retries with backoff
     }
+  }
+
+  // Back in the queue for later; the current job ends without an error.
+  private async deferTitle(data: SyncTitleJob) {
+    await this.boss!.send(QUEUES.syncTitle, data, { singletonKey: `${data.provider}:${data.externalId}`, startAfter: STOPPED_RETRY_SEC });
   }
 
   private async onDue() {
@@ -131,6 +156,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
 
   // Front lists change first: new films and episodes appear there.
   private async onNews() {
+    if (this.switches.isStopped('raiplay')) return;
     const adapter = this.catalog.adapters.raiplay;
     const ids = new Set<string>();
     for (const section of SECTIONS) {
@@ -138,6 +164,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
         for (const id of await adapter.listSection(section)) ids.add(id);
       } catch (err) {
         if (err instanceof HttpError && err.slowDown) throw err;
+        if (err instanceof ServiceStoppedError) return; // switched off while listing
         this.logger.warn(`raiplay section ${section} skipped: ${String(err)}`); // e.g. a section RaiPlay removed
       }
     }

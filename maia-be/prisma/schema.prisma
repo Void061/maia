@@ -314,6 +314,12 @@ model Extra {
 /// Circuit breaker per service: after repeated errors it pauses, alone.
 model ProviderHealth {
   provider      String         @id
+  /// Admin switch (panel /admin): false = no request at all to this service
+  /// until switched back on. Independent of the automatic pause below.
+  enabled       Boolean        @default(true)
+  switchedAt    DateTime?      @map("switched_at")
+  /// Who flipped the switch last (account email).
+  switchedBy    String?        @map("switched_by")
   status        ProviderStatus @default(OK)
   failStreak    Int            @default(0) @map("fail_streak")
   retryAfter    DateTime?      @map("retry_after")

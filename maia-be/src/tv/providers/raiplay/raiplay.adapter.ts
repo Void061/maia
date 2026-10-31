@@ -1,4 +1,4 @@
-import { HttpError, politeJson } from '../polite-fetch.js';
+import { HttpError, politeJson, ServiceStoppedError } from '../polite-fetch.js';
 import type {
   ExtraKind,
   ProviderAdapter,
@@ -94,6 +94,7 @@ export class RaiPlayAdapter implements ProviderAdapter {
         data = await politeJson<unknown>(HOST + page);
       } catch (err) {
         if (err instanceof HttpError && err.slowDown) throw err; // RaiPlay says stop: stop the whole pass
+        if (err instanceof ServiceStoppedError) throw err; // switched off in the admin panel
         continue; // a broken listing page must not stop the discovery
       }
       const links = collectLinks(data);

@@ -14,6 +14,7 @@ import Logo from "@/components/logo";
 import { Notice } from "@/components/ui";
 import { useMe } from "@/lib/account";
 import { api, type components } from "@/lib/api";
+import ServicesPanel from "./services-panel";
 
 type AdminAccount = components["schemas"]["AdminAccountDto"];
 type Accounts = components["schemas"]["AdminAccountsDto"];
@@ -105,7 +106,10 @@ export default function AdminPanel() {
           </div>
         ) : (
           <>
-            <div className="rail -mx-4 mt-8 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0">
+            <ServicesPanel enabled={isAdmin} />
+
+            <h2 className="mt-12 font-display text-2xl font-bold">Account</h2>
+            <div className="rail -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0">
               {FILTERS.map((f) => {
                 const n = f.key === "ALL" ? total : counts?.[f.key];
                 return (

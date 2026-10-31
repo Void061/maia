@@ -7,7 +7,7 @@ import { placeEpisode, type TmdbSeasonEpisodes } from '../matching/episodes.js';
 import { decide, searchTitle } from '../matching/score.js';
 import { subjectOf } from '../matching/subject.js';
 import { TmdbClient, type TmdbMeta } from '../matching/tmdb.client.js';
-import { HttpError } from '../providers/polite-fetch.js';
+import { HttpError, ServiceStoppedError } from '../providers/polite-fetch.js';
 import type { ProviderAdapter, ProviderEpisode, ProviderTitle } from '../providers/provider.types.js';
 import { RaiPlayAdapter } from '../providers/raiplay/raiplay.adapter.js';
 
@@ -59,6 +59,7 @@ export class CatalogService {
     try {
       data = await this.adapter(provider).getTitle(externalId);
     } catch (err) {
+      if (err instanceof ServiceStoppedError) throw err; // switched off by an admin: not the service's fault
       // A single broken title (4xx) says nothing about the service's health,
       // except "slow down" / "blocked", which pauses the service right away.
       if (err instanceof HttpError && err.slowDown) await this.recordFailure(provider, err, SLOW_DOWN_PAUSE_MS);

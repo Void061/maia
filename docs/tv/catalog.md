@@ -61,12 +61,36 @@ di catalogo o di metadati, presente o futuro:
   `app/layout.tsx`), così video e immagini chiesti dal browser non dicono da quale app arrivano.
   Resta solo l'`Origin` sulle richieste di hls.js (il browser non permette di toglierlo).
   Verificato il 2026-10-31: nessun Referer verso raiplay.it, i CDN video Rai e TMDB.
+- **Interruttore per ogni servizio** nel pannello admin: si può fermare subito ogni richiesta a un
+  servizio (vedi "Interruttori dei servizi" sotto).
 - **Niente imitazioni**: mai fingersi il servizio o la sua app (intestazioni falsificate, token
   copiati, cambi di IP o identità per evitare blocchi). Se un servizio ci blocca ci si ferma.
 - **Operazioni massicce** (`fill`, `resync`, misure su molti titoli, test ripetuti) solo **con
   la conferma dell'utente**, dicendo prima quante richieste comportano, e una volta sola.
 - Un nuovo adapter va scritto con queste regole dall'inizio; se un servizio pubblica limiti o
   termini d'uso per le sue API, valgono quelli se più severi.
+
+### Interruttori dei servizi
+
+Dal pannello `/admin` (sezione Servizi) un amministratore spegne o riaccende un servizio esterno
+(oggi RaiPlay e TMDB) per fermarne l'acquisizione, per esempio se il servizio ha problemi o ci
+segnala qualcosa.
+
+- **Effetto immediato:** l'interruttore sta nel database (`provider_health.enabled`, con chi e
+  quando); backend e worker lo rileggono ogni 3 secondi (`ServiceSwitches`) e `polite-fetch`
+  rifiuta ogni richiesta verso gli host di un servizio spento, anche quelle già in coda o in attesa
+  di un nuovo tentativo. Misurato: nessun titolo letto mentre RaiPlay era spento.
+- **Niente lavoro perso:** un titolo il cui servizio è spento (o TMDB, che serve all'abbinamento)
+  non conta come errore: torna in coda per 10 minuti dopo; alla riaccensione i titoli rimandati
+  ripartono subito. Le passate complete e le novità di un servizio spento si saltano (la prossima
+  programmata parte normalmente). Non c'è pausa automatica né contatore di errori per uno stop
+  deciso da noi.
+- **Cosa non ferma:** la riproduzione sui dispositivi (video e immagini li chiede il browser di chi
+  guarda); si ferma invece la lettura del link fatta dal server per la riserva hls.js.
+- È diverso dalla **pausa automatica** (30 minuti dopo 5 errori, 6 ore su 429/403), che resta e si
+  vede nello stesso pannello.
+- **Ogni nuovo servizio** va aggiunto a `maia-be/src/tv/providers/services.ts` con i suoi host,
+  altrimenti non compare nel pannello e non si può spegnere.
 
 Volumi attuali (RaiPlay): un titolo = 2-5 richieste; ~20 titoli al minuto; passata notturna
 ~qualche migliaio di richieste in qualche ora.

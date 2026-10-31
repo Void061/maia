@@ -76,7 +76,7 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 | `/welcome` | guida iniziale per un account senza profili (3 passi) |
 | `/profiles` | "Chi sta guardando?", massimo 5 profili; "Gestisci profili" (matita) e "Aggiungi" |
 | `/account` | impostazioni: nome, email, password, profili, (admin) link al pannello, esci |
-| `/admin` | pannello admin: filtri per stato con conteggi, ricerca, azioni per account |
+| `/admin` | pannello admin: interruttori dei servizi esterni; account con filtri per stato e conteggi, ricerca, azioni |
 | `/tv` | Home, organizzata come HBO Max: hero a carosello (8 s, si ferma col telecomando sopra), *Continua a guardare*, *Top 10 di oggi*, *In onda ora*, *Esplora* (riquadri dei generi), *Novità*, riga *In primo piano*, poi una riga per genere |
 | `/tv/live` | come Pluto TV / Samsung TV Plus: in alto anteprima dal vivo (muta) del canale selezionato con programma, orario, avanzamento, "Dopo" e Guarda; filtri per categoria (Tutti, Generalisti, Film e serie, Lifestyle, Bambini); TV/desktop: guida con colonna canali fissa, riga orari e "Ora", linea dell'ora dietro i programmi (si vede solo negli spazi); muovendosi nella guida l'anteprima e i dettagli seguono il programma selezionato (l'anteprima cambia canale dopo una breve pausa). Telefono: per ogni canale *Ora* con avanzamento e *Dopo*; toccando un canale va nell'anteprima in alto |
 | `/tv/movies`, `/tv/series` | mini-Home del tipo: hero, Top dei film/serie, *Esplora per genere*, una riga per genere |

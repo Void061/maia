@@ -85,7 +85,11 @@ Visibile solo agli account `ADMIN` attivi: ci si arriva dal menu del profilo nel
 rispondono 403 `NOT_ADMIN`. Il ruolo è ricontrollato sul database a ogni chiamata, quindi togliere
 il ruolo o sospendere un admin ha effetto subito.
 
-- Filtri con i conteggi: **Da approvare** (si apre qui), Email da confermare, Attivi, Sospesi, Tutti;
+- **Servizi** (in cima): un interruttore per ogni servizio esterno (RaiPlay, TMDB) per fermare
+  subito ogni richiesta verso quel servizio; mostra chi l'ha spento e quando, la pausa automatica
+  per errori e i titoli in coda. Funzionamento in [tv/catalog.md](tv/catalog.md), "Interruttori dei
+  servizi".
+- **Account** — filtri con i conteggi: **Da approvare** (si apre qui), Email da confermare, Attivi, Sospesi, Tutti;
   ricerca per nome o email.
 - Ogni riga: nome, email, stato, badge Admin, data di registrazione, email confermata o no, numero
   di profili, e le azioni dello stato:
@@ -171,3 +175,5 @@ Documentazione interattiva su `http://localhost:3000/docs` (JSON su `/docs-json`
 | POST | `/admin/accounts/:id/reactivate` | da `SUSPENDED` a `ACTIVE` |
 | POST | `/admin/accounts/:id/role` | `{role: USER\|ADMIN}` |
 | DELETE | `/admin/accounts/:id` | rifiuta / elimina |
+| GET | `/admin/services` | servizi esterni con interruttore, pausa automatica e titoli in coda |
+| POST | `/admin/services/:id` | `{enabled}`: spegne o riaccende un servizio (subito) |

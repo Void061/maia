@@ -244,3 +244,9 @@ accedere al servizio con software automatici, script o robot senza autorizzazion
 conseguenze: revoca dell'uso e blocco degli IP. A differenza di RaiPlay il divieto di lettura
 automatica è esplicito, e il catalogo di MAIA si costruisce proprio così. Insieme al limite tecnico
 già misurato (catalogo assegnato per IP, API aperte solo a pluto.tv), Pluto TV non si aggiunge.
+
+**Interruttori dei servizi nel pannello admin** (chiesto dall'utente: poter fermare subito
+l'acquisizione da un servizio che dà problemi). Il blocco è in `polite-fetch`, prima di ogni
+richiesta, così vale anche per quelle già partite; i processi rileggono gli interruttori ogni 3
+secondi. I titoli in coda non si perdono: si rimandano e ripartono alla riaccensione. Anche TMDB ha
+il suo interruttore (spegnerlo ferma gli abbinamenti, quindi rimanda tutti i titoli).
