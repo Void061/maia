@@ -56,6 +56,13 @@ di catalogo o di metadati, presente o futuro:
 - **Il server non scarica video.** Video e immagini li chiede il dispositivo di chi guarda, come
   sul sito del servizio; il server chiede al massimo un link quando l'utente avvia un video.
 - **Le pagine dell'app non chiamano i servizi**: leggono dal database e dalla cache.
+- **Nessun Referer verso i servizi, sempre e per tutti i provider**: `Referrer-Policy: no-referrer`
+  su ogni pagina (header in `maia-fe/next.config.ts` e `<meta name="referrer">` in
+  `app/layout.tsx`), così video e immagini chiesti dal browser non dicono da quale app arrivano.
+  Resta solo l'`Origin` sulle richieste di hls.js (il browser non permette di toglierlo).
+  Verificato il 2026-10-31: nessun Referer verso raiplay.it, i CDN video Rai e TMDB.
+- **Niente imitazioni**: mai fingersi il servizio o la sua app (intestazioni falsificate, token
+  copiati, cambi di IP o identità per evitare blocchi). Se un servizio ci blocca ci si ferma.
 - **Operazioni massicce** (`fill`, `resync`, misure su molti titoli, test ripetuti) solo **con
   la conferma dell'utente**, dicendo prima quante richieste comportano, e una volta sola.
 - Un nuovo adapter va scritto con queste regole dall'inizio; se un servizio pubblica limiti o

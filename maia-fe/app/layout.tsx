@@ -13,6 +13,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "MAIA",
   description: "My Assistant In the Apartment",
+  // Never tell the services (videos, artwork, any provider) which page asked:
+  // also set as an HTTP header in next.config.ts. docs/tv/catalog.md, "Rispetto dei servizi".
+  referrer: "no-referrer",
 };
 
 export const viewport: Viewport = {

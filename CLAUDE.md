@@ -27,7 +27,8 @@ Tutto ciò che è stato deciso e implementato è in [`docs/`](docs/README.md).
 - **Rispetto dei servizi (ogni provider, anche futuro):** mai pesare su RaiPlay, TMDB o altri.
   Tutte le richieste passano da `polite-fetch` (una alla volta, max 1/s), stop immediato su
   429/403, niente operazioni massicce (`fill`, `resync`, misure, test ripetuti) senza la conferma
-  dell'utente e senza dire prima quante richieste comportano. Dettagli: `docs/tv/catalog.md`,
+  dell'utente e senza dire prima quante richieste comportano. Il frontend non manda mai il Referer
+  (`no-referrer` su tutte le pagine); niente token copiati né imitazioni dei servizi. Dettagli: `docs/tv/catalog.md`,
   "Rispetto dei servizi".
 - **Catalogo: se una modifica cambia cosa salva il catalogo** (adapter di un servizio o
   inserimento in `CatalogService`), i titoli già presenti non si aggiornano da soli prima del loro

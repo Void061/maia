@@ -205,3 +205,8 @@ servizi, rischio di blocchi e denunce). RaiPlay passa da una richiesta ogni 250 
 ogni 250 ms; 429/403 fermano subito il servizio per 6 ore; attese più lunghe tra i tentativi;
 operazioni massicce solo con conferma. Il primo riempimento e i `resync` durano circa il doppio:
 accettato, girano di notte o una volta sola.
+
+**Nessun Referer verso i servizi, per tutti i provider** (chiesto dall'utente: video e copertine non
+devono rivelare l'app da cui arrivano). `Referrer-Policy: no-referrer` su tutto il frontend, in due
+punti (header e meta). Limite noto: l'`Origin` delle richieste hls.js non si può togliere. Escluso
+esplicitamente fingersi il servizio o copiarne i token.
