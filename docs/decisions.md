@@ -210,3 +210,15 @@ accettato, girano di notte o una volta sola.
 devono rivelare l'app da cui arrivano). `Referrer-Policy: no-referrer` su tutto il frontend, in due
 punti (header e meta). Limite noto: l'`Origin` delle richieste hls.js non si può togliere. Escluso
 esplicitamente fingersi il servizio o copiarne i token.
+
+**Condizioni d'uso di RaiPlay: verificate per quanto possibile, si va avanti.** Il testo ufficiale
+delle condizioni non è stato trovato (non indicizzato; rai.it e raiplay.it bloccano gli strumenti
+AI, che non si aggirano). La privacy policy dei prodotti multimediali Rai non parla dell'uso da app
+di terzi. Le guide trovate vietano solo lo **scaricamento** con strumenti non ufficiali; nessuna
+fonte conferma un divieto di embedding. La giurisprudenza della Corte di Giustizia UE (link ed
+embed di contenuti liberamente accessibili non violano il diritto d'autore, salvo aggiramento di
+misure tecniche contro l'embedding) va nella direzione di MAIA. Decisione dell'utente: si continua,
+restando privati (uso di casa, niente soldi né diffusione) e con le regole di "Rispetto dei
+servizi" (docs/tv/catalog.md). Punto da tenere d'occhio: la riserva hls.js, dove il server legge
+il link del video, è la parte più vicina a un aggiramento; si toglie se emergesse un dubbio. Se
+MAIA uscisse dalla cerchia di casa: leggere il testo ufficiale e sentire un legale.
