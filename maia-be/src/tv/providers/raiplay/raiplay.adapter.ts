@@ -46,6 +46,7 @@ type RaiSetItem = {
   duration?: string;
   video_url?: string;
   forma?: string;
+  images?: { landscape?: string };
   rights_management?: RaiRights;
   availabilities?: RaiAvailabilities;
 };
@@ -183,8 +184,8 @@ export class RaiPlayAdapter implements ProviderAdapter {
     for (const { block, set } of sets) {
       const data = await politeJson<{ items?: RaiSetItem[] }>(HOST + set.path_id);
       const videos = (data.items ?? []).map((item) => {
-        const { externalId, title, durationSec, drm, geoBlocked, expiresAt, playback } = toEpisode(item);
-        return { externalId, title: item.name || title, durationSec, drm, geoBlocked, expiresAt, playback };
+        const { externalId, title, durationSec, drm, geoBlocked, expiresAt, playback, imageUrl } = toEpisode(item);
+        return { externalId, title: item.name || title, durationSec, drm, geoBlocked, expiresAt, playback, imageUrl };
       });
       if (!videos.length) continue;
       const label = block === set.name || EPISODE_BLOCK.test(block) ? set.name : `${block} · ${set.name}`;
@@ -249,6 +250,7 @@ function toEpisode(item: RaiSetItem): ProviderEpisode {
     episode: toInt(item.episode),
     title: item.episode_title || item.toptitle || item.name,
     airDate: parseItalianDate(item.name),
+    imageUrl: imageUrl(item.images?.landscape),
     durationSec: parseDuration(item.duration),
     ...rights(item.rights_management),
     expiresAt: item.availabilities?.expiration_date_iso ?? null,

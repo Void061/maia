@@ -533,6 +533,8 @@ export interface components {
             /** Format: date */
             airDate?: string | null;
             minutes?: number | null;
+            /** @description The episode's own picture; null = use the title's backdrop */
+            imageUrl?: string | null;
         };
         SeasonDto: {
             number: number;
@@ -542,6 +544,8 @@ export interface components {
             id: string;
             name: string;
             minutes?: number | null;
+            /** @description The clip's own picture; null = use the title's backdrop */
+            imageUrl?: string | null;
         };
         ExtraGroupDto: {
             id: string;

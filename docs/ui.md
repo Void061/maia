@@ -179,7 +179,9 @@ in pausa).
   (`maia-fe/lib/tv.ts`: `/tv/home`, `/tv/genres`, `/tv/titles`, `/tv/titles/:id`, `/tv/playback/:id`).
   Locandine e sfondi sono quelli di TMDB (o di RaiPlay per i titoli che TMDB non ha, ritagliate
   da RaiPlay alla misura delle schede: vedi [tv/catalog.md](tv/catalog.md)); senza immagine il
-  riquadro mostra un gradiente. Le miniature degli episodi usano lo sfondo del titolo.
+  riquadro mostra un gradiente. Episodi ed extra hanno la **loro immagine** (quella del servizio,
+  un fotogramma della puntata, 640×360) nella scheda, nel pannello episodi del player e in
+  "Prossimo episodio"; lo sfondo del titolo resta solo per quelli che non ne hanno una.
 - **Riproduzione**: il player chiede a maia-be cosa riprodurre e mette il link in `<video src>`
   (HLS nativo del browser). Se l'HLS nativo rifiuta il flusso, chiede a maia-be il link diretto
   (`/tv/playback/:id/stream`) e lo riproduce con hls.js; se non parte nemmeno così segnala

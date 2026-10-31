@@ -715,7 +715,7 @@ export default function Player({ title, live }: Props) {
             className="focusable pill-focus group flex w-72 items-center gap-3 rounded-xl bg-black/80 p-2 pr-3 text-left sm:w-80"
           >
             <span className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-raised">
-              <Art src={title.backdropUrl} seed={upNext.id} />
+              <Art src={upNext.imageUrl ?? title.backdropUrl} seed={upNext.id} />
               <span className="absolute inset-0 grid place-items-center bg-black/30 [&>svg]:size-6">
                 <PlayIcon />
               </span>
@@ -858,7 +858,7 @@ function EpisodesPanel({
                 className="focusable pill-focus group flex w-full items-center gap-4 rounded-2xl p-2 text-left aria-[current=true]:bg-white/10"
               >
                 <span className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-raised sm:w-36">
-                  <Art src={title.backdropUrl} seed={ep.id} />
+                  <Art src={ep.imageUrl ?? title.backdropUrl} seed={ep.id} />
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm text-faint group-focus-visible:text-black/60">

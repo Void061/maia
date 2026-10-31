@@ -35,6 +35,8 @@ type CardRow = Prisma.TitleGetPayload<{ select: typeof CARD }>;
 // RaiPlay artwork is stored at full size (a 1536x2048 poster is 0.5-1 MB);
 // its image service crops it to the size the cards need (~45 KB).
 const RAIPLAY_IMG = 'https://www.raiplay.it/';
+// Episode and extra thumbnails (cards up to ~320 px wide, x2 for sharp screens).
+const THUMB = '640x360';
 const sized = (url: string | null, size: string) =>
   url?.startsWith(RAIPLAY_IMG) && !url.startsWith(`${RAIPLAY_IMG}cropgd/`)
     ? `${RAIPLAY_IMG}cropgd/${size}/${url.slice(RAIPLAY_IMG.length)}`
@@ -178,7 +180,14 @@ export class TvService {
             episodes: {
               where: { sources: { some: PLAYABLE } },
               orderBy: [{ number: { sort: 'asc', nulls: 'last' } }, { airDate: 'asc' }],
-              select: { id: true, number: true, name: true, airDate: true, sources: { where: PLAYABLE, select: { durationSec: true }, take: 1 } },
+              select: {
+                id: true,
+                number: true,
+                name: true,
+                airDate: true,
+                imageUrl: true,
+                sources: { where: PLAYABLE, select: { durationSec: true }, take: 1 },
+              },
             },
           },
         },
@@ -189,7 +198,7 @@ export class TvService {
             kind: true,
             label: true,
             seasonNumber: true,
-            extras: { where: { available: true }, orderBy: { position: 'asc' }, select: { id: true, name: true, durationSec: true } },
+            extras: { where: { available: true }, orderBy: { position: 'asc' }, select: { id: true, name: true, durationSec: true, imageUrl: true } },
           },
         },
       },
@@ -207,6 +216,7 @@ export class TvService {
           name: e.name,
           airDate: e.airDate ? e.airDate.toISOString().slice(0, 10) : null,
           minutes: minutes(e.sources[0]?.durationSec),
+          imageUrl: sized(e.imageUrl, THUMB),
         })),
       }));
     const similar = t.genres.length
@@ -224,7 +234,7 @@ export class TvService {
           kind: g.kind,
           label: g.label,
           season: g.seasonNumber,
-          items: g.extras.map((x) => ({ id: x.id, name: x.name, minutes: minutes(x.durationSec) })),
+          items: g.extras.map((x) => ({ id: x.id, name: x.name, minutes: minutes(x.durationSec), imageUrl: sized(x.imageUrl, THUMB) })),
         })),
       similar,
     };

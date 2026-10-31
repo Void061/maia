@@ -290,6 +290,16 @@ la fonte migliore, prima i servizi OK e con meno errori), `GET /tv/playback/:ite
 (link diretto per hls.js, vedi riproduzione), `POST /tv/playback/:itemId/failed`.
 Un titolo è visibile solo se ha almeno un video disponibile e senza DRM.
 
+**Immagini di episodi ed extra.** Ogni puntata e ogni clip ha la sua immagine su RaiPlay
+(`images.landscape` dell'elemento): si salva in `episodes.image_url` / `extras.image_url` a ogni
+sincronizzazione (se il servizio non ne dà una si tiene quella che c'era) e le API la restituiscono
+ritagliata 640×360. Non si usano le immagini degli episodi di TMDB: quelle di RaiPlay sono del
+video che si guarda davvero e ci sono anche per le puntate provvisorie.
+
+**Date delle puntate.** La data nel nome ("Puntata del 12/03/1988") vale solo se esiste davvero:
+RaiPlay a volte scrive segnaposto come "00/00/1992", che prima bloccavano la sincronizzazione
+dell'intero programma (Telefono giallo: 32 puntate su 41).
+
 **Immagini RaiPlay ritagliate.** RaiPlay fornisce locandine e sfondi a piena misura (una locandina
 1536×2048 pesa 0,5-1 MB; la home ne mostra quasi 200). Le API le restituiscono passando dal
 servizio immagini di RaiPlay, `https://www.raiplay.it/cropgd/<L>x<A>/<percorso>`: locandine

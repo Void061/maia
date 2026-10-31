@@ -182,6 +182,8 @@ model Episode {
   airDate     DateTime? @map("air_date") @db.Date
   /// Built from the service's data because TMDB does not have it (yet).
   provisional Boolean   @default(false)
+  /// The episode's own picture from the service (a frame of it), full size.
+  imageUrl    String?   @map("image_url")
 
   season  Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   sources Source[]
@@ -300,6 +302,8 @@ model Extra {
   expiresAt   DateTime? @map("expires_at")
   available   Boolean   @default(true)
   lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  /// The clip's own picture from the service, full size.
+  imageUrl    String?   @map("image_url")
 
   group ExtraGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 

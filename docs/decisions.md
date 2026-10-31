@@ -188,3 +188,8 @@ il catalogo": resta l'HLS nativo come prima scelta, hls.js è la riserva.
 **Riscaldamento della cache dopo ogni svuotamento** (idea dell'utente: un "mini bot" che dopo il
 job fa un giro di MAIA). Fatto dentro il backend chiamando direttamente `TvService` invece che con
 richieste HTTP: niente sessione da gestire e chiavi identiche a quelle delle API per costruzione.
+
+**Immagini vere degli episodi** (chiesto dall'utente: le miniature erano tutte lo sfondo del
+titolo). Si prende l'immagine che RaiPlay dà a ogni puntata e clip, non quella di TMDB: è del video
+che si riproduce e c'è anche per le puntate che TMDB non ha. Per caricarle sui dati esistenti sono
+stati rimessi in coda una volta tutti i titoli con puntate o extra (2737).

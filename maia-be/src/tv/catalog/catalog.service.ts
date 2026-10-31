@@ -270,6 +270,8 @@ export class CatalogService {
         if (!episodeId || prev?.episode?.provisional) {
           episodeId = await this.placeAndUpsertEpisode(titleId, season.number, ep, tmdbId ? await loadTmdbSeasons() : []);
         }
+        // The service's picture of this episode (kept when the service has none).
+        if (ep.imageUrl) await this.prisma.episode.update({ where: { id: episodeId }, data: { imageUrl: ep.imageUrl } });
         await this.prisma.source.upsert({
           where: { provider_externalId: { provider: data.provider, externalId: ep.externalId } },
           create: { provider: data.provider, externalId: ep.externalId, providerTitleId, episodeId, ...videoFields(ep, now) },
@@ -334,6 +336,7 @@ export class CatalogService {
           expiresAt: v.expiresAt ? new Date(v.expiresAt) : null,
           available: !v.drm,
           lastSeenAt: now,
+          imageUrl: v.imageUrl,
         };
         await this.prisma.extra.upsert({
           where: { groupId_externalId: { groupId: g.id, externalId: v.externalId } },

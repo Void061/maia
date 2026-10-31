@@ -48,6 +48,8 @@ export class EpisodeDto {
   @ApiProperty() name: string;
   @ApiPropertyOptional({ nullable: true, type: String, format: 'date' }) airDate: string | null;
   @ApiPropertyOptional({ nullable: true, type: Number }) minutes: number | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: "The episode's own picture; null = use the title's backdrop" })
+  imageUrl: string | null;
 }
 
 export class SeasonDto {
@@ -59,6 +61,8 @@ export class ExtraDto {
   @ApiProperty() id: string;
   @ApiProperty() name: string;
   @ApiPropertyOptional({ nullable: true, type: Number }) minutes: number | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: "The clip's own picture; null = use the title's backdrop" })
+  imageUrl: string | null;
 }
 
 export class ExtraGroupDto {
