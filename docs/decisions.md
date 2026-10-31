@@ -250,3 +250,14 @@ l'acquisizione da un servizio che dà problemi). Il blocco è in `polite-fetch`,
 richiesta, così vale anche per quelle già partite; i processi rileggono gli interruttori ogni 3
 secondi. I titoli in coda non si perdono: si rimandano e ripartono alla riaccensione. Anche TMDB ha
 il suo interruttore (spegnerlo ferma gli abbinamenti, quindi rimanda tutti i titoli).
+
+**Quali altri servizi (analisi dei termini, 2026-10-31).** Fattibili solo i servizi che permettono
+esplicitamente di mostrare i contenuti in app di terzi o con contenuti liberi:
+- **Internet Archive** (film di pubblico dominio / Creative Commons, API ufficiale, riproducibili
+  nel nostro player): il candidato consigliato;
+- **Dailymotion** (API ufficiale + loro player non modificato, pubblicità inclusa; poco in italiano);
+- **ARTE** con riserva (player esterno permesso, catalogo solo con API per partner).
+**YouTube escluso per scelta dell'utente** (sarebbe stato permesso con il player ufficiale, ma
+richiede il Referer e il loro player). Esclusi per i termini: Mediaset Infinity e La7 (vietano
+espressamente lo scraping), Pluto TV (vedi sopra); Rakuten TV, Plex, Samsung TV Plus (nessun accesso
+ufficiale per app di terzi).
