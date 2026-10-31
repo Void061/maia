@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@ne
 import { ConfigService } from '@nestjs/config';
 import { PgBoss, type Job } from 'pg-boss';
 import { CacheService } from '../../cache/cache.service.js';
+import { HttpError } from '../providers/polite-fetch.js';
 import { SECTIONS } from '../providers/raiplay/raiplay.adapter.js';
 import { CatalogService, ProviderPausedError } from './catalog.service.js';
 
@@ -132,7 +133,14 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   private async onNews() {
     const adapter = this.catalog.adapters.raiplay;
     const ids = new Set<string>();
-    for (const section of SECTIONS) for (const id of await adapter.listSection(section)) ids.add(id);
+    for (const section of SECTIONS) {
+      try {
+        for (const id of await adapter.listSection(section)) ids.add(id);
+      } catch (err) {
+        if (err instanceof HttpError && err.slowDown) throw err;
+        this.logger.warn(`raiplay section ${section} skipped: ${String(err)}`); // e.g. a section RaiPlay removed
+      }
+    }
     await this.enqueueTitles('raiplay', [...ids]);
   }
 }
