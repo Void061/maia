@@ -280,8 +280,39 @@ va in pausa 30 minuti (i suoi lavori riprovano dopo). Un 404 su un titolo conta 
 sparito, non come guasto del servizio.
 
 Comandi (vedi [../dev.md](../dev.md)): `npm run catalog -- fill|refresh raiplay`,
-`npm run catalog -- sync raiplay <slug...>`, `npm run catalog -- status`,
-`npm run catalog:worker`, `npm run catalog:probe`.
+`npm run catalog -- sync raiplay <slug...>`, `npm run catalog -- resync raiplay [--episodes]`,
+`npm run catalog -- status`, `npm run catalog:worker`, `npm run catalog:probe`.
+
+### Rileggere tutto il catalogo (`resync`)
+
+Il ritmo dei controlli segue i cambiamenti **di RaiPlay**: un titolo fermo viene riletto anche solo
+una volta al mese. Quando invece cambia **il nostro codice** e il catalogo comincia a salvare un
+dato nuovo (o a leggerlo in modo diverso), i titoli già presenti lo prendono solo al loro prossimo
+controllo, quindi anche dopo settimane. In quel caso si rilegge tutto subito:
+
+```bash
+npm run catalog -- resync raiplay              # tutti i titoli già nel catalogo (~6750, qualche ora)
+npm run catalog -- resync raiplay --episodes   # solo quelli con puntate o extra (~2700, ~1 ora)
+npm run catalog -- status                      # avanzamento ("sync-title created" = ancora da fare)
+```
+
+Mette in coda un `catalog-sync-title` per ogni titolo, dai più aggiornati di recente (quelli che si
+guardano prendono prima i dati nuovi). Il worker deve essere acceso; i titoli sono letti con la
+solita calma verso RaiPlay (~40 al minuto). La cache si svuota e si riscalda da sola man mano.
+
+**Quando serve** (va fatto in locale *e* in produzione dopo il deploy):
+- l'adapter di un servizio restituisce un campo nuovo o diverso (es. immagini delle puntate,
+  2026-10-31: `resync raiplay --episodes`);
+- l'inserimento (`CatalogService.ingest` e seguenti) salva un dato nuovo o lo calcola in modo
+  diverso (date, numerazione, abbinamenti);
+- una correzione deve sistemare titoli già rovinati (es. una sincronizzazione che falliva).
+
+**Quando non serve:** modifiche solo alle API, al frontend o alla cache (i dati salvati non
+cambiano); una migrazione che aggiunge una colonna calcolabile dal database stesso (lì basta la
+migrazione o uno script SQL).
+
+Cambiare i dati restituiti dall'adapter cambia anche l'hash del titolo, quindi i titoli non
+vengono scartati come "invariati": vengono davvero reinseriti.
 
 **API per il frontend** (`maia-be/src/tv/tv.controller.ts`, solo con sessione): `GET /tv/home`,
 `GET /tv/genres?kind=`, `GET /tv/titles?kind&genre&q&skip&take`, `GET /tv/titles/:id` (stagioni ed

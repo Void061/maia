@@ -24,6 +24,11 @@ Tutto ciò che è stato deciso e implementato è in [`docs/`](docs/README.md).
   leggi la guida in `maia-fe/node_modules/next/dist/docs/` (vedi `maia-fe/AGENTS.md`).
 - Niente aggiramento del DRM e solo servizi gratuiti (vedi `docs/tv/catalog.md`).
 - Prisma resta sulla versione fissata nel `package.json` del backend: non usare `prisma@latest`.
+- **Catalogo: se una modifica cambia cosa salva il catalogo** (adapter di un servizio o
+  inserimento in `CatalogService`), i titoli già presenti non si aggiornano da soli prima del loro
+  prossimo controllo (anche un mese). Dopo la modifica lancia `npm run catalog -- resync raiplay`
+  (o `--episodes`) in locale e **ricorda all'utente di lanciarlo anche in produzione dopo il
+  deploy**. Quando serve e quando no: `docs/tv/catalog.md`, "Rileggere tutto il catalogo".
 - Fine riga solo LF.
 - Porte locali fisse: `maia-be` su 3000, `maia-fe` su 3001.
 - **Server di sviluppo e tunnel sempre come processi separati**, mai come comandi in background

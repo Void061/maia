@@ -42,8 +42,14 @@ li tiene fuori dal server web). Da maia-be, con `TMDB_API_KEY` in `.env`:
 npm run catalog:worker                       # i worker (lasciarlo acceso, come processo separato)
 npm run catalog -- fill raiplay              # primo riempimento: tutto RaiPlay (qualche ora)
 npm run catalog -- sync raiplay marefuori    # solo i titoli indicati, subito
+npm run catalog -- resync raiplay            # rilegge tutti i titoli già presenti (vedi sotto)
 npm run catalog -- status                    # titoli, abbinamenti, episodi, fonti, coda
 ```
+
+**Dopo una modifica a cosa salva il catalogo** (adapter o inserimento) va lanciato
+`npm run catalog -- resync raiplay` (o `--episodes`), altrimenti i titoli già presenti si
+aggiornano solo al loro prossimo controllo, anche dopo un mese. Quando serve e quando no:
+[tv/catalog.md](tv/catalog.md), "Rileggere tutto il catalogo".
 
 Log del worker avviato come processo separato: `%TEMP%\maia-logs\catalog-worker.log`.
 

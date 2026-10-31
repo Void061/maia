@@ -24,6 +24,11 @@ scadenza ogni ora. Non serve un'altra risorsa. Il primo riempimento si avvia una
 terminale del container maia-be con `npm run catalog -- fill raiplay` (qualche ora; avanzamento con
 `npm run catalog -- status`). `CATALOG_WORKERS=false` li spegne.
 
+**Dopo un deploy che cambia cosa salva il catalogo** (vedi [tv/catalog.md](tv/catalog.md),
+"Rileggere tutto il catalogo"), dal terminale del container maia-be:
+`npm run catalog -- resync raiplay` (o `--episodes`). Da fare in produzione, per esempio, al primo
+deploy con le immagini delle puntate (2026-10-31): `npm run catalog -- resync raiplay --episodes`.
+
 ## Email con Resend
 
 Server, porta e utente SMTP di Resend sono fissi nel codice: basta impostare su maia-be

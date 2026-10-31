@@ -193,3 +193,8 @@ richieste HTTP: niente sessione da gestire e chiavi identiche a quelle delle API
 titolo). Si prende l'immagine che RaiPlay dà a ogni puntata e clip, non quella di TMDB: è del video
 che si riproduce e c'è anche per le puntate che TMDB non ha. Per caricarle sui dati esistenti sono
 stati rimessi in coda una volta tutti i titoli con puntate o extra (2737).
+
+**Comando `npm run catalog -- resync <servizio> [--episodes]`.** Rilegge subito tutti i titoli già
+presenti. Serve quando cambia il nostro codice del catalogo (non RaiPlay): il ritmo adattivo
+aggiornerebbe i titoli fermi solo dopo settimane. La regola è anche in `CLAUDE.md`, così viene
+ricordata a ogni modifica di questo tipo e al deploy.
