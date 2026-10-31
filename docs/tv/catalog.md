@@ -207,11 +207,38 @@ ProviderHealth (provider, status, failStreak, retryAfter)
 WatchProgress / Favorite → per Profile
 ```
 
+## Prototipo RaiPlay (in corso)
+
+Codice in `maia-be/src/tv/`: `providers/raiplay/raiplay.adapter.ts` (lettura e
+normalizzazione), `providers/polite-fetch.ts` (una richiesta alla volta per host, pausa minima,
+tentativi), `matching/score.ts` (punteggio e verdetto, con test), `matching/tmdb.client.ts`,
+`probe.ts` (`npm run catalog:probe`, vedi [../dev.md](../dev.md)).
+
+Come è fatto RaiPlay (verificato il 2026-10-31):
+
+- `/programmi/<slug>.json`: `program_info` (nome, anno, `layout` `single` = film / `multi` =
+  serie o programma, tipologia, generi) e `blocks` → `sets`. Le puntate intere stanno nel
+  blocco "Episodi" o "Puntate"; gli altri blocchi (Clip, Extra, Highlights, Anticipazioni) e i
+  gruppi con quei nomi si scartano.
+- Il JSON di ogni gruppo (stagione) ha **tutti** gli episodi in una sola risposta (anche 174 per
+  una stagione della soap) con stagione, numero, titolo, durata, relinker (`video_url`) e
+  `rights_management`: non serve aprire episodio per episodio.
+- **DRM noto in anticipo**: `rights.drm.VOD = true`. Si scarta subito invece di scoprirlo al
+  play.
+- Scadenza: `availabilities.expiration_date_iso` (sempre nei film, a volte negli episodi).
+- Film: il JSON di `first_item_path` ha `video.content_url` (il relinker) e la durata.
+- Numerazioni da gestire: soap con "Daily - Stagione 3…11" più "Stagione 1-2"; programmi per
+  edizione con stagione = anno (2026) e puntate "Puntata del 24/10/2026" (data letta dal nome);
+  serie straniere con anno RaiPlay sbagliato ("Ready or not" 2025, in realtà 2019).
+
+Prima misura senza TMDB (21 titoli: 5 per sezione film, serie italiane, serie internazionali,
+programmi, più la soap e Mare fuori): 1868 video letti su 1868 dichiarati, 23 con DRM (un film
+e due serie intere), 1845 riproducibili. Il confronto con TMDB parte quando c'è `TMDB_API_KEY`.
+
 ## Ordine di sviluppo previsto
 
-1. Prototipo di misura: adapter **RaiPlay** su circa 20 titoli scelti apposta (una soap
-   quotidiana, una serie divisa in parti, un programma con puntate per data) per misurare
-   quanti si abbinano da soli a TMDB.
+1. Prototipo di misura: adapter **RaiPlay** su circa 20 titoli per misurare quanti si abbinano
+   da soli a TMDB (in corso, vedi sopra).
 2. Schema Prisma del catalogo, coda pg-boss, fase 1 completa per RaiPlay.
 3. Endpoint di playback e player collegato al backend (HLS nativo per RaiPlay).
 4. Fase 2 (aggiornamento continuo) e pannello stato.

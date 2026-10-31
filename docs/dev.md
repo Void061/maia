@@ -29,6 +29,11 @@ e rigenera il client Prisma).
 
 **Tipi del frontend:** dopo una modifica alle API, con maia-be acceso, `npm run gen:api` in maia-fe.
 
+**Prototipo catalogo RaiPlay:** `npm run catalog:probe` in maia-be legge un campione di titoli
+RaiPlay (o solo quelli indicati: `npm run catalog:probe -- marefuori`) e, con `TMDB_API_KEY`,
+misura quanti si abbinano da soli a TMDB. Non scrive nel database; il resoconto completo va in
+`maia-be/.probe/report.json` (ignorato da git). Vedi [tv/catalog.md](tv/catalog.md).
+
 Tutto in container, come in produzione: `docker compose up --build`.
 Spegnere: `docker compose down` (con `-v` cancella anche i dati del database).
 
@@ -39,7 +44,7 @@ le due modalità insieme.
 
 | File | Contenuto |
 |---|---|
-| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa) |
+| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo) |
 | `maia-fe/.env.local` | `API_URL=http://localhost:3000` (dove il gateway `/api` trova maia-be) |
 
 Sono ignorati da git; i modelli sono i rispettivi `.env.example`.
