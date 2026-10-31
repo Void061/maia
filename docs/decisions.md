@@ -253,11 +253,14 @@ il suo interruttore (spegnerlo ferma gli abbinamenti, quindi rimanda tutti i tit
 
 **Quali altri servizi (analisi dei termini, 2026-10-31).** Fattibili solo i servizi che permettono
 esplicitamente di mostrare i contenuti in app di terzi o con contenuti liberi:
-- **Internet Archive** (film di pubblico dominio / Creative Commons, API ufficiale, riproducibili
-  nel nostro player): il candidato consigliato;
+- **Internet Archive** (film di pubblico dominio / Creative Commons, API ufficiale): permesso ma
+  **scartato dall'utente**, perché il catalogo (film vecchi, muti, quasi tutti in inglese) non è
+  quello che serve a MAIA;
 - **Dailymotion** (API ufficiale + loro player non modificato, pubblicità inclusa; poco in italiano);
 - **ARTE** con riserva (player esterno permesso, catalogo solo con API per partner).
 **YouTube escluso per scelta dell'utente** (sarebbe stato permesso con il player ufficiale, ma
 richiede il Referer e il loro player). Esclusi per i termini: Mediaset Infinity e La7 (vietano
 espressamente lo scraping), Pluto TV (vedi sopra); Rakuten TV, Plex, Samsung TV Plus (nessun accesso
 ufficiale per app di terzi).
+In pratica, per film, serie e programmi italiani recenti RaiPlay resta l'unico servizio praticabile:
+la priorità è farlo funzionare al meglio; ARTE solo se interessa quel genere (serve l'accesso API).
