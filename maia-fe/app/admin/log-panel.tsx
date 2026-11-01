@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQueryClient,
@@ -113,6 +114,9 @@ export default function LogPanel({ enabled }: { enabled: boolean }) {
     getNextPageParam: (last) =>
       last.more ? last.events[last.events.length - 1]?.id : undefined,
     refetchInterval: 5_000,
+    // Changing filter or source keeps the current list on screen until the new
+    // one arrives (dimmed), instead of emptying the page: no layout jump.
+    placeholderData: keepPreviousData,
     enabled,
   });
   const live = feed.data?.pages[0];
@@ -172,7 +176,9 @@ export default function LogPanel({ enabled }: { enabled: boolean }) {
       ) : !events.length ? (
         <p className="mt-6 text-muted">{EMPTY[filter]}</p>
       ) : (
-        <ol className="mt-4 overflow-hidden rounded-3xl bg-surface text-sm">
+        <ol
+          className={`mt-4 overflow-hidden rounded-3xl bg-surface text-sm transition-opacity ${feed.isPlaceholderData ? "opacity-60" : ""}`}
+        >
           {events.map((e) => {
             const title = TITLE_KINDS[e.kind];
             const detail =
