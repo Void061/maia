@@ -21,6 +21,18 @@
       "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
     },
     {
+      // The worker started on its own (`npm run catalog:worker`, inspector on
+      // 9230, next to the backend's 9229): hooks into it without restarting it.
+      "name": "MAIA: aggancia il worker già avviato (9230)",
+      "type": "node",
+      "request": "attach",
+      "port": 9230,
+      "restart": true,
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/maia-be/.worker/**/*.js"],
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
       "name": "MAIA: backend (debug)",
       "type": "node-terminal",
       "request": "launch",

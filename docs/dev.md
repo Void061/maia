@@ -72,6 +72,7 @@ Aprire la cartella `maia` in VS Code, pannello **Esegui e debug**, e scegliere u
 | Configurazione | Cosa avvia |
 | --- | --- |
 | **MAIA: aggancia il backend già avviato (9229)** | niente: si collega al backend avviato con `npm run start:debug` (il modo normale di avviarlo in locale) e si ricollega da solo dopo ogni ricaricamento |
+| **MAIA: aggancia il worker già avviato (9230)** | niente: si collega al worker avviato con `npm run catalog:worker`, che apre sempre il debugger sulla porta 9230 |
 | MAIA: backend (debug) | `npm run start:dev` in `maia-be` (porta 3000) |
 | MAIA: worker del catalogo (debug) | `npm run catalog:worker`: riprende subito quello che è in coda |
 | MAIA: test del backend, file aperto (debug) | i test vitest del file aperto |
