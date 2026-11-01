@@ -7,6 +7,8 @@ import { QUEUES } from './queues.js';
 const KEEP_DAYS = 7;
 // The worker writes its heartbeat this often; missing three in a row = off.
 export const BEAT_MS = 30_000;
+// Events about the worker itself (pause, resume) rather than one source.
+export const WORKER = 'worker';
 const BEAT_TIMEOUT_MS = 3 * BEAT_MS;
 
 export const ACTIVITY_FILTERS = ['all', 'created', 'updated', 'unchanged', 'errors'] as const;
@@ -51,6 +53,23 @@ export class CatalogActivity {
 
   async passCancelled(provider: string, by: string) {
     await this.record({ provider, kind: 'pass-cancelled', message: by });
+  }
+
+  // Pause switch of the worker (admin panel). Paused: no new job is taken,
+  // the queue waits and resumes from the same point.
+  async control() {
+    const row = await this.prisma.catalogControl.findUnique({ where: { id: 1 } }).catch(() => null);
+    return { paused: row?.paused ?? false, changedAt: row?.changedAt ?? null, changedBy: row?.changedBy ?? null };
+  }
+
+  async setPaused(paused: boolean, by: string) {
+    const changedAt = new Date();
+    await this.prisma.catalogControl.upsert({
+      where: { id: 1 },
+      create: { id: 1, paused, changedAt, changedBy: by },
+      update: { paused, changedAt, changedBy: by },
+    });
+    await this.record({ provider: WORKER, kind: paused ? 'worker-paused' : 'worker-resumed', message: by });
   }
 
   async workerOnline(): Promise<boolean> {
@@ -118,7 +137,7 @@ export class CatalogActivity {
   // and per source the full pass (waiting or running), the titles waiting,
   // retrying after an error and being read right now.
   async live() {
-    const [counts, active, passes, beat] = await Promise.all([
+    const [counts, active, passes, beat, control] = await Promise.all([
       this.prisma.$queryRaw<{ provider: string; state: string; n: number }[]>`
         SELECT data->>'provider' AS provider, state::text AS state, count(*)::int AS n
           FROM pgboss.job
@@ -138,6 +157,7 @@ export class CatalogActivity {
          WHERE name = ${QUEUES.discover} AND state IN ('created', 'active', 'retry')
          ORDER BY data->>'provider', created_on DESC`.catch(() => []),
       this.prisma.catalogWorkerBeat.findUnique({ where: { id: 1 } }).catch(() => null),
+      this.control(),
     ]);
     const source = (provider: string) => {
       const pass = passes.find((p) => p.provider === provider);
@@ -163,6 +183,7 @@ export class CatalogActivity {
         online: !!beat && beat.seenAt.getTime() > Date.now() - BEAT_TIMEOUT_MS,
         startedAt: beat?.startedAt ?? null,
         seenAt: beat?.seenAt ?? null,
+        ...control,
       },
       source,
     };

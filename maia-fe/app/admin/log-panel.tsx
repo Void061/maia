@@ -1,6 +1,10 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useState } from "react";
 import { Notice } from "@/components/ui";
 import { api, type components } from "@/lib/api";
@@ -38,6 +42,8 @@ const PASS_TONE: Record<string, string> = {
   "pass-done": "text-[#7ee2a0]",
   "pass-aborted": "text-[#ffd98a]",
   "pass-failed": "text-[#ffb4b4]",
+  "worker-paused": "text-[#ffd98a]",
+  "worker-resumed": "text-[#7ee2a0]",
 };
 
 const SWITCHED_OFF = "service switched off";
@@ -64,6 +70,10 @@ function passText(e: LogEvent) {
     ? "Riempimento completo"
     : "Passata completa";
   switch (e.kind) {
+    case "worker-paused":
+      return `Worker messo in pausa${e.message ? ` da ${e.message}` : ""}`;
+    case "worker-resumed":
+      return `Worker ripreso${e.message ? ` da ${e.message}` : ""}`;
     case "pass-queued":
       return `“Aggiorna ora” premuto${e.message ? ` da ${e.message}` : ""}`;
     case "pass-cancelled":
@@ -113,18 +123,18 @@ export default function LogPanel({ enabled }: { enabled: boolean }) {
     <section className="mt-6">
       {live && <Now worker={live.worker} sources={live.sources} />}
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="mt-6 grid gap-3">
         <div
           role="group"
           aria-label="Cosa mostrare"
-          className="rail -mx-4 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:px-0"
+          className="flex flex-wrap gap-2"
         >
           {FILTERS.map(([value, label]) => (
             <button
               key={value}
               onClick={() => setFilter(value)}
               aria-pressed={filter === value}
-              className="focusable pill-focus h-10 shrink-0 rounded-full bg-white/10 px-4 text-sm font-medium text-muted aria-pressed:bg-white aria-pressed:text-black"
+              className="focusable pill-focus h-9 shrink-0 rounded-full bg-white/10 px-3.5 text-sm font-medium text-muted aria-pressed:bg-white aria-pressed:text-black sm:h-10 sm:px-4"
             >
               {label}
             </button>
@@ -132,12 +142,8 @@ export default function LogPanel({ enabled }: { enabled: boolean }) {
         </div>
         {/* Pills like the filters, not a native select (its arrow looked squashed on phones). */}
         {live && live.sources.length > 1 && (
-          <div
-            role="group"
-            aria-label="Fonte"
-            className="rail -mx-4 flex gap-1 overflow-x-auto px-4 py-1 sm:mx-0 sm:px-0"
-          >
-            <div className="flex shrink-0 gap-1 rounded-full bg-white/[0.06] p-1">
+          <div role="group" aria-label="Fonte" className="flex">
+            <div className="flex max-w-full flex-wrap gap-1 rounded-3xl bg-white/[0.06] p-1">
               {[{ id: "", name: "Tutte le fonti" }, ...live.sources].map((s) => (
                 <button
                   key={s.id || "all"}
@@ -176,11 +182,11 @@ export default function LogPanel({ enabled }: { enabled: boolean }) {
             return (
               <li
                 key={e.id}
-                className="flex gap-3 border-b border-white/[0.06] px-4 py-2.5 last:border-0"
+                className="flex min-w-0 gap-2.5 border-b border-white/[0.06] px-3 py-2.5 last:border-0 sm:gap-3 sm:px-4"
               >
                 <time
                   dateTime={e.at}
-                  className="w-[4.5rem] shrink-0 tabular-nums text-faint sm:w-24"
+                  className="w-14 shrink-0 text-xs leading-5 tabular-nums text-faint sm:w-24 sm:text-sm"
                 >
                   {stamp(e.at)}
                 </time>
@@ -198,20 +204,20 @@ export default function LogPanel({ enabled }: { enabled: boolean }) {
                         </span>
                       </>
                     ) : (
-                      <span className={`font-medium ${PASS_TONE[e.kind] ?? "text-muted"}`}>
+                      <span className={`min-w-0 font-medium ${PASS_TONE[e.kind] ?? "text-muted"}`}>
                         {passText(e)}
                       </span>
                     )}
                   </p>
                   {detail && (
-                    <p className="mt-0.5 font-mono text-xs break-words text-faint">
+                    <p className="mt-0.5 font-mono text-xs [overflow-wrap:anywhere] text-faint">
                       {e.message}
                     </p>
                   )}
                 </div>
                 {!source && (
                   <span className="hidden shrink-0 text-faint sm:block">
-                    {names.get(e.source) ?? e.source}
+                    {e.source === "worker" ? "Worker" : (names.get(e.source) ?? e.source)}
                   </span>
                 )}
               </li>
@@ -236,17 +242,45 @@ export default function LogPanel({ enabled }: { enabled: boolean }) {
 // What is happening right now: the worker, then each source that has something
 // in progress or waiting.
 function Now({ worker, sources }: { worker: Log["worker"]; sources: Source[] }) {
+  const qc = useQueryClient();
+  const toggle = useMutation({
+    mutationFn: (pause: boolean) =>
+      api(`/admin/services/worker/${pause ? "pause" : "resume"}`, { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "log"] }),
+  });
   const busy = sources.filter(
     (s) => s.pass || s.queued || s.retrying || s.stalled || s.active.length,
   );
+  const reading = sources.reduce((n, s) => n + s.active.length, 0);
   return (
     <div className="grid gap-2 rounded-3xl bg-surface p-4 text-sm sm:p-5" aria-live="polite">
-      <p className="flex items-center gap-2 font-semibold">
-        <Dot tone={worker.online ? "on" : "off"} />
-        {worker.online
-          ? `Worker acceso${worker.startedAt ? ` dalle ${stamp(worker.startedAt)}` : ""}`
-          : "Worker spento: niente viene letto finché non viene avviato"}
-      </p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="flex min-w-0 flex-1 basis-56 items-center gap-2 font-semibold">
+          <Dot tone={!worker.online ? "off" : worker.paused ? "paused" : "on"} />
+          <span>
+            {!worker.online
+              ? "Worker spento: niente viene letto finché non viene avviato"
+              : worker.paused
+                ? `Worker in pausa${worker.changedAt ? ` dalle ${stamp(worker.changedAt)}` : ""}${reading ? `: finisce i ${reading} titoli che sta leggendo` : ": la coda aspetta"}`
+                : `Worker acceso${worker.startedAt ? ` dalle ${stamp(worker.startedAt)}` : ""}`}
+          </span>
+        </p>
+        <button
+          onClick={() => toggle.mutate(!worker.paused)}
+          disabled={toggle.isPending}
+          className={`focusable h-10 shrink-0 rounded-full px-4 text-sm font-semibold disabled:opacity-50 ${worker.paused ? "bg-white text-black" : "pill-focus bg-white/[0.12]"}`}
+        >
+          {worker.paused ? "Riprendi" : "Metti in pausa"}
+        </button>
+      </div>
+      {worker.paused && (
+        <p className="text-muted">
+          Nessun lavoro nuovo finché non premi Riprendi: i titoli in coda restano lì e il worker
+          riparte da dove si era fermato.
+          {!worker.online && " Vale anche quando il worker verrà avviato."}
+        </p>
+      )}
+      {toggle.error && <Notice>{toggle.error.message}</Notice>}
       {busy.length === 0 ? (
         <p className="text-muted">Niente in coda.</p>
       ) : (
@@ -288,11 +322,12 @@ function Now({ worker, sources }: { worker: Log["worker"]; sources: Source[] }) 
   );
 }
 
-function Dot({ tone }: { tone: "on" | "off" | "busy" }) {
+function Dot({ tone }: { tone: "on" | "off" | "busy" | "paused" }) {
   const look = {
     on: "bg-[#30d158]",
     off: "bg-[#ff6b6b]",
     busy: "animate-pulse bg-[#30d158]",
+    paused: "bg-[#ffd98a]",
   }[tone];
   return <span aria-hidden className={`size-2 shrink-0 rounded-full ${look}`} />;
 }

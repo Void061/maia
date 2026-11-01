@@ -14,6 +14,11 @@ export { QUEUES };
 const INVALIDATE_DELAY_MS = 10_000;
 // A title whose service is switched off waits this long before trying again.
 const STOPPED_RETRY_SEC = 600;
+// How often the worker reads the pause switch of the admin panel.
+const CONTROL_POLL_MS = 5_000;
+// The queues that make requests to the services: they stop while paused.
+// catalog-due (database only, expired videos off) keeps running.
+const PAUSABLE = [QUEUES.discover, QUEUES.syncTitle, QUEUES.check];
 
 // Runs the catalog jobs. On by default (production runs everything in the
 // backend container); off with CATALOG_WORKERS=false, e.g. in local dev where
@@ -24,6 +29,9 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   private boss: PgBoss | null = null;
   private invalidateTimer: ReturnType<typeof setTimeout> | null = null;
   private beatTimer: ReturnType<typeof setInterval> | null = null;
+  private controlTimer: ReturnType<typeof setInterval> | null = null;
+  // Whether the pausable queues are being worked (false while paused).
+  private working = false;
 
   constructor(
     private readonly catalog: CatalogService,
@@ -46,6 +54,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     if (this.beatTimer) clearInterval(this.beatTimer);
+    if (this.controlTimer) clearInterval(this.controlTimer);
     await this.boss?.stop({ graceful: true, timeout: 30_000 });
     if (this.boss) await this.activity.workerStopped();
     if (this.invalidateTimer) await this.invalidateNow();
@@ -85,17 +94,34 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     await boss.unschedule('catalog-news'); // replaced by catalog-check
     await this.scheduler.applyAll();
 
-    await boss.work<DiscoverJob>(QUEUES.discover, { batchSize: 1 }, ([job]) => this.onDiscover(job));
-    // Several in parallel: titles wait on TMDB and the database while the service's
-    // requests stay one at a time (polite-fetch), so this does not load the service more.
-    await boss.work<SyncTitleJob>(QUEUES.syncTitle, { batchSize: 1, localConcurrency: 8 }, ([job]) => this.onSyncTitle(job));
     await boss.work(QUEUES.due, { batchSize: 1 }, () => this.onDue());
-    await boss.work<CheckJob>(QUEUES.check, { batchSize: 1 }, ([job]) => this.onCheck(job));
+    await this.applyControl();
+    this.controlTimer = setInterval(() => void this.applyControl(), CONTROL_POLL_MS);
     // Heartbeat: the admin panel tells whether a worker is processing the queue at all.
     const startedAt = new Date();
     await this.activity.beat(startedAt);
     this.beatTimer = setInterval(() => void this.activity.beat(startedAt), BEAT_MS);
     this.logger.log('Catalog workers running');
+  }
+
+  // Follows the pause switch of the admin panel. Pausing stops taking new jobs:
+  // the titles being read finish, everything else stays queued and the work
+  // resumes from there.
+  private async applyControl() {
+    const { paused } = await this.activity.control();
+    if (paused && this.working) {
+      this.working = false;
+      for (const name of PAUSABLE) await this.boss!.offWork(name).catch(() => undefined);
+      this.logger.warn('Catalog paused from the admin panel: no new job until resumed');
+    } else if (!paused && !this.working) {
+      this.working = true;
+      await this.boss!.work<DiscoverJob>(QUEUES.discover, { batchSize: 1 }, ([job]) => this.onDiscover(job));
+      // Several in parallel: titles wait on TMDB and the database while the service's
+      // requests stay one at a time (polite-fetch), so this does not load the service more.
+      await this.boss!.work<SyncTitleJob>(QUEUES.syncTitle, { batchSize: 1, localConcurrency: 8 }, ([job]) => this.onSyncTitle(job));
+      await this.boss!.work<CheckJob>(QUEUES.check, { batchSize: 1 }, ([job]) => this.onCheck(job));
+      this.logger.log('Catalog queues being worked');
+    }
   }
 
   private async queue(name: string, options: NonNullable<Parameters<PgBoss['createQueue']>[1]>) {

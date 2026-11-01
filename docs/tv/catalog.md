@@ -393,6 +393,12 @@ tutte le fonti; `catalog/catalog.activity.ts`, tabella `catalog_events`, API
   adesso** (con il nome, se il titolo era già noto). "Aggiorna ora" mette solo in coda: senza
   worker acceso non parte. I lavori rimasti "attivi" oltre il loro tempo massimo (15 minuti) sono
   rimasti a metà da un worker fermato: pg-boss li fa riprovare solo quando un worker riparte.
+- **Pausa del worker**: "Metti in pausa" / "Riprendi" nello stesso riquadro (tabella
+  `catalog_control`, una riga; `POST /admin/services/worker/pause` e `/resume`). In pausa il worker
+  finisce i titoli che sta leggendo e non prende lavori nuovi (passate, titoli, controlli): la coda
+  resta com'è e alla ripresa riparte da lì. Il worker legge l'interruttore ogni 5 secondi e lo
+  rispetta anche quando viene avviato; lo spegnimento orario dei video scaduti continua (solo
+  database). Pausa e ripresa compaiono nel log con chi le ha decise.
 - Sotto **l'elenco**, dal più recente: ogni titolo letto con l'esito (**Nuovo**, **Modificato**,
   **Invariato**, **Tolto dal servizio**, **Errore** con il messaggio), "Aggiorna ora" premuto o
   passata tolta dalla coda (e da chi), inizio e fine di ogni passata completa (titoli trovati e

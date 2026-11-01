@@ -144,7 +144,7 @@ class ActivityEventDto {
   @ApiProperty() source: string;
   @ApiProperty({
     description:
-      'Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check',
+      'Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check. Worker (source "worker"): worker-paused | worker-resumed',
   })
   kind: string;
   @ApiPropertyOptional({ nullable: true, type: String }) externalId: string | null;
@@ -158,6 +158,9 @@ class ActivityEventDto {
 
 class WorkerStateDto {
   @ApiProperty({ description: 'A catalog worker is running (heartbeat within 90 s)' }) online: boolean;
+  @ApiProperty({ description: 'Paused from the panel: no new job is taken, the queue waits' }) paused: boolean;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'Last pause or resume' }) changedAt: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) changedBy: string | null;
   @ApiPropertyOptional({ nullable: true, type: String }) startedAt: string | null;
   @ApiPropertyOptional({ nullable: true, type: String, description: 'Last heartbeat' }) seenAt: string | null;
 }
@@ -311,6 +314,9 @@ export class AdminServicesController {
         online: live.worker.online,
         startedAt: live.worker.startedAt?.toISOString() ?? null,
         seenAt: live.worker.seenAt?.toISOString() ?? null,
+        paused: live.worker.paused,
+        changedAt: live.worker.changedAt?.toISOString() ?? null,
+        changedBy: live.worker.changedBy,
       },
       sources: SERVICES.filter((s) => s.catalog).map((s) => {
         const src = live.source(s.id);
@@ -337,6 +343,25 @@ export class AdminServicesController {
       })),
       more: page.more,
     };
+  }
+
+  // Pause / resume the catalog worker: paused, it finishes the titles it is
+  // reading and takes no new job; resuming continues the same queue. Applied
+  // by the worker within seconds. Expired videos keep going off (database only).
+  @Post('worker/pause')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  async pauseWorker(@CurrentUser() me: AuthUser) {
+    const admin = await this.prisma.account.findUniqueOrThrow({ where: { id: me.accountId }, select: { email: true } });
+    await this.activity.setPaused(true, admin.email);
+  }
+
+  @Post('worker/resume')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  async resumeWorker(@CurrentUser() me: AuthUser) {
+    const admin = await this.prisma.account.findUniqueOrThrow({ where: { id: me.accountId }, select: { email: true } });
+    await this.activity.setPaused(false, admin.email);
   }
 
   // The address a catalog source is read from (e.g. the home server's IP).

@@ -368,6 +368,7 @@ model CatalogEvent {
   id         Int      @id @default(autoincrement())
   provider   String
   /// Titles: created | updated | unchanged | missing | failed.
+  /// Worker (provider "worker"): worker-paused | worker-resumed.
   /// Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check.
   kind       String
   externalId String?  @map("external_id")
@@ -393,4 +394,15 @@ model CatalogWorkerBeat {
   seenAt    DateTime @map("seen_at")
 
   @@map("catalog_worker")
+}
+
+/// Pause switch of the catalog worker (single row, admin panel "Log"): while
+/// paused the worker takes no new job; the queue waits and resumes from there.
+model CatalogControl {
+  id        Int       @id @default(1)
+  paused    Boolean   @default(false)
+  changedAt DateTime? @map("changed_at")
+  changedBy String?   @map("changed_by")
+
+  @@map("catalog_control")
 }
