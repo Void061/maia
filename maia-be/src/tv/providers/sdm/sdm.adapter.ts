@@ -8,6 +8,16 @@ import type {
   ProviderVideo,
 } from '../provider.types.js';
 
+interface VideoCheckResult {
+  serverUrl: string;
+  masterPlaylistParams: Record<string, string | number | boolean | null>;
+  playlistUrl: string;
+  canPlayFHD: boolean;
+  urlParams: URLSearchParams;
+}
+
+type VideoUrl = [label: string, url: string];
+
 // SDM: the user's own media server at home (default http://192.168.1.9,
 // changeable from the admin panel). Its pages carry their data as JSON in an
 // HTML attribute (Inertia.js style, `data-page="{...}"`): every list, title and
@@ -146,6 +156,69 @@ export class SdmAdapter implements ProviderAdapter {
     ...CONFIG.sliders.tvshow.map((i) => `tvshow:${i}`),
   ];
 
+  async testVideoExists(pageUrl: string): Promise<VideoCheckResult | null> {
+    // Recupera la pagina principale
+    let htmlPage = await politeText(pageUrl, {
+      serial: false,
+      retries: 1,
+      timeoutMs: 8000,
+    });
+
+    // Estrae l'iframe
+    const iframeMatch = htmlPage.match(
+      /<iframe\b[^>]*\bsrc=["']([^"']+)|\bembed_url=["']([^"']+)/,
+    );
+
+    const serverUrl = iframeMatch?.[1] ?? iframeMatch?.[2];
+
+    if (!serverUrl) return null;
+
+    const decodedUrl = decodeHtmlEntities(serverUrl);
+
+    // Recupera l'HTML dell'embed
+    htmlPage = await politeText(decodedUrl, {
+      serial: false,
+      retries: 1,
+      timeoutMs: 8000,
+    });
+
+    // Estrae masterPlaylist, URL e disponibilità FullHD
+    const playlistMatch = htmlPage.match(
+      /window\s*\.\s*masterPlaylist\s*=\s*\{[\s\S]*?(\{[^{}]*\})\s*,\s*url\s*:\s*(['"])(.*?)\2[\s\S]*?canPlayFHD\s*=\s*(true|false)/,
+    );
+
+    if (!playlistMatch) return null;
+
+    const [, rawParams, , rawPlaylistUrl, rawCanPlayFHD] = playlistMatch;
+
+    // Converte i parametri della masterPlaylist
+    const masterPlaylistParams = parseMasterPlaylistParams(rawParams);
+
+    // Risolve anche eventuali URL relativi
+    const playlistUrl = new URL(rawPlaylistUrl, decodedUrl).toString();
+
+    // Parametri dell'embed
+    const embedUrl = new URL(decodedUrl);
+
+    return {
+      serverUrl: decodedUrl,
+      masterPlaylistParams,
+      playlistUrl,
+      canPlayFHD: rawCanPlayFHD === 'true',
+      urlParams: embedUrl.searchParams,
+    };
+  }
+
+  async resolveStream(relinkerUrl: string): Promise<string | null> {
+    const result = await this.testVideoExists(relinkerUrl);
+
+    if (!result) return null;
+
+    const videoUrls = getVideoUrl(result);
+
+    return videoUrls[0]?.[1] ?? null;
+  }
+
   // The whole catalog: the archive page's titles.
   async discover(): Promise<string[]> {
     return ids(flatten((await props(buildUrl('archive')))[K.titles]));
@@ -282,6 +355,15 @@ const NAMED: Record<string, string> = {
   nbsp: ' ',
 };
 
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
 function decodeEntities(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (m, e: string) => {
     if (e[0] === '#')
@@ -292,4 +374,55 @@ function decodeEntities(s: string): string {
       );
     return NAMED[e.toLowerCase()] ?? m;
   });
+}
+
+function getVideoUrl(result: VideoCheckResult): VideoUrl[] {
+  const { masterPlaylistParams, playlistUrl, canPlayFHD, urlParams } = result;
+
+  const playlist = new URL(playlistUrl);
+
+  // Copia i parametri originali della configurazione
+  const params = { ...masterPlaylistParams };
+
+  // FullHD
+  if (canPlayFHD) {
+    params.h = 1;
+  }
+
+  // Parametro b presente nell'URL embed
+  if (urlParams.has('b')) {
+    params.b = 1;
+  }
+
+  // I parametri dell'URL playlist hanno precedenza
+  playlist.searchParams.forEach((value, key) => {
+    params[key] = value;
+  });
+
+  // Ricostruisce la query string
+  const query = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined) {
+      query.set(key, String(value));
+    }
+  }
+
+  playlist.search = query.toString();
+
+  return [[`hls [${canPlayFHD ? 'FullHD' : 'HD'}]`, playlist.toString()]];
+}
+
+function parseMasterPlaylistParams(rawParams: string): Record<string, string> {
+  const params: Record<string, string> = {};
+
+  const regex = /'([^']+)'\s*:\s*'([^']*)'/g;
+
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(rawParams)) !== null) {
+    params[match[1]] = match[2];
+  }
+
+  return params;
 }

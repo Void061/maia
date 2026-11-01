@@ -5,7 +5,14 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CatalogService } from './catalog/catalog.service.js';
 import { presentExtras } from './extras.js';
 import { baseUrl } from './providers/base-urls.js';
-import type { GenreDto, HomeDto, PlaybackDto, TitleCardDto, TitleDetailDto, TitlePageDto } from './tv.dto.js';
+import type {
+  GenreDto,
+  HomeDto,
+  PlaybackDto,
+  TitleCardDto,
+  TitleDetailDto,
+  TitlePageDto,
+} from './tv.dto.js';
 
 // A video users can watch: listed by the service right now and not DRM-protected.
 const PLAYABLE = { available: true, drm: false } as const;
@@ -15,7 +22,12 @@ const PLAYABLE = { available: true, drm: false } as const;
 export const VISIBLE: Prisma.TitleWhereInput = {
   OR: [
     { kind: 'MOVIE', sources: { some: PLAYABLE } },
-    { kind: 'SERIES', seasons: { some: { episodes: { some: { sources: { some: PLAYABLE } } } } } },
+    {
+      kind: 'SERIES',
+      seasons: {
+        some: { episodes: { some: { sources: { some: PLAYABLE } } } },
+      },
+    },
   ],
 };
 
@@ -41,7 +53,9 @@ type CardRow = Prisma.TitleGetPayload<{ select: typeof CARD }>;
 const THUMB = '640x360';
 const sized = (url: string | null, size: string) => {
   const rai = `${baseUrl('raiplay')}/`;
-  return url?.startsWith(rai) && !url.startsWith(`${rai}cropgd/`) ? `${rai}cropgd/${size}/${url.slice(rai.length)}` : url;
+  return url?.startsWith(rai) && !url.startsWith(`${rai}cropgd/`)
+    ? `${rai}cropgd/${size}/${url.slice(rai.length)}`
+    : url;
 };
 
 const toCard = (t: CardRow): TitleCardDto => ({
@@ -53,11 +67,15 @@ const toCard = (t: CardRow): TitleCardDto => ({
   overview: t.overview,
   posterUrl: sized(t.posterUrl, '384x512'),
   backdropUrl: sized(t.backdropUrl, '1280x720'),
-  minutes: t.kind === 'MOVIE' && t.sources[0]?.durationSec ? Math.round(t.sources[0].durationSec / 60) : null,
+  minutes:
+    t.kind === 'MOVIE' && t.sources[0]?.durationSec
+      ? Math.round(t.sources[0].durationSec / 60)
+      : null,
   seasons: t.kind === 'SERIES' ? t._count.seasons : null,
 });
 
-const minutes = (sec: number | null | undefined) => (sec ? Math.round(sec / 60) : null);
+const minutes = (sec: number | null | undefined) =>
+  sec ? Math.round(sec / 60) : null;
 
 // "Giallo and Crime" -> "giallo-and-crime": stable ids for genre pages.
 export const genreSlug = (name: string) =>
@@ -85,9 +103,16 @@ const KEY = {
 // "storia & arte". They share the slug and count as one.
 type GenreGroup = GenreDto & { names: string[] };
 
-const capitalize = (s: string) => s.charAt(0).toLocaleUpperCase('it-IT') + s.slice(1);
+const capitalize = (s: string) =>
+  s.charAt(0).toLocaleUpperCase('it-IT') + s.slice(1);
 
-type TitlesQuery = { kind?: TitleKind; genre?: string; q?: string; skip: number; take: number };
+type TitlesQuery = {
+  kind?: TitleKind;
+  genre?: string;
+  q?: string;
+  skip: number;
+  take: number;
+};
 
 @Injectable()
 export class TvService {
@@ -97,15 +122,30 @@ export class TvService {
     private readonly catalog: CatalogService,
   ) {}
 
-  private cards(where: Prisma.TitleWhereInput, take = ROW_SIZE, skip = 0, orderBy: Prisma.TitleOrderByWithRelationInput = { createdAt: 'desc' }) {
+  private cards(
+    where: Prisma.TitleWhereInput,
+    take = ROW_SIZE,
+    skip = 0,
+    orderBy: Prisma.TitleOrderByWithRelationInput = { createdAt: 'desc' },
+  ) {
     return this.prisma.title
-      .findMany({ where: { AND: [VISIBLE, where] }, select: CARD, orderBy: [orderBy, { id: 'asc' }], take, skip })
+      .findMany({
+        where: { AND: [VISIBLE, where] },
+        select: CARD,
+        orderBy: [orderBy, { id: 'asc' }],
+        take,
+        skip,
+      })
       .then((rows) => rows.map(toCard));
   }
 
   // Genres of the visible titles, most used first.
   async genres(kind?: TitleKind): Promise<GenreDto[]> {
-    return (await this.genreGroups(kind)).map(({ slug, name, count }) => ({ slug, name, count }));
+    return (await this.genreGroups(kind)).map(({ slug, name, count }) => ({
+      slug,
+      name,
+      count,
+    }));
   }
 
   private genreGroups(kind?: TitleKind): Promise<GenreGroup[]> {
@@ -113,7 +153,9 @@ export class TvService {
   }
 
   private async loadGenres(kind?: TitleKind): Promise<GenreGroup[]> {
-    const kindFilter = kind ? Prisma.sql`AND t.kind = ${kind}::"TitleKind"` : Prisma.empty;
+    const kindFilter = kind
+      ? Prisma.sql`AND t.kind = ${kind}::"TitleKind"`
+      : Prisma.empty;
     const rows = await this.prisma.$queryRaw<{ name: string; count: number }[]>`
       SELECT g AS name, count(*)::int AS count
         FROM titles t CROSS JOIN LATERAL unnest(t.genres) AS g
@@ -134,10 +176,17 @@ export class TvService {
         group.count += r.count;
         group.names.push(r.name);
       } else {
-        bySlug.set(slug, { slug, name: capitalize(r.name), count: r.count, names: [r.name] });
+        bySlug.set(slug, {
+          slug,
+          name: capitalize(r.name),
+          count: r.count,
+          names: [r.name],
+        });
       }
     }
-    return [...bySlug.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'it'));
+    return [...bySlug.values()].sort(
+      (a, b) => b.count - a.count || a.name.localeCompare(b.name, 'it'),
+    );
   }
 
   // Every spelling of the genre behind a slug (empty = unknown genre).
@@ -150,19 +199,49 @@ export class TvService {
   }
 
   private async loadHome(): Promise<HomeDto> {
-    const featured = await this.cards({ backdropUrl: { not: null }, tmdbId: { not: null }, overview: { not: '' } }, 6, 0, { updatedAt: 'desc' });
+    const featured = await this.cards(
+      {
+        backdropUrl: { not: null },
+        tmdbId: { not: null },
+        overview: { not: '' },
+      },
+      6,
+      0,
+      { updatedAt: 'desc' },
+    );
     const rows: HomeDto['rows'] = [
       { key: 'new', name: 'Novità', genre: null, items: await this.cards({}) },
-      { key: 'movies', name: 'Film', genre: null, items: await this.cards({ kind: 'MOVIE' }) },
-      { key: 'series', name: 'Serie e programmi', genre: null, items: await this.cards({ kind: 'SERIES' }) },
+      {
+        key: 'movies',
+        name: 'Film',
+        genre: null,
+        items: await this.cards({ kind: 'MOVIE' }),
+      },
+      {
+        key: 'series',
+        name: 'Serie e programmi',
+        genre: null,
+        items: await this.cards({ kind: 'SERIES' }),
+      },
     ];
     for (const g of (await this.genreGroups()).slice(0, HOME_GENRES)) {
-      rows.push({ key: `genre-${g.slug}`, name: g.name, genre: g.slug, items: await this.cards({ genres: { hasSome: g.names } }) });
+      rows.push({
+        key: `genre-${g.slug}`,
+        name: g.name,
+        genre: g.slug,
+        items: await this.cards({ genres: { hasSome: g.names } }),
+      });
     }
     return { featured, rows: rows.filter((r) => r.items.length > 0) };
   }
 
-  titles(q: { kind?: TitleKind; genre?: string; q?: string; skip?: number; take?: number }): Promise<TitlePageDto> {
+  titles(q: {
+    kind?: TitleKind;
+    genre?: string;
+    q?: string;
+    skip?: number;
+    take?: number;
+  }): Promise<TitlePageDto> {
     const query: TitlesQuery = {
       kind: q.kind,
       genre: q.genre,
@@ -183,7 +262,12 @@ export class TvService {
     }
     if (q.q) where.name = { contains: q.q, mode: 'insensitive' };
     const [items, total] = await Promise.all([
-      this.cards(where, q.take, q.skip, q.q ? { name: 'asc' } : { createdAt: 'desc' }),
+      this.cards(
+        where,
+        q.take,
+        q.skip,
+        q.q ? { name: 'asc' } : { createdAt: 'desc' },
+      ),
       this.prisma.title.count({ where: { AND: [VISIBLE, where] } }),
     ]);
     return { items, total };
@@ -205,14 +289,21 @@ export class TvService {
             number: true,
             episodes: {
               where: { sources: { some: PLAYABLE } },
-              orderBy: [{ number: { sort: 'asc', nulls: 'last' } }, { airDate: 'asc' }],
+              orderBy: [
+                { number: { sort: 'asc', nulls: 'last' } },
+                { airDate: 'asc' },
+              ],
               select: {
                 id: true,
                 number: true,
                 name: true,
                 airDate: true,
                 imageUrl: true,
-                sources: { where: PLAYABLE, select: { durationSec: true }, take: 1 },
+                sources: {
+                  where: PLAYABLE,
+                  select: { durationSec: true },
+                  take: 1,
+                },
               },
             },
           },
@@ -224,12 +315,25 @@ export class TvService {
             kind: true,
             label: true,
             seasonNumber: true,
-            extras: { where: { available: true }, orderBy: { position: 'asc' }, select: { id: true, name: true, durationSec: true, imageUrl: true } },
+            extras: {
+              where: { available: true },
+              orderBy: { position: 'asc' },
+              select: {
+                id: true,
+                name: true,
+                durationSec: true,
+                imageUrl: true,
+              },
+            },
           },
         },
       },
     });
-    if (!t) throw new NotFoundException({ code: 'TITLE_NOT_FOUND', message: 'Titolo non trovato.' });
+    if (!t)
+      throw new NotFoundException({
+        code: 'TITLE_NOT_FOUND',
+        message: 'Titolo non trovato.',
+      });
 
     const seasonList = t.seasons
       .filter((s) => s.episodes.length > 0)
@@ -246,7 +350,16 @@ export class TvService {
         })),
       }));
     const similar = t.genres.length
-      ? (await this.cards({ kind: t.kind, genres: { hasSome: t.genres.slice(0, 2) }, id: { not: t.id } }, 18)).slice(0, 18)
+      ? (
+          await this.cards(
+            {
+              kind: t.kind,
+              genres: { hasSome: t.genres.slice(0, 2) },
+              id: { not: t.id },
+            },
+            18,
+          )
+        ).slice(0, 18)
       : [];
     return {
       ...toCard(t),
@@ -261,10 +374,19 @@ export class TvService {
             kind: g.kind,
             label: g.label,
             season: g.seasonNumber,
-            items: g.extras.map((x) => ({ id: x.id, name: x.name, minutes: minutes(x.durationSec), imageUrl: sized(x.imageUrl, THUMB) })),
+            items: g.extras.map((x) => ({
+              id: x.id,
+              name: x.name,
+              minutes: minutes(x.durationSec),
+              imageUrl: sized(x.imageUrl, THUMB),
+            })),
           })),
         t.name,
-        new Set(seasonList.flatMap((s) => s.episodes.map((e) => e.airDate).filter((d): d is string => !!d))),
+        new Set(
+          seasonList.flatMap((s) =>
+            s.episodes.map((e) => e.airDate).filter((d): d is string => !!d),
+          ),
+        ),
       ),
       similar,
     };
@@ -275,26 +397,67 @@ export class TvService {
   // just failed on this device (not cached: that depends on the device).
   playback(itemId: string, exclude: string[] = []): Promise<PlaybackDto> {
     if (exclude.length) return this.loadPlayback(itemId, exclude);
-    return this.cache.wrap(KEY.playback(itemId), () => this.loadPlayback(itemId, []));
+    //TODO REMOVE
+    return this.loadPlayback(itemId, []);
+    return this.cache.wrap(KEY.playback(itemId), () =>
+      this.loadPlayback(itemId, []),
+    );
   }
 
-  private async loadPlayback(itemId: string, exclude: string[]): Promise<PlaybackDto> {
+  private async loadPlayback(
+    itemId: string,
+    exclude: string[],
+  ): Promise<PlaybackDto> {
     const extra = await this.prisma.extra.findFirst({
-      where: { id: itemId, available: true, group: { provider: { notIn: exclude } } },
-      select: { playbackUrl: true, durationSec: true, group: { select: { provider: true } } },
+      where: {
+        id: itemId,
+        available: true,
+        group: { provider: { notIn: exclude } },
+      },
+      select: {
+        playbackUrl: true,
+        durationSec: true,
+        group: { select: { provider: true } },
+      },
     });
-    if (extra) return { itemId, provider: extra.group.provider, type: 'native-hls', url: extra.playbackUrl, durationSec: extra.durationSec };
+    if (extra)
+      return {
+        itemId,
+        provider: extra.group.provider,
+        type: 'native-hls',
+        url: extra.playbackUrl,
+        durationSec: extra.durationSec,
+      };
 
     const sources = await this.prisma.source.findMany({
-      where: { ...PLAYABLE, provider: { notIn: exclude }, OR: [{ titleId: itemId }, { episodeId: itemId }] },
+      where: {
+        ...PLAYABLE,
+        provider: { notIn: exclude },
+        OR: [{ titleId: itemId }, { episodeId: itemId }],
+      },
       orderBy: [{ failCount: 'asc' }, { lastSeenAt: 'desc' }],
     });
     const down = new Set(
-      (await this.prisma.providerHealth.findMany({ where: { status: 'DOWN' }, select: { provider: true } })).map((h) => h.provider),
+      (
+        await this.prisma.providerHealth.findMany({
+          where: { status: 'DOWN' },
+          select: { provider: true },
+        })
+      ).map((h) => h.provider),
     );
     const best = sources.find((s) => !down.has(s.provider)) ?? sources[0];
-    if (!best) throw new NotFoundException({ code: 'NO_SOURCE', message: 'Questo contenuto ora non è disponibile.' });
-    return { itemId, provider: best.provider, type: 'native-hls', url: best.playbackUrl, durationSec: best.durationSec };
+    if (!best)
+      throw new NotFoundException({
+        code: 'NO_SOURCE',
+        message: 'Questo contenuto ora non è disponibile.',
+      });
+    return {
+      itemId,
+      provider: best.provider,
+      type: 'native-hls',
+      url: best.playbackUrl,
+      durationSec: best.durationSec,
+    };
   }
 
   // The device could not play it: counted, so the next viewers get another
@@ -305,18 +468,26 @@ export class TvService {
       where: { provider, OR: [{ titleId: itemId }, { episodeId: itemId }] },
       data: { failCount: { increment: 1 } },
     });
-    if (await this.cache.fail(KEY.playback(itemId))) await this.playback(itemId).catch(() => undefined);
+    if (await this.cache.fail(KEY.playback(itemId)))
+      await this.playback(itemId).catch(() => undefined);
   }
 
   // Fallback for a source the device's native HLS rejected: the direct
   // playlist URL, resolved here, for hls.js. Never cached (it expires in minutes).
   async stream(itemId: string, provider: string): Promise<PlaybackDto> {
-    const unavailable = () => new NotFoundException({ code: 'NO_SOURCE', message: 'Questo contenuto ora non è disponibile.' });
+    const unavailable = () =>
+      new NotFoundException({
+        code: 'NO_SOURCE',
+        message: 'Questo contenuto ora non è disponibile.',
+      });
     const adapter = this.catalog.adapters[provider];
     if (!adapter?.resolveStream) throw unavailable();
-    const others = Object.keys(this.catalog.adapters).filter((id) => id !== provider);
+    const others = Object.keys(this.catalog.adapters).filter(
+      (id) => id !== provider,
+    );
     const source = await this.loadPlayback(itemId, others).catch(() => null);
-    const url = source && (await adapter.resolveStream(source.url).catch(() => null));
+    const url =
+      source && (await adapter.resolveStream(source.url).catch(() => null));
     if (!source || !url) throw unavailable();
     return { ...source, type: 'hls', url };
   }
