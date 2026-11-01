@@ -24,12 +24,11 @@ const CONFIG = {
 
   // Paths after the address. Placeholders: {lang} {id} {slug} {number} {title_id} {episode_id}.
   paths: {
-    title: '/{lang}/titles{id-}-{slug}',
+    title: '/{lang}/titles/{id}-{slug}',
     movies: '/{lang}/movies',
     tvshows: '/{lang}/tv-shows',
     archive: '/{lang}/archive',
     movie: '/{lang}/watch/{id}',
-    tvshow: '/{lang}/titles/{id}-{slug}',
     season: '/season-{number}',
     episode: '/{lang}/iframe/{title_id}?episode_id={episode_id}',
   },
@@ -125,7 +124,7 @@ function flatten(records: unknown): Json[] {
   ) as Json[];
 }
 
-// External ids: "movie/<id>" or "tv/<id>/<slug>", everything needed to rebuild the title's URL.
+// External ids: "movie/<id>/<slug>" or "tv/<id>/<slug>", everything needed to rebuild the title's URL.
 function externalId(rec: Json): string | null {
   const id = rec[F.id];
   if (id === undefined || id === null || id === '') return null;
@@ -185,7 +184,12 @@ export class SdmAdapter implements ProviderAdapter {
       extras: [],
     };
     if (kind === 'movie')
-      return { ...base, kind: 'MOVIE', video: video(url), seasons: [] };
+      return {
+        ...base,
+        kind: 'MOVIE',
+        video: video(buildUrl('movie', { id })),
+        seasons: [],
+      };
 
     const seasons: ProviderSeason[] = [];
     for (const se of (rec[K.seasons] ?? []) as Json[]) {
