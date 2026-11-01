@@ -639,6 +639,22 @@ export interface components {
             /** @enum {number|null} */
             everyHours?: 1 | 2 | 3 | 4 | 6 | 8 | 12 | null;
         };
+        WorkerStateDto: {
+            /** @description A catalog worker is running (heartbeat within 90 s) */
+            online: boolean;
+            startedAt?: string | null;
+            /** @description Last heartbeat */
+            seenAt?: string | null;
+        };
+        PassStateDto: {
+            /**
+             * @description waiting = queued, no worker took it yet
+             * @enum {string}
+             */
+            state: "waiting" | "running" | "retry";
+            /** @description Queued at (waiting, retry) or started at (running) */
+            since: string;
+        };
         ActiveTitleDto: {
             externalId: string;
             /** @description null for a title not read before */
@@ -647,7 +663,7 @@ export interface components {
         };
         ActivityEventDto: {
             id: number;
-            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-start | pass-done | pass-aborted | pass-failed | check */
+            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-start | pass-done | pass-aborted | pass-failed | check */
             kind: string;
             externalId?: string | null;
             name?: string | null;
@@ -660,6 +676,9 @@ export interface components {
             at: string;
         };
         ActivityDto: {
+            worker: components["schemas"]["WorkerStateDto"];
+            /** @description The full pass waiting or running, if any */
+            pass?: components["schemas"]["PassStateDto"] | null;
             /** @description Titles waiting in the queue */
             queued: number;
             /** @description Titles waiting to try again after an error */

@@ -377,7 +377,7 @@ function SyncSection({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {sync.running ? (
           <span className="rounded-full bg-white/[0.08] px-3 py-1.5 text-sm text-muted">
-            Aggiornamento in corso…
+            Passata completa in coda o in corso: dettagli in Attività
           </span>
         ) : confirm ? (
           <>
@@ -440,6 +440,7 @@ const TITLE_KINDS: Record<string, { label: string; tone: string }> = {
 };
 
 const PASS_TONE: Record<string, string> = {
+  "pass-queued": "text-muted",
   "pass-start": "text-muted",
   "pass-done": "text-[#7ee2a0]",
   "pass-aborted": "text-[#ffd98a]",
@@ -463,6 +464,8 @@ function passText(e: ActivityEvent) {
     ? "Riempimento completo"
     : "Passata completa";
   switch (e.kind) {
+    case "pass-queued":
+      return `“Aggiorna ora” premuto${e.message ? ` da ${e.message}` : ""}: passata completa in coda`;
     case "pass-start":
       return `${what} iniziata: lettura dell’elenco del servizio`;
     case "pass-done":
@@ -497,12 +500,7 @@ function ActivitySection({ id, name }: { id: string; name: string }) {
   });
   const live = feed.data?.pages[0];
   const events = feed.data?.pages.flatMap((p) => p.events) ?? [];
-  const idle =
-    live &&
-    !live.active.length &&
-    !live.queued &&
-    !live.retrying &&
-    !live.stalled;
+  const waiting = live ? live.queued + live.retrying + live.stalled : 0;
 
   return (
     <div className="mt-4 border-t border-white/10 pt-4">
@@ -527,44 +525,84 @@ function ActivitySection({ id, name }: { id: string; name: string }) {
       </div>
 
       {live && (
-        <div className="mt-3 text-sm" aria-live="polite">
-          {idle ? (
-            <p className="text-muted">Fermo: nessun titolo in coda.</p>
-          ) : (
-            <>
-              <p className="text-muted">
-                {live.queued} in coda
+        <div className="mt-3 grid gap-1 text-sm" aria-live="polite">
+          <p className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className={`size-2 shrink-0 rounded-full ${live.worker.online ? "bg-[#30d158]" : "bg-[#ff6b6b]"}`}
+            />
+            {live.worker.online ? (
+              <span className="text-muted">
+                Worker acceso
+                {live.worker.startedAt &&
+                  ` dalle ${stamp(live.worker.startedAt)}`}
+              </span>
+            ) : (
+              <span className="text-[#ffb4b4]">
+                Worker spento: la coda resta ferma finché non viene avviato
+                {live.worker.seenAt &&
+                  ` (ultimo segnale ${stamp(live.worker.seenAt)})`}
+                .
+              </span>
+            )}
+          </p>
+
+          {live.pass && (
+            <p className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className={`size-2 shrink-0 rounded-full ${live.pass.state === "running" ? "animate-pulse bg-[#30d158]" : "bg-[#ffd98a]"}`}
+              />
+              <span>
+                {live.pass.state === "running"
+                  ? `Passata completa in corso dalle ${stamp(live.pass.since)}: sto leggendo l’elenco di ${name}`
+                  : live.pass.state === "retry"
+                    ? `Passata completa non riuscita, verrà riprovata (in coda dalle ${stamp(live.pass.since)})`
+                    : live.worker.online
+                      ? `Passata completa in partenza (in coda dalle ${stamp(live.pass.since)})`
+                      : `Passata completa in attesa del worker: in coda dalle ${stamp(live.pass.since)}, non è ancora partita`}
+              </span>
+            </p>
+          )}
+
+          <p className="text-muted">
+            {waiting > 0 ? (
+              <>
+                {live.queued} titoli in coda
                 {live.retrying > 0 &&
                   ` · ${live.retrying} da riprovare dopo un errore`}
                 {live.stalled > 0 &&
                   ` · ${live.stalled} rimasti a metà dall’ultimo worker (ripartono quando lo riavvii)`}
+              </>
+            ) : (
+              !live.active.length && "Nessun titolo in coda."
+            )}
+          </p>
+
+          {live.active.length > 0 ? (
+            <ul className="grid gap-0.5">
+              {live.active.map((a) => (
+                <li key={a.externalId} className="flex items-center gap-2">
+                  <span
+                    aria-hidden
+                    className="size-2 shrink-0 animate-pulse rounded-full bg-[#30d158]"
+                  />
+                  <span className="truncate">
+                    Sto leggendo{" "}
+                    {a.name ?? (
+                      <span className="font-mono">{a.externalId}</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            live.worker.online &&
+            live.queued + live.retrying > 0 && (
+              <p className="text-faint">
+                Nessun titolo in lettura: il servizio è spento o in pausa.
               </p>
-              {live.active.length > 0 ? (
-                <ul className="mt-1 grid gap-0.5">
-                  {live.active.map((a) => (
-                    <li key={a.externalId} className="flex items-center gap-2">
-                      <span
-                        aria-hidden
-                        className="size-2 shrink-0 animate-pulse rounded-full bg-[#30d158]"
-                      />
-                      <span className="truncate">
-                        Sto leggendo{" "}
-                        {a.name ?? (
-                          <span className="font-mono">{a.externalId}</span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                live.queued + live.retrying + live.stalled > 0 && (
-                  <p className="mt-1 text-faint">
-                    Nessun titolo in lettura: il worker è spento o il servizio
-                    è in pausa.
-                  </p>
-                )
-              )}
-            </>
+            )
           )}
         </div>
       )}

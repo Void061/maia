@@ -4,7 +4,7 @@ import { PgBoss, type Job } from 'pg-boss';
 import { CacheService } from '../../cache/cache.service.js';
 import { HttpError, ServiceStoppedError } from '../providers/polite-fetch.js';
 import { ServiceSwitches } from '../providers/service-switches.js';
-import { CatalogActivity } from './catalog.activity.js';
+import { BEAT_MS, CatalogActivity } from './catalog.activity.js';
 import { CatalogScheduler } from './catalog.scheduler.js';
 import { CatalogService, ProviderPausedError } from './catalog.service.js';
 import { QUEUES, TZ, type CheckJob, type DiscoverJob, type SyncTitleJob } from './queues.js';
@@ -23,6 +23,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CatalogWorker.name);
   private boss: PgBoss | null = null;
   private invalidateTimer: ReturnType<typeof setTimeout> | null = null;
+  private beatTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly catalog: CatalogService,
@@ -44,7 +45,9 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    if (this.beatTimer) clearInterval(this.beatTimer);
     await this.boss?.stop({ graceful: true, timeout: 30_000 });
+    if (this.boss) await this.activity.workerStopped();
     if (this.invalidateTimer) await this.invalidateNow();
   }
 
@@ -88,6 +91,10 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     await boss.work<SyncTitleJob>(QUEUES.syncTitle, { batchSize: 1, localConcurrency: 8 }, ([job]) => this.onSyncTitle(job));
     await boss.work(QUEUES.due, { batchSize: 1 }, () => this.onDue());
     await boss.work<CheckJob>(QUEUES.check, { batchSize: 1 }, ([job]) => this.onCheck(job));
+    // Heartbeat: the admin panel tells whether a worker is processing the queue at all.
+    const startedAt = new Date();
+    await this.activity.beat(startedAt);
+    this.beatTimer = setInterval(() => void this.activity.beat(startedAt), BEAT_MS);
     this.logger.log('Catalog workers running');
   }
 

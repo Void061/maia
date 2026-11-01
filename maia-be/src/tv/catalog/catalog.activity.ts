@@ -5,6 +5,9 @@ import { QUEUES } from './queues.js';
 
 // Events older than this are deleted (hourly, with the expired videos).
 const KEEP_DAYS = 7;
+// The worker writes its heartbeat this often; missing three in a row = off.
+export const BEAT_MS = 30_000;
+const BEAT_TIMEOUT_MS = 3 * BEAT_MS;
 
 export type ActivityFilter = 'changes' | 'all' | 'errors';
 
@@ -33,6 +36,23 @@ export class CatalogActivity {
       .findUnique({ where: { provider_externalId: { provider, externalId } }, select: { name: true } })
       .catch(() => null);
     await this.record({ provider, kind: 'failed', externalId, name: pt?.name ?? null, message: errorText(err) });
+  }
+
+  // "Aggiorna ora" from the panel: the pass waits in the queue until a worker takes it.
+  async passQueued(provider: string, by: string) {
+    await this.record({ provider, kind: 'pass-queued', message: by });
+  }
+
+  async beat(startedAt: Date) {
+    const seenAt = new Date();
+    await this.prisma.catalogWorkerBeat
+      .upsert({ where: { id: 1 }, create: { id: 1, startedAt, seenAt }, update: { startedAt, seenAt } })
+      .catch((err) => this.logger.warn(`Could not write the worker heartbeat: ${String(err)}`));
+  }
+
+  // A worker that stops cleanly says so at once (otherwise the beat just runs out).
+  async workerStopped() {
+    await this.prisma.catalogWorkerBeat.deleteMany().catch(() => undefined);
   }
 
   async passStarted(provider: string, mode: string) {
@@ -82,7 +102,7 @@ export class CatalogActivity {
   // The worker's queue for a source, read from pg-boss: titles waiting, retrying
   // after an error, and the ones being read right now.
   async live(provider: string) {
-    const [counts, active] = await Promise.all([
+    const [counts, active, passes, beat] = await Promise.all([
       this.prisma.$queryRaw<{ state: string; n: number }[]>`
         SELECT state::text AS state, count(*)::int AS n
           FROM pgboss.job
@@ -95,8 +115,27 @@ export class CatalogActivity {
           LEFT JOIN provider_titles p ON p.provider = j.data->>'provider' AND p.external_id = j.data->>'externalId'
          WHERE j.name = ${QUEUES.syncTitle} AND j.state = 'active' AND j.data->>'provider' = ${provider}
          ORDER BY j.started_on`.catch(() => []),
+      // The full pass of the source, if one is waiting or running (one at a time: singleton queue).
+      this.prisma.$queryRaw<{ state: string; createdOn: Date; startedOn: Date | null }[]>`
+        SELECT state::text AS state, created_on AS "createdOn", started_on AS "startedOn"
+          FROM pgboss.job
+         WHERE name = ${QUEUES.discover} AND state IN ('created', 'active', 'retry') AND data->>'provider' = ${provider}
+         ORDER BY created_on DESC LIMIT 1`.catch(() => []),
+      this.prisma.catalogWorkerBeat.findUnique({ where: { id: 1 } }).catch(() => null),
     ]);
+    const pass = passes[0];
     return {
+      worker: {
+        online: !!beat && beat.seenAt.getTime() > Date.now() - BEAT_TIMEOUT_MS,
+        startedAt: beat?.startedAt ?? null,
+        seenAt: beat?.seenAt ?? null,
+      },
+      pass: pass
+        ? {
+            state: pass.state === 'active' ? 'running' : pass.state === 'retry' ? 'retry' : 'waiting',
+            since: pass.state === 'active' && pass.startedOn ? pass.startedOn : pass.createdOn,
+          }
+        : null,
       queued: counts.find((c) => c.state === 'created')?.n ?? 0,
       retrying: counts.find((c) => c.state === 'retry')?.n ?? 0,
       // Past their time limit: left halfway by a worker that stopped. pg-boss

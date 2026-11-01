@@ -125,7 +125,7 @@ class ActivityEventDto {
   @ApiProperty() id: number;
   @ApiProperty({
     description:
-      'Titles: created | updated | unchanged | missing | failed. Passes: pass-start | pass-done | pass-aborted | pass-failed | check',
+      'Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-start | pass-done | pass-aborted | pass-failed | check',
   })
   kind: string;
   @ApiPropertyOptional({ nullable: true, type: String }) externalId: string | null;
@@ -137,7 +137,22 @@ class ActivityEventDto {
   @ApiProperty() at: string;
 }
 
+class WorkerStateDto {
+  @ApiProperty({ description: 'A catalog worker is running (heartbeat within 90 s)' }) online: boolean;
+  @ApiPropertyOptional({ nullable: true, type: String }) startedAt: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'Last heartbeat' }) seenAt: string | null;
+}
+
+class PassStateDto {
+  @ApiProperty({ enum: ['waiting', 'running', 'retry'], description: 'waiting = queued, no worker took it yet' })
+  state: 'waiting' | 'running' | 'retry';
+  @ApiProperty({ description: 'Queued at (waiting, retry) or started at (running)' }) since: string;
+}
+
 class ActivityDto {
+  @ApiProperty({ type: WorkerStateDto }) worker: WorkerStateDto;
+  @ApiPropertyOptional({ nullable: true, type: PassStateDto, description: 'The full pass waiting or running, if any' })
+  pass: PassStateDto | null;
   @ApiProperty({ description: 'Titles waiting in the queue' }) queued: number;
   @ApiProperty({ description: 'Titles waiting to try again after an error' }) retrying: number;
   @ApiProperty({ description: 'Titles left halfway by a worker that stopped; retried when a worker runs again' })
@@ -223,7 +238,7 @@ export class AdminServicesController {
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ type: ErrorDto, description: 'SERVICE_NOT_FOUND' })
   @ApiConflictResponse({ type: ErrorDto, description: 'SERVICE_OFF | ALREADY_RUNNING' })
-  async syncNow(@Param('id') id: string) {
+  async syncNow(@CurrentUser() me: AuthUser, @Param('id') id: string) {
     if (!SERVICES.some((s) => s.id === id && s.catalog)) throw notFound();
     if (this.switches.isStopped(id)) {
       throw new ConflictException({ code: 'SERVICE_OFF', message: 'Il servizio è spento: riaccendilo prima di aggiornarlo.' });
@@ -231,6 +246,8 @@ export class AdminServicesController {
     if (!(await this.scheduler.runNow(id))) {
       throw new ConflictException({ code: 'ALREADY_RUNNING', message: 'Un aggiornamento è già in corso.' });
     }
+    const admin = await this.prisma.account.findUniqueOrThrow({ where: { id: me.accountId }, select: { email: true } });
+    await this.activity.passQueued(id, admin.email);
   }
 
   // What the catalog worker is doing for a source (queue, titles being read)
@@ -243,6 +260,12 @@ export class AdminServicesController {
     const [live, page] = await Promise.all([this.activity.live(id), this.activity.events(id, q.filter ?? 'changes', q.before, q.limit ?? 50)]);
     return {
       ...live,
+      worker: {
+        online: live.worker.online,
+        startedAt: live.worker.startedAt?.toISOString() ?? null,
+        seenAt: live.worker.seenAt?.toISOString() ?? null,
+      },
+      pass: live.pass ? { state: live.pass.state as PassStateDto['state'], since: live.pass.since.toISOString() } : null,
       active: live.active.map((a) => ({ externalId: a.externalId, name: a.name, startedAt: a.startedOn?.toISOString() ?? null })),
       events: page.events.map((e) => ({
         id: e.id,

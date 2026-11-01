@@ -382,12 +382,18 @@ sotto ogni fonte di catalogo; impostazioni in `provider_health`, programmazioni 
 catalogo; `catalog/catalog.activity.ts`, tabella `catalog_events`, API
 `GET /admin/services/:id/activity`):
 
-- In alto lo stato della coda, letto da pg-boss: titoli **in coda**, **da riprovare** dopo un
+- Per primo se il **worker è acceso**: scrive un segnale di vita ogni 30 secondi (tabella
+  `catalog_worker`, una riga); senza segnale da 90 secondi, o dopo uno spegnimento pulito, risulta
+  spento e la coda è ferma. Poi la **passata completa** della fonte, se c'è: in corso (da quando),
+  in attesa del worker, in partenza o da riprovare. "Aggiorna ora" la mette solo in coda: senza
+  worker acceso non parte, e il pannello lo dice.
+- Poi lo stato della coda, letto da pg-boss: titoli **in coda**, **da riprovare** dopo un
   errore e quelli **in lettura adesso** (con il nome, se il titolo era già noto). I lavori rimasti
   "attivi" oltre il loro tempo massimo (15 minuti) sono **rimasti a metà** da un worker fermato:
   pg-boss li fa riprovare solo quando un worker riparte, quindi non compaiono come "in lettura".
-  Se ci sono titoli in coda ma nessuno in lettura, il worker è spento o il servizio è in pausa.
-- Sotto, quello che il worker ha fatto, dal più recente: ogni titolo letto (**Nuovo**,
+  Se il worker è acceso, ci sono titoli in coda ma nessuno in lettura, il servizio è spento o in
+  pausa.
+- Sotto, quello che è successo, dal più recente: "Aggiorna ora" premuto (e da chi), ogni titolo letto (**Nuovo**,
   **Aggiornato**, **Invariato**, **Non più sul servizio**, **Errore** con il messaggio), l'inizio e
   la fine di ogni passata completa (titoli trovati e messi in coda; annullata se l'elenco sembrava
   incompleto; non riuscita o saltata perché il servizio era spento) e ogni controllo delle novità.
