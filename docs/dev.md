@@ -64,6 +64,29 @@ Spegnere: `docker compose down` (con `-v` cancella anche i dati del database).
 Le porte 3000 e 3001 sono le stesse per i container e per le app in locale: non si possono usare
 le due modalità insieme.
 
+## Debug con VS Code
+
+Aprire la cartella `maia` in VS Code, pannello **Esegui e debug**, e scegliere una configurazione di
+`.vscode/launch.json`. I breakpoint si mettono direttamente nei file `.ts`.
+
+| Configurazione | Cosa avvia |
+| --- | --- |
+| MAIA: backend (debug) | `npm run start:dev` in `maia-be` (porta 3000) |
+| MAIA: worker del catalogo (debug) | `npm run catalog:worker`: riprende subito quello che è in coda |
+| MAIA: test del backend, file aperto (debug) | i test vitest del file aperto |
+| MAIA: frontend, lato server (debug) | `npm run dev` in `maia-fe` (porta 3001) |
+| MAIA: frontend nel browser (debug) | Chrome su http://localhost:3001 con il debugger sul codice del frontend |
+| MAIA: backend + frontend (debug) | le due insieme |
+
+Ogni configurazione apre un terminale di VS Code e collega il debugger a tutti i processi Node che
+partono da lì: niente porte da impostare. **Prima va fermato lo stesso server se gira già in
+background** (porte fisse 3000 e 3001), per esempio quello avviato con `Start-Process`.
+
+Dove mettere i breakpoint per il **link video al play**: `maia-be/src/tv/tv.controller.ts`,
+`GET /tv/playback/:itemId` (sceglie la fonte e restituisce il link) e
+`GET /tv/playback/:itemId/stream` (il video passa dal backend, per le fonti che lo richiedono); il
+link che il worker ha salvato è in `sources.playback_url`.
+
 ## Variabili d'ambiente
 
 | File | Contenuto |

@@ -1,0 +1,57 @@
+{
+  // Debug MAIA from VS Code (Run and Debug panel). "node-terminal" starts the
+  // command in a VS Code terminal and attaches the debugger to every Node
+  // process it spawns (Nest's watch child, the worker): no ports to set up.
+  // Breakpoints go straight in the .ts files (source maps are on).
+  // Stop the same server first if it is already running in the background
+  // (ports 3000 / 3001 are fixed): see docs/dev.md, "Debug con VS Code".
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MAIA: backend (debug)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run start:dev",
+      "cwd": "${workspaceFolder}/maia-be",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "MAIA: worker del catalogo (debug)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run catalog:worker",
+      "cwd": "${workspaceFolder}/maia-be",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "MAIA: test del backend, file aperto (debug)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npx vitest run ${fileBasenameNoExtension}",
+      "cwd": "${workspaceFolder}/maia-be",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "MAIA: frontend, lato server (debug)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/maia-fe",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "MAIA: frontend nel browser (debug)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3001",
+      "webRoot": "${workspaceFolder}/maia-fe"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "MAIA: backend + frontend (debug)",
+      "configurations": ["MAIA: backend (debug)", "MAIA: frontend, lato server (debug)"],
+      "stopAll": true
+    }
+  ]
+}
