@@ -319,7 +319,7 @@ Codice in `maia-be/src/tv/`:
 | File                                    | Cosa fa                                                                                                                                                                                          |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `providers/raiplay/raiplay.adapter.ts`  | legge RaiPlay: esplorazione completa (`discover`), sezioni, titolo con stagioni, episodi, extra, immagini, DRM, scadenze                                                                         |
-| `providers/sdm/sdm.adapter.ts`          | legge SDM (server di casa): catalogo completo e titolo, formato provvisorio (vedi "SDM")                                                                                                         |
+| `providers/sdm/sdm.adapter.ts`          | legge SDM (server di casa): catalogo dalle pagine del server (JSON in `data-page`, vedi "SDM")                                                                                       |
 | `providers/services.ts`, `base-urls.ts` | elenco dei servizi con host e indirizzo predefinito; indirizzo in uso di ogni fonte                                                                                                              |
 | `providers/polite-fetch.ts`             | una richiesta alla volta per host con pausa minima (1 s per i servizi, 250 ms per l'API di TMDB), timeout, tentativi con attesa lunga; vedi "Rispetto dei servizi"                               |
 | `matching/score.ts`, `subject.ts`       | punteggio e verdetto dell'abbinamento a TMDB                                                                                                                                                     |
@@ -528,29 +528,35 @@ blocchi caricati a parte. Seguendole dalle 10 sezioni on demand si arriva a **67
 
 ## SDM
 
-Server multimediale dell'utente, in casa (indirizzo predefinito `http://192.168.1.9`,
-modificabile dal pannello).
-**Non ancora provato**: il server non è raggiungibile da MAIA. L'adapter
-(`providers/sdm/sdm.adapter.ts`) è scritto su un formato **provvisorio**, da allineare a quello
-vero quando il server sarà raggiungibile:
+Server multimediale dell'utente (indirizzo predefinito `http://192.168.1.9`, modificabile dal
+pannello), raggiungibile solo dalla sua rete locale.
+**Non ancora provato** contro il server vero. L'adapter (`providers/sdm/sdm.adapter.ts`) legge le
+pagine HTML del server: ogni pagina porta i suoi dati come JSON in un attributo HTML (stile
+Inertia.js, `data-page="{…}"`, entità HTML da decodificare). Percorsi, chiavi e campi del JSON
+sono tutti nel blocco `CONFIG` in cima al file, così si allineano al server senza toccare la logica.
 
-| Richiesta                         | Risposta                                          |
-| --------------------------------- | ------------------------------------------------- |
-| `GET <indirizzo>/api/titles`      | `{ "items": [{ "id": "…" }] }`: tutto il catalogo |
-| `GET <indirizzo>/api/titles/<id>` | il titolo, `404` se non c'è più                   |
+| Cosa                     | Pagina (percorsi in `CONFIG.paths`)               | Dati letti                                  |
+| ------------------------ | ------------------------------------------------- | ------------------------------------------- |
+| Tutto il catalogo        | archivio (`archive`)                              | `props.titles` (anche a gruppi)             |
+| Liste in evidenza        | pagina film / serie (`movies`, `tvshows`)         | `props.sliders[i].titles` (`CONFIG.sliders`) |
+| Film                     | `/{id}`                                           | `props.title`                               |
+| Serie                    | `/{id}-{slug}`, poi `/{id}-{slug}/season-{n}`      | `props.title.seasons`, `props.loadedSeason.episodes` |
+| Video di un episodio     | `/{title_id}?episode_id={id}`                     | link passato al player                      |
 
-Titolo: `id`, `kind` (`movie`/`series`), `name`, `year`, `genres`, `description`, `poster`,
-`backdrop`; film: `video` `{ url, durationSec, expiresAt }`; serie: `seasons`
-`[{ number, name, episodes: [{ id, number, name, airDate, image, url, durationSec }] }]`;
-`extras` `[{ id, name, kind: highlights|clips|previews|extras, season, videos: [{ id, name, image, url }] }]`.
-I link possono essere relativi all'indirizzo: MAIA li salva assoluti.
+Titolo: `id`, `type` (`movie`/`tv`, mappati in `CONFIG.typeMap`), `name`, `slug`, `plot`,
+`genres[].name`, anno da `release_date` o, se manca, dalla voce `release_date` di `translations`.
+Episodio: `id`, `number`, `name`, immagine `images[0].original_url`. Id esterni salvati:
+`movie/<id>` e `tv/<id>/<slug>`. Il link del video è l'URL del film/episodio, trasformabile con
+`CONFIG.playerReplace` (cerca/sostituisci) se il player sta a un altro percorso. Niente locandine
+dal server: le prende TMDB con l'abbinamento.
 
-- Stesse regole degli altri servizi (`polite-fetch`, 1 richiesta al secondo; un titolo = 1
-  richiesta). Aggiornamento **manuale** di base, come ogni fonte: nessuna richiesta finché non si
-  preme "Aggiorna ora". Nessuna lista in evidenza: il controllo rilegge solo i titoli arrivati al
-  loro turno.
-- Riproduzione: `<video src>` sul dispositivo, che va bene sia per HLS sia per file `mp4`.
-- Abbinamento a TMDB come per RaiPlay.
+- Stesse regole degli altri servizi (`polite-fetch` con `politeText`, 1 richiesta al secondo).
+  Un film = 1 richiesta; una serie = 1 + una per stagione. Aggiornamento **manuale** di base.
+  Liste in evidenza: nessuna finché `CONFIG.sliders` è vuoto.
+- Riproduzione: `<video src>` sul dispositivo. Se il link del film/episodio è una pagina del
+  player e non il file video, servirà un passo in più per ricavare il file (da vedere sul server).
+- Non portati dall'algoritmo di partenza: etichetta Sub/Dub (MAIA non ha ancora un campo lingua per
+  la fonte) e i server esterni basati su id TMDB.
 
 **Da risolvere prima che funzioni davvero:**
 

@@ -1,152 +1,222 @@
 import { baseUrl } from '../base-urls.js';
-import { HttpError, politeJson } from '../polite-fetch.js';
-import type {
-  ExtraKind,
-  ProviderAdapter,
-  ProviderEpisode,
-  ProviderExtraGroup,
-  ProviderSeason,
-  ProviderTitle,
-  ProviderVideo,
-} from '../provider.types.js';
+import { HttpError, politeText } from '../polite-fetch.js';
+import type { ProviderAdapter, ProviderEpisode, ProviderSeason, ProviderTitle, ProviderVideo } from '../provider.types.js';
 
 // SDM: the user's own media server at home (default http://192.168.1.9,
-// changeable from the admin panel). Not reachable yet: the API below is the
-// contract MAIA expects, still provisional (docs/tv/catalog.md, "SDM").
-//
-//   GET <address>/api/titles        { items: [{ id }] }       the whole catalog
-//   GET <address>/api/titles/<id>   SdmTitle                   one title, 404 if gone
-//
-// Links (videos, pictures) may be absolute or relative to the address.
+// changeable from the admin panel). Its pages carry their data as JSON in an
+// HTML attribute (Inertia.js style, `data-page="{...}"`): every list, title and
+// season is read from there (docs/tv/catalog.md, "SDM"). Nothing about the
+// server is fixed in the code below the CONFIG block.
 const host = () => baseUrl('sdm');
 
-type SdmVideo = { url?: string | null; durationSec?: number | null; expiresAt?: string | null };
+const CONFIG = {
+  // Replaces the {lang} placeholder in the paths.
+  lang: '',
 
-type SdmEpisode = SdmVideo & {
-  id: string;
-  number?: number | null;
-  name?: string | null;
-  airDate?: string | null;
-  image?: string | null;
+  // HTML attribute holding the page's JSON.
+  dataAttr: 'data-page',
+
+  // Paths after the address. Placeholders: {lang} {id} {slug} {number} {title_id} {episode_id}.
+  paths: {
+    movies: '',
+    tvshows: '',
+    archive: '',
+    movie: '/{id}',
+    tvshow: '/{id}-{slug}',
+    season: '/season-{number}',
+    episode: '/{title_id}?episode_id={episode_id}',
+  },
+
+  // Turns a title's or episode's URL into the player's: [search, replace]. null = as it is.
+  playerReplace: null as [string, string] | null,
+
+  // Front lists the checks read: index of the slider in the movies / tvshows page's JSON.
+  sliders: {
+    movie: [] as number[], // e.g. [1, 2]
+    tvshow: [] as number[],
+  },
+
+  // Keys of the page's JSON.
+  keys: {
+    props: 'props',
+    titles: 'titles',
+    sliders: 'sliders',
+    title: 'title',
+    seasons: 'seasons',
+    loadedSeason: 'loadedSeason',
+    episodes: 'episodes',
+  },
+
+  // Fields of every title / episode in the JSON.
+  fields: {
+    name: 'name',
+    type: 'type',
+    id: 'id',
+    slug: 'slug',
+    plot: 'plot',
+    genres: 'genres',
+    genreName: 'name',
+    releaseDate: 'release_date',
+    translations: 'translations',
+    epNumber: 'number',
+    epName: 'name',
+    epImages: 'images',
+    epImageUrl: 'original_url',
+    epId: 'id',
+    seNumber: 'number',
+    seTitleId: 'title_id',
+  },
+
+  // The JSON's "type" field mapped on MAIA's kinds.
+  typeMap: { movie: 'MOVIE', tv: 'SERIES' } as Record<string, 'MOVIE' | 'SERIES'>,
 };
 
-type SdmSeason = { number?: number | null; name?: string | null; episodes?: SdmEpisode[] };
+type Json = Record<string, unknown>;
+type PathKey = keyof typeof CONFIG.paths;
 
-type SdmExtraGroup = {
-  id: string;
-  name: string;
-  kind?: string | null;
-  season?: number | null;
-  videos?: (SdmVideo & { id: string; name?: string | null; image?: string | null })[];
-};
+const K = CONFIG.keys;
+const F = CONFIG.fields;
 
-export type SdmTitle = {
-  id: string;
-  kind: 'movie' | 'series';
-  name: string;
-  year?: number | null;
-  genres?: string[];
-  description?: string | null;
-  poster?: string | null;
-  backdrop?: string | null;
-  // Movies only.
-  video?: SdmVideo | null;
-  // Series only.
-  seasons?: SdmSeason[];
-  extras?: SdmExtraGroup[];
-};
+export function buildUrl(key: PathKey, values: Record<string, string | number> = {}): string {
+  const all: Record<string, string | number> = { lang: CONFIG.lang, ...values };
+  return host() + CONFIG.paths[key].replace(/\{(\w+)\}/g, (_, name: string) => encodeURIComponent(String(all[name] ?? '')));
+}
 
-const EXTRA_KINDS: Record<string, ExtraKind> = {
-  highlights: 'HIGHLIGHTS',
-  clips: 'CLIPS',
-  previews: 'PREVIEWS',
-  extras: 'EXTRAS',
-};
+const playerUrl = (url: string) => (CONFIG.playerReplace ? url.replace(CONFIG.playerReplace[0], CONFIG.playerReplace[1]) : url);
+
+// The JSON in the page's data attribute, entities decoded.
+export function pageData(html: string): Json {
+  const attr = CONFIG.dataAttr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const raw = new RegExp(`${attr}="([^"]+)`).exec(html)?.[1];
+  if (!raw) throw new Error(`SDM page without ${CONFIG.dataAttr}`);
+  return JSON.parse(decodeEntities(raw)) as Json;
+}
+
+async function props(url: string): Promise<Json> {
+  return (pageData(await politeText(url))[K.props] ?? {}) as Json;
+}
+
+// Lists may come grouped (an array of arrays): flattened.
+function flatten(records: unknown): Json[] {
+  if (!Array.isArray(records)) return [];
+  return (Array.isArray(records[0]) ? (records as unknown[][]).flat() : records) as Json[];
+}
+
+// External ids: "movie/<id>" or "tv/<id>/<slug>", everything needed to rebuild the title's URL.
+function externalId(rec: Json): string | null {
+  const id = rec[F.id];
+  if (id === undefined || id === null || id === '') return null;
+  const kind = CONFIG.typeMap[String(rec[F.type])];
+  if (kind === 'MOVIE') return `movie/${id}`;
+  if (kind === 'SERIES') return `tv/${id}/${String(rec[F.slug] ?? '')}`;
+  return null;
+}
+
+const ids = (records: Json[]) => [...new Set(records.map(externalId).filter((id): id is string => id !== null))];
 
 export class SdmAdapter implements ProviderAdapter {
   readonly id = 'sdm' as const;
+  readonly frontSections = [
+    ...CONFIG.sliders.movie.map((i) => `movie:${i}`),
+    ...CONFIG.sliders.tvshow.map((i) => `tvshow:${i}`),
+  ];
 
+  // The whole catalog: the archive page's titles.
   async discover(): Promise<string[]> {
-    const res = await politeJson<{ items?: { id?: unknown }[] }>(`${host()}/api/titles`);
-    return (res.items ?? []).map((t) => t.id).filter((id): id is string => typeof id === 'string' && id !== '');
+    return ids(flatten((await props(buildUrl('archive')))[K.titles]));
+  }
+
+  async listSection(section: string): Promise<string[]> {
+    const [kind, index] = section.split(':');
+    const p = await props(buildUrl(kind === 'movie' ? 'movies' : 'tvshows'));
+    const slider = ((p[K.sliders] ?? []) as Json[])[Number(index)];
+    return ids(flatten(slider?.[K.titles]));
   }
 
   async getTitle(externalId: string): Promise<ProviderTitle | null> {
-    let t: SdmTitle;
+    const [kind, id, ...slug] = externalId.split('/');
+    const url = kind === 'movie' ? buildUrl('movie', { id }) : buildUrl('tvshow', { id, slug: slug.join('/') });
+    let p: Json;
     try {
-      t = await politeJson<SdmTitle>(`${host()}/api/titles/${encodeURIComponent(externalId)}`);
+      p = await props(url);
     } catch (err) {
       if (err instanceof HttpError && err.status === 404) return null;
       throw err;
     }
-    return toProviderTitle(externalId, t);
+    const rec = p[K.title] as Json | undefined;
+    if (!rec) return null;
+    const base = {
+      provider: 'sdm' as const,
+      externalId,
+      name: String(rec[F.name] ?? ''),
+      year: extractYear(rec),
+      genres: ((rec[F.genres] ?? []) as Json[]).map((g) => String(g[F.genreName] ?? '')).filter(Boolean),
+      description: String(rec[F.plot] ?? ''),
+      posterUrl: null,
+      backdropUrl: null,
+      extras: [],
+    };
+    if (kind === 'movie') return { ...base, kind: 'MOVIE', video: video(url), seasons: [] };
+
+    const seasons: ProviderSeason[] = [];
+    for (const se of (rec[K.seasons] ?? []) as Json[]) {
+      const number = toNumber(se[F.seNumber]);
+      const loaded = (await props(url + CONFIG.paths.season.replace('{number}', String(se[F.seNumber]))))[K.loadedSeason] as Json | undefined;
+      const titleId = se[F.seTitleId] ?? id;
+      seasons.push({
+        number,
+        label: number !== null ? `Stagione ${number}` : '',
+        declaredCount: null,
+        episodes: ((loaded?.[K.episodes] ?? []) as Json[]).map((ep) => episode(ep, number, String(titleId))),
+      });
+    }
+    return { ...base, kind: 'SERIES', video: null, seasons };
   }
 }
 
-export function toProviderTitle(externalId: string, t: SdmTitle): ProviderTitle {
-  const base = {
-    provider: 'sdm' as const,
-    externalId,
-    name: t.name,
-    year: t.year ?? null,
-    genres: t.genres ?? [],
-    description: t.description ?? '',
-    posterUrl: absolute(t.poster),
-    backdropUrl: absolute(t.backdrop),
-    extras: (t.extras ?? []).map(toExtraGroup).filter((g) => g.videos.length > 0),
-  };
-  if (t.kind === 'movie') return { ...base, kind: 'MOVIE', video: t.video ? toVideo(t.video) : null, seasons: [] };
-  const seasons: ProviderSeason[] = (t.seasons ?? []).map((s) => {
-    const number = s.number ?? null;
-    return {
-      number,
-      label: s.name || (number !== null ? `Stagione ${number}` : ''),
-      declaredCount: null,
-      episodes: (s.episodes ?? []).map((e) => toEpisode(e, number)),
-    };
-  });
-  return { ...base, kind: 'SERIES', video: null, seasons };
-}
-
-function toEpisode(e: SdmEpisode, season: number | null): ProviderEpisode {
+function episode(ep: Json, season: number | null, titleId: string): ProviderEpisode {
+  const images = ep[F.epImages] as Json[] | undefined;
+  const image = images?.[0]?.[F.epImageUrl];
   return {
-    externalId: e.id,
+    externalId: String(ep[F.epId]),
     season,
-    episode: e.number ?? null,
-    title: e.name ?? '',
-    airDate: e.airDate ?? null,
-    imageUrl: absolute(e.image),
-    ...toVideo(e),
-  };
-}
-
-function toExtraGroup(g: SdmExtraGroup): ProviderExtraGroup {
-  return {
-    externalId: g.id,
-    kind: EXTRA_KINDS[g.kind ?? ''] ?? 'EXTRAS',
-    label: g.name,
-    season: g.season ?? null,
-    videos: (g.videos ?? []).map((v) => ({ externalId: v.id, title: v.name ?? '', imageUrl: absolute(v.image), ...toVideo(v) })),
+    episode: toNumber(ep[F.epNumber]),
+    title: String(ep[F.epName] ?? '').trim(),
+    airDate: null,
+    imageUrl: typeof image === 'string' && image ? absolute(image) : null,
+    ...video(buildUrl('episode', { title_id: titleId, episode_id: String(ep[F.epId]) })),
   };
 }
 
 // A file on the home server: no DRM, no geographic block. <video src> plays
 // both HLS and plain files (mp4), hence the native recipe.
-function toVideo(v: SdmVideo): ProviderVideo {
-  const url = absolute(v.url);
-  return {
-    durationSec: v.durationSec ?? null,
-    drm: false,
-    geoBlocked: false,
-    expiresAt: v.expiresAt ?? null,
-    playback: url ? { type: 'native-hls', url } : null,
-  };
+function video(url: string): ProviderVideo {
+  return { durationSec: null, drm: false, geoBlocked: false, expiresAt: null, playback: { type: 'native-hls', url: playerUrl(url) } };
 }
 
-// Links are saved absolute, with the address in use: if the address changes,
-// ServiceSwitches.setBaseUrl moves the saved ones.
-function absolute(link: string | null | undefined): string | null {
-  if (!link) return null;
+// The release date, or the one among the translations; only the year is kept.
+export function extractYear(rec: Json): number | null {
+  const translated = ((rec[F.translations] ?? []) as Json[]).find((t) => t.key === F.releaseDate && t.value)?.value;
+  const value = rec[F.releaseDate] || translated;
+  const year = value ? Number.parseInt(String(value).slice(0, 4), 10) : NaN;
+  return Number.isFinite(year) ? year : null;
+}
+
+function toNumber(value: unknown): number | null {
+  const n = Number(value);
+  return value === null || value === undefined || value === '' || !Number.isFinite(n) ? null : n;
+}
+
+function absolute(link: string): string {
   if (/^https?:\/\//i.test(link)) return link;
   return `${host()}${link.startsWith('/') ? '' : '/'}${link}`;
+}
+
+const NAMED: Record<string, string> = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ' };
+
+function decodeEntities(s: string): string {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (m, e: string) => {
+    if (e[0] === '#') return String.fromCodePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10));
+    return NAMED[e.toLowerCase()] ?? m;
+  });
 }
