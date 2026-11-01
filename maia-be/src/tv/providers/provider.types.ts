@@ -71,6 +71,27 @@ export type ProviderTitle = {
   extras: ProviderExtraGroup[];
 };
 
+// A TV channel of the service's guide.
+export type ProviderChannel = {
+  externalId: string;
+  name: string;
+  position: number;
+  logoUrl: string | null;
+};
+
+// One slot of a channel's schedule. `replayPath`: page of the recording, if it
+// can be watched again.
+export type ProviderProgram = {
+  externalId: string;
+  title: string;
+  episodeTitle: string | null;
+  description: string;
+  startsAt: Date;
+  endsAt: Date;
+  imageUrl: string | null;
+  replayPath: string | null;
+};
+
 export interface ProviderAdapter {
   readonly id: ProviderId;
   // External ids of the titles listed in one section of the service.
@@ -80,4 +101,11 @@ export interface ProviderAdapter {
   // stream URL, resolved from the server (short-lived, never stored). Null if
   // the service refuses it from here (geo-blocked).
   resolveStream?(recipeUrl: string): Promise<string | null>;
+  // TV guide and replays, for the services that have them.
+  listChannels?(): Promise<ProviderChannel[]>;
+  // One day (YYYY-MM-DD, the service's local day) of a channel's schedule.
+  channelGuide?(channel: string, day: string): Promise<ProviderProgram[]>;
+  // The link of a recording, read when someone presses play; null = it cannot
+  // be played here (DRM, gone).
+  resolveReplay?(replayPath: string): Promise<{ playbackUrl: string; durationSec: number | null } | null>;
 }

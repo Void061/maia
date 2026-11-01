@@ -16,8 +16,9 @@ const base = {
 export const HomeIcon = () => (
   <svg {...base}><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z" /></svg>
 );
-export const LiveIcon = () => (
-  <svg {...base}><rect x="3" y="6" width="18" height="13" rx="2" /><path d="m8 2.5 4 3.5 4-3.5" /></svg>
+// Replay: a clock turning back.
+export const ReplayIcon = () => (
+  <svg {...base}><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" /><path d="M4.5 3.5v3.7h3.7" /><path d="M12 8.5V12l2.5 1.5" /></svg>
 );
 export const FilmIcon = () => (
   <svg {...base}><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 3v18M16 3v18M4 8h4M4 16h4M16 8h4M16 16h4" /></svg>

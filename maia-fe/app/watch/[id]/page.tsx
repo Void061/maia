@@ -1,13 +1,11 @@
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { channels } from "@/lib/live-demo";
-import Player from "./player";
+import WatchReplay from "./watch-replay";
 import WatchTitle from "./watch-title";
 
-// Catalog titles load in the browser; Cache Components needs one param to
-// prerender the shell. Live channels are still demo data.
+// Titles and replays load in the browser; Cache Components needs one param to
+// prerender the shell.
 export function generateStaticParams() {
-  return channels.map((c) => ({ id: `live-${c.id}` }));
+  return [{ id: "_" }];
 }
 
 export default function Page({ params }: PageProps<"/watch/[id]">) {
@@ -18,12 +16,9 @@ export default function Page({ params }: PageProps<"/watch/[id]">) {
   );
 }
 
+// /watch/<title id> for the catalog, /watch/replay-<program id> for the replays.
 async function Content({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (id.startsWith("live-")) {
-    const channel = channels.find((c) => `live-${c.id}` === id);
-    if (!channel) notFound();
-    return <Player live={{ channelId: channel.id }} />;
-  }
+  if (id.startsWith("replay-")) return <WatchReplay id={id.slice("replay-".length)} />;
   return <WatchTitle id={id} />;
 }

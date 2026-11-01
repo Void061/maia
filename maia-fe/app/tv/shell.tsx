@@ -8,7 +8,7 @@ import {
   FilmIcon,
   HomeIcon,
   HouseGlyph,
-  LiveIcon,
+  ReplayIcon,
   SearchIcon,
   SeriesIcon,
   TvGlyph,
@@ -20,7 +20,7 @@ import { useProfile } from "@/lib/session";
 
 const nav = [
   { href: "/tv", label: "Home", Icon: HomeIcon },
-  { href: "/tv/live", label: "Live", Icon: LiveIcon },
+  { href: "/tv/replay", label: "Replay", Icon: ReplayIcon },
   { href: "/tv/movies", label: "Film", Icon: FilmIcon },
   { href: "/tv/series", label: "Serie", Icon: SeriesIcon },
 ];

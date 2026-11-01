@@ -264,3 +264,24 @@ espressamente lo scraping), Pluto TV (vedi sopra); Rakuten TV, Plex, Samsung TV 
 ufficiale per app di terzi).
 In pratica, per film, serie e programmi italiani recenti RaiPlay resta l'unico servizio praticabile:
 la priorità è farlo funzionare al meglio; ARTE solo se interessa quel genere (serve l'accesso API).
+
+## 2026-11-01
+
+**Replay sì, dirette no.** La guida TV Rai degli ultimi 7 giorni (13 canali) è in maia-be e alimenta
+la sezione **Replay** (al posto di "Live" nel menu). Le dirette sono state realizzate, verificate
+(HLS senza DRM) e poi tolte per scelta dell'utente, insieme ai canali finti di prova (La7, Pluto).
+Rai 4K resta fuori (solo DASH, che i browser non riproducono da soli; replica Rai 1) e Rai Radio 2
+pure (senza la diretta non serve). Dal canale RaiPlay di KoD si sono presi solo gli endpoint della
+guida, non codice.
+
+**Link dei replay letti al primo play**, non in anticipo: una richiesta per programma guardato
+invece di circa 700 al giorno.
+
+**Il login di RaiPlay si ignora ovunque.** Rai segna quasi tutti i video come "accesso richiesto",
+anche i film del catalogo che MAIA già riproduceva, ma il video lo serve senza controllarlo. L'utente
+ha scelto una regola unica: MAIA non usa account Rai e non guarda quel flag (prima i replay lo
+rispettavano e 4 su 5 venivano scartati).
+
+**Connettori di siti pirata rifiutati** (StreamingCommunity con altri nomi, "TSD", "C1": stesso
+codice, host video esterni come vixsrc.to, film ancora al cinema). Non si integrano, nemmeno come
+fonte "custom" configurabile.

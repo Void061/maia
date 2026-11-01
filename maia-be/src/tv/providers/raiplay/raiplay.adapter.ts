@@ -1,7 +1,9 @@
-import { HttpError, politeJson, ServiceStoppedError } from '../polite-fetch.js';
+import { HttpError, politeExists, politeJson, ServiceStoppedError } from '../polite-fetch.js';
 import type {
   ExtraKind,
   ProviderAdapter,
+  ProviderChannel,
+  ProviderProgram,
   ProviderEpisode,
   ProviderExtraGroup,
   ProviderSeason,
@@ -49,6 +51,20 @@ type RaiSetItem = {
   images?: { landscape?: string };
   rights_management?: RaiRights;
   availabilities?: RaiAvailabilities;
+};
+
+type RaiGuideChannel = { label: string; absolute_path: string; uhd?: boolean; logo?: string };
+type RaiEvent = {
+  id: string;
+  name: string;
+  episode_title?: string;
+  description?: string;
+  date: string; // dd/mm/yyyy, Rome
+  hour: string; // HH:MM, Rome
+  duration?: string; // HH:MM:SS
+  has_video?: boolean;
+  path_id?: string;
+  image?: string;
 };
 
 type RaiItem = {
@@ -117,6 +133,62 @@ export class RaiPlayAdapter implements ProviderAdapter {
     const res = await politeJson<{ video?: string[] }>(url.toString(), { serial: false, retries: 1, timeoutMs: 8000 });
     const stream = res.video?.[0];
     return stream && !stream.includes('video_no_available') ? stream : null;
+  }
+
+  // The TV guide's channels that air every day: RaiPlay 2/3 and Sport 1-3
+  // only exist during events (they have no page in dirette.json); Rai 4K
+  // repeats Rai 1 in UHD.
+  async listChannels(): Promise<ProviderChannel[]> {
+    const guide = await politeJson<{ channels?: RaiGuideChannel[] }>(`${HOST}/guidatv.json`);
+    const index = await politeJson<unknown>(`${HOST}/dirette.json`);
+    const regular = new Set([...JSON.stringify(index).matchAll(/\/dirette\/([a-z0-9]+)\.json/g)].map((m) => m[1]));
+    const out: ProviderChannel[] = [];
+    for (const [position, ch] of (guide.channels ?? []).entries()) {
+      if (!regular.has(ch.absolute_path.replace(/-/g, '')) || ch.uhd) continue;
+      // Some listed logos do not exist (Italiana): check once a day, show the name instead.
+      const logo = logoUrl(ch.logo);
+      out.push({ externalId: ch.absolute_path, name: ch.label, position, logoUrl: logo && (await politeExists(logo)) ? logo : null });
+    }
+    return out;
+  }
+
+  async channelGuide(channel: string, day: string): Promise<ProviderProgram[]> {
+    const [y, m, d] = day.split('-');
+    let data: { events?: RaiEvent[] };
+    try {
+      data = await politeJson(`${HOST}/palinsesto/app/${channel}/${d}-${m}-${y}.json`);
+    } catch (err) {
+      if (err instanceof HttpError && err.status === 404) return [];
+      throw err;
+    }
+    return (data.events ?? []).map((e) => {
+      const startsAt = romeTime(e.date, e.hour);
+      return {
+        externalId: e.id,
+        title: e.name,
+        episodeTitle: e.episode_title || null,
+        description: e.description ?? '',
+        startsAt,
+        endsAt: new Date(startsAt.getTime() + (parseDuration(e.duration) ?? 0) * 1000),
+        imageUrl: imageUrl(e.image),
+        replayPath: e.has_video && e.path_id ? e.path_id : null,
+      };
+    });
+  }
+
+  async resolveReplay(replayPath: string): Promise<{ playbackUrl: string; durationSec: number | null } | null> {
+    let item: RaiItem;
+    try {
+      item = await politeJson<RaiItem>(HOST + toJsonPath(replayPath));
+    } catch (err) {
+      if (err instanceof HttpError && err.status === 404) return null;
+      throw err;
+    }
+    // RaiPlay's apps ask to sign in for most videos, but the stream itself is
+    // served without it: like the catalog, MAIA does not check that flag.
+    const video = movieVideo(item);
+    if (!video.playback || video.drm) return null;
+    return { playbackUrl: video.playback.url, durationSec: video.durationSec };
   }
 
   async getTitle(slug: string): Promise<ProviderTitle | null> {
@@ -273,6 +345,14 @@ function imageUrl(path: string | undefined): string | null {
   return path.startsWith('http') ? path : HOST + path;
 }
 
+// Channel logos as the guide gives them; some are broken there (Rai Sport:
+// " /dl/.../RaiSport-canale-logo", a space and no extension): those are
+// dropped and the channel shows its name instead.
+function logoUrl(path: string | undefined): string | null {
+  const url = imageUrl(path?.trim());
+  return url && /\.(svg|png|jpe?g|webp)$/i.test(url) ? url : null;
+}
+
 function toJsonPath(path: string): string {
   return path.replace(/\.html$/, '.json');
 }
@@ -283,6 +363,27 @@ function toInt(value: string | undefined): number | null {
 }
 
 // "01:45:02" -> 6302
+// Europe/Rome wall-clock time ("31/10/2026", "20:35") -> the instant, DST included.
+export function romeTime(date: string, hour: string): Date {
+  const [d, m, y] = date.split(/[/-]/).map(Number);
+  const [h, min] = hour.split(':').map(Number);
+  const wall = Date.UTC(y, m - 1, d, h, min);
+  const offset = (t: number) => {
+    const p = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Europe/Rome',
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).formatToParts(new Date(t));
+    const n = (type: string) => Number(p.find((x) => x.type === type)!.value);
+    return Date.UTC(n('year'), n('month') - 1, n('day'), n('hour'), n('minute')) - t;
+  };
+  return new Date(wall - offset(wall - offset(wall)));
+}
+
 export function parseDuration(value: string | undefined): number | null {
   const parts = value?.split(':').map(Number);
   if (!parts || parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;

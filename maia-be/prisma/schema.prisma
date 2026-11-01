@@ -346,3 +346,52 @@ model SyncRun {
   @@index([provider, startedAt])
   @@map("sync_runs")
 }
+
+/// A TV channel of a service, for its guide and replays (no live streams:
+/// docs/tv/catalog.md, "Replay").
+model Channel {
+  id          String   @id @default(cuid())
+  provider    String
+  /// The service's id for the channel ("rai-1": RaiPlay guide path).
+  externalId  String   @map("external_id")
+  name        String
+  position    Int
+  /// general | movies-series | culture | kids | news-sport
+  category    String
+  logoUrl     String?  @map("logo_url")
+  /// false: no longer listed by the service.
+  available   Boolean  @default(true)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  programs LiveProgram[]
+
+  @@unique([provider, externalId])
+  @@map("channels")
+}
+
+/// One slot of a channel's schedule (guide), kept for 7 days: the ones that
+/// can be watched again are the replays.
+model LiveProgram {
+  id           String   @id @default(cuid())
+  channelId    String   @map("channel_id")
+  externalId   String   @map("external_id")
+  title        String
+  episodeTitle String?  @map("episode_title")
+  description  String   @default("")
+  startsAt     DateTime @map("starts_at")
+  endsAt       DateTime @map("ends_at")
+  imageUrl     String?  @map("image_url")
+  /// The recording's page on the service; null = cannot be watched again.
+  replayPath   String?  @map("replay_path")
+  /// The recording's link, read from the service at the first play.
+  playbackUrl  String?  @map("playback_url")
+  durationSec  Int?     @map("duration_sec")
+  /// false once the service said it cannot be played here (DRM, gone).
+  playable     Boolean  @default(true)
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, externalId])
+  @@index([channelId, startsAt])
+  @@map("live_programs")
+}

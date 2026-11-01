@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BackIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   EpisodesIcon,
   ExitFullscreenIcon,
   Forward10Icon,
@@ -27,7 +25,6 @@ import {
 } from "@/components/icons";
 import { Art } from "@/components/poster";
 import { ApiError } from "@/lib/api";
-import { channels, demoStream, scheduleAround } from "@/lib/live-demo";
 import {
   episodeLabel,
   fetchPlayback,
@@ -37,9 +34,10 @@ import {
   type Episode,
   type TitleDetail,
 } from "@/lib/tv";
-import { hhmm, useNow } from "@/lib/use-now";
 
-type Props = { title?: TitleDetail; live?: { channelId: string } };
+// A replay of the TV guide: what it is, for the header (title, "Rai 1 · ieri 21:30").
+export type ReplayInfo = { id: string; title: string; subtitle: string };
+type Props = { title?: TitleDetail; replay?: ReplayInfo };
 type Level = { index: number; height: number };
 // lock()/unlock() are missing from some DOM typings and from iPhone Safari.
 type OrientationWithLock = ScreenOrientation & {
@@ -59,14 +57,13 @@ const fmt = (s: number) => {
   return h ? `${h}:${m.toString().padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 };
 
-export default function Player({ title, live }: Props) {
+export default function Player({ title, replay }: Props) {
   const router = useRouter();
   const video = useRef<HTMLVideoElement>(null);
   const hls = useRef<Hls | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const [channelId, setChannelId] = useState(live?.channelId);
   // Series: which episode is playing (?ep= in the URL, else the first one).
   // Extras play on their own (?extra=), without episode navigation.
   const params = useSearchParams();
@@ -84,8 +81,8 @@ export default function Player({ title, live }: Props) {
   const at = episode ? episodes.findIndex((e) => e.id === episode.id) : -1;
   const upNext = at >= 0 && at < episodes.length - 1 ? episodes[at + 1] : null;
   const previous = at > 0 ? episodes[at - 1] : null;
-  // What the stream is for: a movie, an episode, an extra, or a live channel.
-  const playId = live ? null : (extraId ?? (isSeries ? episode?.id : title?.id) ?? null);
+  // What the stream is for: a movie, an episode, an extra, or a replay.
+  const playId = replay?.id ?? extraId ?? (isSeries ? episode?.id : title?.id) ?? null;
   const playIdRef = useRef(playId);
   useLayoutEffect(() => {
     playIdRef.current = playId;
@@ -119,13 +116,6 @@ export default function Player({ title, live }: Props) {
   const lastTap = useRef(0);
   const lastPointer = useRef<string>("mouse");
   const singleTapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  const now = useNow(15_000);
-  const channel = channels.find((c) => c.id === channelId);
-  const onAir = useMemo(
-    () => (now && channelId ? scheduleAround(now).find((p) => p.channelId === channelId && p.start <= now && p.end > now) : undefined),
-    [now, channelId],
-  );
 
   // Controls fade out after 3s without input, like a TV.
   const poke = useCallback(() => {
@@ -224,15 +214,7 @@ export default function Player({ title, live }: Props) {
       }
     };
 
-    if (playId) {
-      void playCatalog(playId);
-    } else {
-      void attachHls(demoStream).then((ok) => {
-        if (ok || cancelled) return;
-        v.src = demoStream;
-        v.play().catch(() => {});
-      });
-    }
+    if (playId) void playCatalog(playId);
     return () => {
       cancelled = true;
       if (onError) v.removeEventListener("error", onError);
@@ -402,16 +384,6 @@ export default function Player({ title, live }: Props) {
     [title, router],
   );
 
-  const zap = useCallback(
-    (dir: 1 | -1) => {
-      const i = channels.findIndex((c) => c.id === channelId);
-      const next = channels[(i + dir + channels.length) % channels.length];
-      setChannelId(next.id);
-      router.replace(`/watch/live-${next.id}`, { scroll: false });
-    },
-    [channelId, router],
-  );
-
   // Remote keys while the controls layer is in charge (the settings panel
   // uses the normal arrow navigation instead).
   function onKeyDown(e: React.KeyboardEvent) {
@@ -429,10 +401,10 @@ export default function Player({ title, live }: Props) {
     } else if (k === "m") {
       e.preventDefault();
       toggleMute();
-    } else if ((k === "ArrowLeft" || k === "j") && !live) {
+    } else if (k === "ArrowLeft" || k === "j") {
       e.preventDefault();
       seek(-10);
-    } else if ((k === "ArrowRight" || k === "l") && !live) {
+    } else if (k === "ArrowRight" || k === "l") {
       e.preventDefault();
       seek(10);
     } else if (k === "p" && previous) {
@@ -446,15 +418,14 @@ export default function Player({ title, live }: Props) {
       setPanel("subs");
     } else if (k === "ArrowUp" || k === "ArrowDown") {
       e.preventDefault();
-      const dir = k === "ArrowUp" ? 1 : -1;
-      // Live channels zap like a TV; on demand the arrows set the volume.
-      if (live) zap(dir === 1 ? -1 : 1);
-      else setVolume((muted ? 0 : volume) + dir * 0.1, true);
+      setVolume((muted ? 0 : volume) + (k === "ArrowUp" ? 0.1 : -0.1), true);
     }
   }
 
-  const heading = live ? onAir?.title ?? channel?.name : title?.name;
-  const subheading = extra
+  const heading = replay ? replay.title : title?.name;
+  const subheading = replay
+    ? replay.subtitle
+    : extra
     ? extra.name
     : episode
       ? [episode.season < 1900 ? `S${episode.season}` : null, episodeLabel(episode), episode.name].filter(Boolean).join(" · ")
@@ -489,7 +460,7 @@ export default function Player({ title, live }: Props) {
           const t = Date.now();
           const r = e.currentTarget.getBoundingClientRect();
           const side = e.clientX < r.left + r.width / 2 ? -10 : 10;
-          if (!live && t - lastTap.current < 300) {
+          if (t - lastTap.current < 300) {
             clearTimeout(singleTapTimer.current);
             seek(side);
           } else {
@@ -535,21 +506,7 @@ export default function Player({ title, live }: Props) {
         </div>
 
         <div className="pointer-events-auto bg-gradient-to-t from-black/85 via-black/50 to-transparent px-3 pb-3 pt-16 sm:px-8 sm:pb-6">
-          {!live ? (
-            <Scrubber time={time} duration={duration} onSeek={seekTo} onActivity={poke} />
-          ) : (
-            <div className="flex h-8 items-center gap-3">
-              <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-bold text-black">LIVE</span>
-              {onAir && now && (
-                <span className="relative h-1 flex-1 rounded-full bg-white/25">
-                  <span
-                    className="absolute inset-y-0 left-0 rounded-full bg-white"
-                    style={{ width: `${((now - onAir.start) / (onAir.end - onAir.start)) * 100}%` }}
-                  />
-                </span>
-              )}
-            </div>
-          )}
+          <Scrubber time={time} duration={duration} onSeek={seekTo} onActivity={poke} />
 
           <div className="mt-1 flex items-center justify-between gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]">
             {/* Left: transport + volume (on phones the transport sits mid-screen instead). */}
@@ -558,25 +515,12 @@ export default function Player({ title, live }: Props) {
                 <Ctl label={playing ? "Pausa" : "Riproduci"} onClick={toggle}>
                   {playing ? <PauseIcon /> : <PlayIcon />}
                 </Ctl>
-                {!live ? (
-                  <>
-                    <Ctl label="Indietro di 10 secondi" onClick={() => seek(-10)}>
-                      <Replay10Icon />
-                    </Ctl>
-                    <Ctl label="Avanti di 10 secondi" onClick={() => seek(10)}>
-                      <Forward10Icon />
-                    </Ctl>
-                  </>
-                ) : (
-                  <>
-                    <Ctl label="Canale precedente" onClick={() => zap(-1)}>
-                      <ChevronUpIcon />
-                    </Ctl>
-                    <Ctl label="Canale successivo" onClick={() => zap(1)}>
-                      <ChevronDownIcon />
-                    </Ctl>
-                  </>
-                )}
+                <Ctl label="Indietro di 10 secondi" onClick={() => seek(-10)}>
+                  <Replay10Icon />
+                </Ctl>
+                <Ctl label="Avanti di 10 secondi" onClick={() => seek(10)}>
+                  <Forward10Icon />
+                </Ctl>
               </span>
               <VolumeControl
                 level={muted ? 0 : volume}
@@ -588,12 +532,6 @@ export default function Player({ title, live }: Props) {
 
             {/* Centre: what is playing. */}
             <div className="hidden min-w-0 max-w-[40vw] text-center sm:block">
-              {live && channel && (
-                <p className="truncate text-xs font-medium text-muted">
-                  {channel.number} · {channel.name}
-                  {onAir && ` · ${hhmm(onAir.start)} – ${hhmm(onAir.end)}`}
-                </p>
-              )}
               <p className="truncate text-base font-semibold">{heading}</p>
               {subheading && <p className="truncate text-sm text-muted">{subheading}</p>}
             </div>
@@ -635,22 +573,14 @@ export default function Player({ title, live }: Props) {
       {/* Phone: transport in the middle of the screen, like the streaming apps. */}
       {chrome && !panel && !buffering && (
         <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-10 sm:hidden">
-          <Ctl
-            label={live ? "Canale precedente" : "Indietro di 10 secondi"}
-            onClick={() => (live ? zap(-1) : seek(-10))}
-            big
-          >
-            {live ? <ChevronUpIcon /> : <Replay10Icon />}
+          <Ctl label="Indietro di 10 secondi" onClick={() => seek(-10)} big>
+            <Replay10Icon />
           </Ctl>
           <Ctl label={playing ? "Pausa" : "Riproduci"} onClick={toggle} big strong>
             {playing ? <PauseIcon /> : <PlayIcon />}
           </Ctl>
-          <Ctl
-            label={live ? "Canale successivo" : "Avanti di 10 secondi"}
-            onClick={() => (live ? zap(1) : seek(10))}
-            big
-          >
-            {live ? <ChevronDownIcon /> : <Forward10Icon />}
+          <Ctl label="Avanti di 10 secondi" onClick={() => seek(10)} big>
+            <Forward10Icon />
           </Ctl>
         </div>
       )}
@@ -784,7 +714,6 @@ export default function Player({ title, live }: Props) {
           onSub={(i) => { setSub(i); if (hls.current) hls.current.subtitleTrack = i; }}
           speed={speed}
           onSpeed={(s) => { setSpeed(s); if (video.current) video.current.playbackRate = s; }}
-          live={!!live}
         />
       )}
     </div>
@@ -898,7 +827,6 @@ function SettingsPanel(props: {
   onSub: (i: number) => void;
   speed: number;
   onSpeed: (s: number) => void;
-  live: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const { onClose } = props;
@@ -986,18 +914,16 @@ function SettingsPanel(props: {
               ))}
             </div>
           </section>
-          {!props.live && (
-            <section>
-              <h3 className="px-3 text-sm font-semibold text-faint">Velocità</h3>
-              <div className="mt-1">
-                {SPEEDS.map((sp) => (
-                  <button key={sp} className={row(props.speed === sp)} onClick={() => props.onSpeed(sp)}>
-                    <Check on={props.speed === sp} /> {sp === 1 ? "Normale" : `${sp}×`}
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
+          <section>
+            <h3 className="px-3 text-sm font-semibold text-faint">Velocità</h3>
+            <div className="mt-1">
+              {SPEEDS.map((sp) => (
+                <button key={sp} className={row(props.speed === sp)} onClick={() => props.onSpeed(sp)}>
+                  <Check on={props.speed === sp} /> {sp === 1 ? "Normale" : `${sp}×`}
+                </button>
+              ))}
+            </div>
+          </section>
         </div>
       )}
     </div>
