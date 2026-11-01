@@ -8,6 +8,19 @@
   "version": "0.2.0",
   "configurations": [
     {
+      // The usual way: the backend already runs in the background with
+      // `npm run start:debug` (inspector on 9229). This hooks into it without
+      // restarting anything, and hooks again after each reload of the watch.
+      "name": "MAIA: aggancia il backend già avviato (9229)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/maia-be/dist/**/*.js"],
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
       "name": "MAIA: backend (debug)",
       "type": "node-terminal",
       "request": "launch",

@@ -12,7 +12,7 @@ Sviluppo di tutti i giorni: database in Docker, app in locale con ricaricamento 
 
 ```bash
 docker compose up -d postgres redis mailpit   # Postgres :5433, Redis :6379, Mailpit :8025 (web) e :1025 (SMTP)
-cd maia-be && npm run start:dev         # http://localhost:3000 (Swagger su /docs)
+cd maia-be && npm run start:debug       # http://localhost:3000 (Swagger su /docs), debugger su :9229
 cd maia-fe && npm run dev               # http://localhost:3001
 ```
 
@@ -71,6 +71,7 @@ Aprire la cartella `maia` in VS Code, pannello **Esegui e debug**, e scegliere u
 
 | Configurazione | Cosa avvia |
 | --- | --- |
+| **MAIA: aggancia il backend già avviato (9229)** | niente: si collega al backend avviato con `npm run start:debug` (il modo normale di avviarlo in locale) e si ricollega da solo dopo ogni ricaricamento |
 | MAIA: backend (debug) | `npm run start:dev` in `maia-be` (porta 3000) |
 | MAIA: worker del catalogo (debug) | `npm run catalog:worker`: riprende subito quello che è in coda |
 | MAIA: test del backend, file aperto (debug) | i test vitest del file aperto |
@@ -78,9 +79,13 @@ Aprire la cartella `maia` in VS Code, pannello **Esegui e debug**, e scegliere u
 | MAIA: frontend nel browser (debug) | Chrome su http://localhost:3001 con il debugger sul codice del frontend |
 | MAIA: backend + frontend (debug) | le due insieme |
 
-Ogni configurazione apre un terminale di VS Code e collega il debugger a tutti i processi Node che
-partono da lì: niente porte da impostare. **Prima va fermato lo stesso server se gira già in
-background** (porte fisse 3000 e 3001), per esempio quello avviato con `Start-Process`.
+Il modo normale: il backend gira in background con `npm run start:debug` (ricarica come
+`start:dev` e apre il debugger sulla porta 9229) e da VS Code si sceglie **"MAIA: aggancia il
+backend già avviato (9229)"**: niente si riavvia e i breakpoint valgono subito.
+
+Le altre configurazioni aprono un terminale di VS Code e collegano il debugger a tutti i processi
+Node che partono da lì. **Prima va fermato lo stesso server se gira già in background** (porte
+fisse 3000 e 3001), per esempio quello avviato con `Start-Process`.
 
 Dove mettere i breakpoint per il **link video al play**: `maia-be/src/tv/tv.controller.ts`,
 `GET /tv/playback/:itemId` (sceglie la fonte e restituisce il link) e

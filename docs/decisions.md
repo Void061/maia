@@ -306,3 +306,7 @@ riprende dalla scheda Log, senza fermare il processo (in produzione gira dentro 
 pausa non prende lavori nuovi e la coda resta intatta, così alla ripresa continua dallo stesso punto;
 i titoli già in lettura finiscono. Nel Log su telefono i filtri vanno a capo invece di uscire dallo
 schermo.
+
+**Backend in locale con `npm run start:debug`** (2026-11-01, chiesto dall'utente): in sviluppo il
+backend si avvia sempre con il debugger aperto (porta 9229), così VS Code ci si aggancia
+("MAIA: aggancia il backend già avviato") senza fermarlo e riavviarlo.

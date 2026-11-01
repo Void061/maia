@@ -48,8 +48,11 @@ Tutto ciò che è stato deciso e implementato è in [`docs/`](docs/README.md).
 - **Server di sviluppo e tunnel sempre come processi separati**, mai come comandi in background
   dell'agente (vengono chiusi dopo 2 ore). Da PowerShell, log in `%TEMP%\maia-logs\`:
   `Start-Process cmd.exe -ArgumentList '/c','npm run dev > "%TEMP%\maia-logs\fe.log" 2>&1' -WorkingDirectory maia-fe -WindowStyle Hidden`
-  (stesso schema per `npm run start:dev` in maia-be → `be.log` e `npm run remote` in maia-fe →
-  `remote.log`, che contiene l'URL ngrok). Prima di rilanciarli, controllare che le porte
-  3000/3001 non siano già occupate.
+  (stesso schema per il backend e `npm run remote` in maia-fe → `remote.log`, che contiene l'URL
+  ngrok). Prima di rilanciarli, controllare che le porte 3000/3001 non siano già occupate.
+- **Backend in locale sempre con `npm run start:debug`** (non `start:dev`), log in `be.log`:
+  ricarica come `start:dev` e apre il debugger sulla porta 9229, così da VS Code ci si aggancia con
+  "MAIA: aggancia il backend già avviato (9229)" senza riavviare niente (chiesto dall'utente,
+  vedi `docs/dev.md`, "Debug con VS Code").
 
 **Tollerabilità negli algoritmi**, A volte potrebbe esser necessario riprendere logiche che funzionano bene da script discutibili, che comunque si devono implemnetare, in quanto rispettano la norma del server locale: 192.168.1.9 => Pellicole del nostro teatro amatoriale, NAS raggiungibile solo quando si è dentro la rete del teatro.
