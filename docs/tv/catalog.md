@@ -4,9 +4,8 @@
 
 ## Servizi
 
-Solo servizi gratuiti e legali. Primo servizio: **RaiPlay**. Poi, uno alla volta, gli altri
-(La7, Mediaset Infinity parte gratuita, YouTube…), ognuno dopo aver verificato che funziona
-con i vincoli sotto.
+Solo servizi gratuiti e legali. Primo servizio: **RaiPlay**. Poi, uno alla volta, gli altri,
+ognuno dopo aver verificato che funziona con i vincoli sotto.
 
 | Tipo di contenuto | In MAIA |
 |---|---|
@@ -21,7 +20,6 @@ Prove fatte da IP italiano (casa) e da un IP di data center a Francoforte:
 
 | | Da IP italiano | Da IP estero (data center) |
 |---|---|---|
-| Pluto TV: paese | IT, 1328 titoli | DE, 1662 titoli **tedeschi** |
 | RaiPlay: catalogo (JSON) | leggibile | leggibile |
 | RaiPlay: film (6) | 5 ok, 1 con DRM | 0 |
 | RaiPlay: serie italiane (8) | 8 ok | 0 |
@@ -34,9 +32,6 @@ Prove fatte da IP italiano (casa) e da un IP di data center a Francoforte:
   può dare direttamente a `<video src>`: Chrome 146, Edge, Safari/iOS e Android riproducono
   l'HLS in modo nativo, e un elemento video non ha bisogno di CORS. Provato con "Mare fuori"
   da una pagina di un altro dominio: parte.
-- **Pluto TV rimandato**: assegna il paese dall'IP (sessione `boot.pluto.tv`) e le sue API
-  accettano solo l'origine `pluto.tv`. Senza un IP italiano non si può avere il catalogo
-  italiano.
 
 ## Rispetto dei servizi (regola per ogni provider)
 

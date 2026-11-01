@@ -10,7 +10,7 @@ un hub della casa e non solo per lo streaming. Le sezioni si chiamano *MAIA + no
 
 **Solo servizi gratuiti e legali; niente aggiramento del DRM.** I contenuti protetti da DRM non
 si riproducono nel player di MAIA. I contenuti non protetti di servizi senza API ufficiale
-(RaiPlay, Pluto TV) si usano per uso personale, accettando che i sistemi interni dei servizi
+(RaiPlay) si usano per uso personale, accettando che i sistemi interni dei servizi
 possano cambiare e rompere l'adapter.
 
 **Player proprio per ogni servizio**: MAIA ricava il link del flusso (HLS/DASH) dal servizio e lo
@@ -133,9 +133,7 @@ mentre il catalogo si legge da ovunque. Il browser dà il relinker a `<video src
 senza CORS) e Rai vede l'IP italiano dell'utente. Tolto il proxy video nel backend previsto prima.
 Limite accettato: su Firefox i contenuti Rai non partono.
 
-**Primo servizio RaiPlay, Pluto TV rimandato.** Pluto assegna il paese dall'IP (da un IP
-tedesco dà il catalogo tedesco) e le sue API accettano solo `pluto.tv`: senza IP italiano non
-si può.
+**Primo servizio: RaiPlay.**
 
 **Aggiornamento del catalogo a due livelli** (dati grezzi per servizio + catalogo MAIA),
 alberatura = unione delle fonti, TMDB come ossatura, coda di revisione nel pannello admin,
@@ -236,40 +234,17 @@ negli extra). La data della puntata si legge anche dal titolo dell'episodio, cos
 collocano nella stessa stagione; le clip si mostrano raggruppate per puntata e con nomi ripuliti, in
 lettura. Misurato: 21 programmi divisi come "Da Grande" e 82 con puntate provvisorie senza data.
 
-**Pluto TV: le condizioni d'uso lo escludono, oltre al limite tecnico.** Letti i Termini di
-Utilizzo italiani di Pluto TV (Pluto TV Europe GmbH, in vigore dal 14/11/2022,
-legal.paramount.com/it/it/plutotv/terms-of-use): uso solo personale e non commerciale; **vietato
-accedere al servizio con software automatici, script o robot senza autorizzazione scritta**
-(sezione 6); vietato riprodurre o visualizzare i contenuti fuori dal servizio (sezione 4);
-conseguenze: revoca dell'uso e blocco degli IP. A differenza di RaiPlay il divieto di lettura
-automatica è esplicito, e il catalogo di MAIA si costruisce proprio così. Insieme al limite tecnico
-già misurato (catalogo assegnato per IP, API aperte solo a pluto.tv), Pluto TV non si aggiunge.
-
 **Interruttori dei servizi nel pannello admin** (chiesto dall'utente: poter fermare subito
 l'acquisizione da un servizio che dà problemi). Il blocco è in `polite-fetch`, prima di ogni
 richiesta, così vale anche per quelle già partite; i processi rileggono gli interruttori ogni 3
 secondi. I titoli in coda non si perdono: si rimandano e ripartono alla riaccensione. Anche TMDB ha
 il suo interruttore (spegnerlo ferma gli abbinamenti, quindi rimanda tutti i titoli).
 
-**Quali altri servizi (analisi dei termini, 2026-10-31).** Fattibili solo i servizi che permettono
-esplicitamente di mostrare i contenuti in app di terzi o con contenuti liberi:
-- **Internet Archive** (film di pubblico dominio / Creative Commons, API ufficiale): permesso ma
-  **scartato dall'utente**, perché il catalogo (film vecchi, muti, quasi tutti in inglese) non è
-  quello che serve a MAIA;
-- **Dailymotion** (API ufficiale + loro player non modificato, pubblicità inclusa; poco in italiano);
-- **ARTE** con riserva (player esterno permesso, catalogo solo con API per partner).
-**YouTube escluso per scelta dell'utente** (sarebbe stato permesso con il player ufficiale, ma
-richiede il Referer e il loro player). Esclusi per i termini: Mediaset Infinity e La7 (vietano
-espressamente lo scraping), Pluto TV (vedi sopra); Rakuten TV, Plex, Samsung TV Plus (nessun accesso
-ufficiale per app di terzi).
-In pratica, per film, serie e programmi italiani recenti RaiPlay resta l'unico servizio praticabile:
-la priorità è farlo funzionare al meglio; ARTE solo se interessa quel genere (serve l'accesso API).
-
 ## 2026-11-01
 
 **Niente dirette né replay.** Dirette dei canali Rai (HLS senza DRM) e Replay della guida TV degli
 ultimi 7 giorni sono stati realizzati e verificati, poi tolti per scelta dell'utente ("non ci
-interessano"), insieme ai canali finti di prova (La7, Pluto) e alla voce "Live" del menu: MAIA TV è
+interessano"), insieme ai canali finti di prova e alla voce "Live" del menu: MAIA TV è
 il catalogo (Home, Film, Serie, Cerca). Tabelle, lavori e migrazioni relativi sono stati rimossi
 prima di arrivare in develop. Se tornassero utili: endpoint della guida RaiPlay
 (`/guidatv.json`, `/palinsesto/app/<canale>/<gg-mm-aaaa>.json`, `/dirette/<canale>.json`), Rai 4K
@@ -278,10 +253,6 @@ solo DASH.
 **Il login di RaiPlay si ignora.** Rai segna quasi tutti i video come "accesso richiesto", anche i
 film del catalogo che MAIA riproduce, ma il video lo serve senza controllarlo. L'utente ha scelto:
 MAIA non usa account Rai e non guarda quel flag.
-
-**Connettori di siti pirata rifiutati** (StreamingCommunity con altri nomi, "TSD", "C1": stesso
-codice, host video esterni come vixsrc.to, film ancora al cinema). Non si integrano, nemmeno come
-fonte "custom" configurabile.
 
 **Orari di aggiornamento scelti dal pannello, per fonte** (chiesto dall'utente: poter scegliere
 "ogni giorno alle 3" o aggiornare solo quando serve). Automatico: passata completa giornaliera
