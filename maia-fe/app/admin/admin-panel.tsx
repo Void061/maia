@@ -106,7 +106,8 @@ export default function AdminPanel() {
     : undefined;
 
   return (
-    <main className="night min-h-dvh px-4 pb-20 pt-8 sm:px-10">
+    // overflow-x-clip: nothing in the panel (a long id, a URL in an error) can make the page wider than the screen.
+    <main className="night min-h-dvh overflow-x-clip px-4 pb-20 pt-8 sm:px-10">
       <div className="mx-auto max-w-4xl">
         <div className="flex items-center justify-between">
           <button
