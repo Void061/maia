@@ -1,6 +1,6 @@
 # MAIA
 
-Hub per la casa (*My Assistant In the Apartment*) per TV, desktop, tablet e telefono.
+Hub per la casa (_My Assistant In the Apartment_) per TV, desktop, tablet e telefono.
 Monorepo: `maia-fe/` (Next.js) e `maia-be/` (NestJS + Prisma).
 
 ## Documentazione: leggerla e aggiornarla sempre
@@ -22,7 +22,6 @@ Tutto ciò che è stato deciso e implementato è in [`docs/`](docs/README.md).
   e la documentazione in `docs/`.
 - Frontend: questa versione di Next.js ha API diverse da quelle note. Prima di scrivere codice
   leggi la guida in `maia-fe/node_modules/next/dist/docs/` (vedi `maia-fe/AGENTS.md`).
-- Niente aggiramento del DRM e solo servizi gratuiti (vedi `docs/tv/catalog.md`).
 - Prisma resta sulla versione fissata nel `package.json` del backend: non usare `prisma@latest`.
 - **Rispetto dei servizi (ogni provider, anche futuro):** mai pesare su RaiPlay, TMDB o altri.
   Tutte le richieste passano da `polite-fetch` (una alla volta, max 1/s), stop immediato su
@@ -52,3 +51,5 @@ Tutto ciò che è stato deciso e implementato è in [`docs/`](docs/README.md).
   (stesso schema per `npm run start:dev` in maia-be → `be.log` e `npm run remote` in maia-fe →
   `remote.log`, che contiene l'URL ngrok). Prima di rilanciarli, controllare che le porte
   3000/3001 non siano già occupate.
+
+**Tollerabilità negli algoritmi**, A volte potrebbe esser necessario riprendere logiche che funzionano bene da script discutibili, che comunque si devono implemnetare, in quanto rispettano la norma del server locale: 192.168.1.9 => Pellicole del nostro teatro amatoriale, NAS raggiungibile solo quando si è dentro la rete del teatro.

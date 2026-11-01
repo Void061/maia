@@ -5,13 +5,8 @@ cancella: si aggiunge una nuova voce che la sostituisce e si segna quella vecchi
 
 ## 2026-10-29
 
-**Nome: MAIA** (*My Assistant In the Apartment*). Nome femminile "da assistente", pensato per
-un hub della casa e non solo per lo streaming. Le sezioni si chiamano *MAIA + nome* (es. MAIA TV).
-
-**Solo servizi gratuiti e legali; niente aggiramento del DRM.** I contenuti protetti da DRM non
-si riproducono nel player di MAIA. I contenuti non protetti di servizi senza API ufficiale
-(RaiPlay) si usano per uso personale, accettando che i sistemi interni dei servizi
-possano cambiare e rompere l'adapter.
+**Nome: MAIA** (_My Assistant In the Apartment_). Nome femminile "da assistente", pensato per
+un hub della casa e non solo per lo streaming. Le sezioni si chiamano _MAIA + nome_ (es. MAIA TV).
 
 **Player proprio per ogni servizio**: MAIA ricava il link del flusso (HLS/DASH) dal servizio e lo
 riproduce nel proprio player, con qualità, sottotitoli, lingue e velocità.
@@ -21,7 +16,7 @@ indipendenti (come Yuma), non un workspace npm condiviso.
 
 **Tipi del frontend generati dall'OpenAPI del backend** (`@nestjs/swagger` + `openapi-typescript`)
 invece di un pacchetto condiviso: il backend resta l'unica fonte di verità e le app restano
-indipendenti. *Non ancora installato.*
+indipendenti. _Non ancora installato._
 
 **Catalogo unico salvato nel database**, aggiornato periodicamente dagli adapter dei servizi;
 il frontend non interroga mai direttamente i servizi. Vedi [tv/catalog.md](tv/catalog.md).
@@ -58,8 +53,8 @@ desktop, tablet e telefono. Vedi [ui.md](ui.md).
 
 **Documentazione in `docs/`** nella radice del monorepo, aggiornata a ogni modifica.
 
-**Stile grafico: Apple TV / HBO Max** *(sostituisce lo stile "salotto la sera" con accento ambra
-e barra laterale)*. Nero vero, grigi di sistema Apple, bianco come colore interattivo, materiale
+**Stile grafico: Apple TV / HBO Max** _(sostituisce lo stile "salotto la sera" con accento ambra
+e barra laterale)_. Nero vero, grigi di sistema Apple, bianco come colore interattivo, materiale
 vetro, menu in alto a pillola, selezione stile tvOS, font Inter. Motivo: lo stile precedente non
 piaceva; questi riferimenti sono familiari per un'app di streaming sulla TV. Vedi [ui.md](ui.md).
 
@@ -90,7 +85,7 @@ compilare (npm 11 blocca gli script di installazione).
 per usare un provider (Resend, Brevo...).
 
 **Approvazione da terminale** (`npm run account:approve`) finché non c'è il pannello admin.
-*(Superata dal pannello admin, sotto: il comando resta solo per creare il primo amministratore.)*
+_(Superata dal pannello admin, sotto: il comando resta solo per creare il primo amministratore.)_
 
 **Guida iniziale obbligatoria** se l'account non ha profili: ne serve almeno uno per usare l'app.
 
@@ -239,16 +234,6 @@ l'acquisizione da un servizio che dà problemi). Il blocco è in `polite-fetch`,
 richiesta, così vale anche per quelle già partite; i processi rileggono gli interruttori ogni 3
 secondi. I titoli in coda non si perdono: si rimandano e ripartono alla riaccensione. Anche TMDB ha
 il suo interruttore (spegnerlo ferma gli abbinamenti, quindi rimanda tutti i titoli).
-
-## 2026-11-01
-
-**Niente dirette né replay.** Dirette dei canali Rai (HLS senza DRM) e Replay della guida TV degli
-ultimi 7 giorni sono stati realizzati e verificati, poi tolti per scelta dell'utente ("non ci
-interessano"), insieme ai canali finti di prova e alla voce "Live" del menu: MAIA TV è
-il catalogo (Home, Film, Serie, Cerca). Tabelle, lavori e migrazioni relativi sono stati rimossi
-prima di arrivare in develop. Se tornassero utili: endpoint della guida RaiPlay
-(`/guidatv.json`, `/palinsesto/app/<canale>/<gg-mm-aaaa>.json`, `/dirette/<canale>.json`), Rai 4K
-solo DASH.
 
 **Il login di RaiPlay si ignora.** Rai segna quasi tutti i video come "accesso richiesto", anche i
 film del catalogo che MAIA riproduce, ma il video lo serve senza controllarlo. L'utente ha scelto:
