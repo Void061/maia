@@ -9,11 +9,17 @@ const KEEP_DAYS = 7;
 export const BEAT_MS = 30_000;
 const BEAT_TIMEOUT_MS = 3 * BEAT_MS;
 
-export type ActivityFilter = 'changes' | 'all' | 'errors';
+export const ACTIVITY_FILTERS = ['all', 'created', 'updated', 'unchanged', 'errors'] as const;
+export type ActivityFilter = (typeof ACTIVITY_FILTERS)[number];
 
-// Title outcomes that are not a change: hidden unless the panel asks for everything.
-const QUIET_KINDS = ['unchanged'];
-const ERROR_KINDS = ['failed', 'pass-failed', 'pass-aborted'];
+// The kinds behind each filter of the log ("all" = no filter, passes included).
+// A title gone from the service counts as a change.
+const FILTER_KINDS: Record<Exclude<ActivityFilter, 'all'>, string[]> = {
+  created: ['created'],
+  updated: ['updated', 'missing'],
+  unchanged: ['unchanged'],
+  errors: ['failed', 'pass-failed', 'pass-aborted'],
+};
 
 // What the catalog worker is doing and did, for the admin panel ("Attività").
 // Written by the worker, read by the admin API. Database only: recording never
@@ -94,13 +100,13 @@ export class CatalogActivity {
     return count;
   }
 
-  // Newest first; `before` is the last id of the previous page.
-  async events(provider: string, filter: ActivityFilter, before: number | undefined, limit: number) {
+  // Newest first, all sources or one; `before` is the last id of the previous page.
+  async events(provider: string | undefined, filter: ActivityFilter, before: number | undefined, limit: number) {
     const rows = await this.prisma.catalogEvent.findMany({
       where: {
-        provider,
+        ...(provider ? { provider } : {}),
         ...(before ? { id: { lt: before } } : {}),
-        ...(filter === 'changes' ? { kind: { notIn: QUIET_KINDS } } : filter === 'errors' ? { kind: { in: ERROR_KINDS } } : {}),
+        ...(filter === 'all' ? {} : { kind: { in: FILTER_KINDS[filter] } }),
       },
       orderBy: { id: 'desc' },
       take: limit + 1,
@@ -108,49 +114,57 @@ export class CatalogActivity {
     return { events: rows.slice(0, limit), more: rows.length > limit };
   }
 
-  // The worker's queue for a source, read from pg-boss: titles waiting, retrying
-  // after an error, and the ones being read right now.
-  async live(provider: string) {
+  // What the worker is doing now, read from pg-boss: whether it runs at all,
+  // and per source the full pass (waiting or running), the titles waiting,
+  // retrying after an error and being read right now.
+  async live() {
     const [counts, active, passes, beat] = await Promise.all([
-      this.prisma.$queryRaw<{ state: string; n: number }[]>`
-        SELECT state::text AS state, count(*)::int AS n
+      this.prisma.$queryRaw<{ provider: string; state: string; n: number }[]>`
+        SELECT data->>'provider' AS provider, state::text AS state, count(*)::int AS n
           FROM pgboss.job
-         WHERE name = ${QUEUES.syncTitle} AND state IN ('created', 'retry') AND data->>'provider' = ${provider}
-         GROUP BY 1`.catch(() => []),
-      this.prisma.$queryRaw<{ externalId: string; name: string | null; startedOn: Date | null; stale: boolean }[]>`
-        SELECT j.data->>'externalId' AS "externalId", p.name, j.started_on AS "startedOn",
+         WHERE name = ${QUEUES.syncTitle} AND state IN ('created', 'retry')
+         GROUP BY 1, 2`.catch(() => []),
+      this.prisma.$queryRaw<{ provider: string; externalId: string; name: string | null; startedOn: Date | null; stale: boolean }[]>`
+        SELECT j.data->>'provider' AS provider, j.data->>'externalId' AS "externalId", p.name, j.started_on AS "startedOn",
                j.started_on < now() - make_interval(secs => j.expire_seconds) AS stale
           FROM pgboss.job j
           LEFT JOIN provider_titles p ON p.provider = j.data->>'provider' AND p.external_id = j.data->>'externalId'
-         WHERE j.name = ${QUEUES.syncTitle} AND j.state = 'active' AND j.data->>'provider' = ${provider}
+         WHERE j.name = ${QUEUES.syncTitle} AND j.state = 'active'
          ORDER BY j.started_on`.catch(() => []),
-      // The full pass of the source, if one is waiting or running (one at a time: singleton queue).
-      this.prisma.$queryRaw<{ state: string; createdOn: Date; startedOn: Date | null }[]>`
-        SELECT state::text AS state, created_on AS "createdOn", started_on AS "startedOn"
+      this.prisma.$queryRaw<{ provider: string; state: string; createdOn: Date; startedOn: Date | null }[]>`
+        SELECT DISTINCT ON (data->>'provider') data->>'provider' AS provider, state::text AS state,
+               created_on AS "createdOn", started_on AS "startedOn"
           FROM pgboss.job
-         WHERE name = ${QUEUES.discover} AND state IN ('created', 'active', 'retry') AND data->>'provider' = ${provider}
-         ORDER BY created_on DESC LIMIT 1`.catch(() => []),
+         WHERE name = ${QUEUES.discover} AND state IN ('created', 'active', 'retry')
+         ORDER BY data->>'provider', created_on DESC`.catch(() => []),
       this.prisma.catalogWorkerBeat.findUnique({ where: { id: 1 } }).catch(() => null),
     ]);
-    const pass = passes[0];
+    const source = (provider: string) => {
+      const pass = passes.find((p) => p.provider === provider);
+      const mine = active.filter((a) => a.provider === provider);
+      const count = (state: string) => counts.find((c) => c.provider === provider && c.state === state)?.n ?? 0;
+      return {
+        pass: pass
+          ? {
+              state: pass.state === 'active' ? 'running' : pass.state === 'retry' ? 'retry' : 'waiting',
+              since: pass.state === 'active' && pass.startedOn ? pass.startedOn : pass.createdOn,
+            }
+          : null,
+        queued: count('created'),
+        retrying: count('retry'),
+        // Past their time limit: left halfway by a worker that stopped. pg-boss
+        // only expires them (and retries) once a worker runs again.
+        stalled: mine.filter((a) => a.stale).length,
+        active: mine.filter((a) => !a.stale),
+      };
+    };
     return {
       worker: {
         online: !!beat && beat.seenAt.getTime() > Date.now() - BEAT_TIMEOUT_MS,
         startedAt: beat?.startedAt ?? null,
         seenAt: beat?.seenAt ?? null,
       },
-      pass: pass
-        ? {
-            state: pass.state === 'active' ? 'running' : pass.state === 'retry' ? 'retry' : 'waiting',
-            since: pass.state === 'active' && pass.startedOn ? pass.startedOn : pass.createdOn,
-          }
-        : null,
-      queued: counts.find((c) => c.state === 'created')?.n ?? 0,
-      retrying: counts.find((c) => c.state === 'retry')?.n ?? 0,
-      // Past their time limit: left halfway by a worker that stopped. pg-boss
-      // only expires them (and retries) once a worker runs again.
-      stalled: active.filter((a) => a.stale).length,
-      active: active.filter((a) => !a.stale),
+      source,
     };
   }
 

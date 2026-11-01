@@ -17,7 +17,7 @@ import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { ErrorDto } from '../auth/dto.js';
 import { CacheService } from '../cache/cache.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { CatalogActivity, type ActivityFilter } from '../tv/catalog/catalog.activity.js';
+import { ACTIVITY_FILTERS, CatalogActivity, type ActivityFilter } from '../tv/catalog/catalog.activity.js';
 import { CatalogScheduler, type PassState } from '../tv/catalog/catalog.scheduler.js';
 import { CHECK_HOURS, DEFAULT_SYNC } from '../tv/catalog/queues.js';
 import { baseUrl, defaultBaseUrl, normalizeBaseUrl } from '../tv/providers/base-urls.js';
@@ -102,9 +102,19 @@ class BaseUrlResultDto {
 }
 
 class ActivityQueryDto {
-  @ApiPropertyOptional({ enum: ['changes', 'all', 'errors'], default: 'changes', description: 'changes = all but the unchanged titles' })
+  @ApiPropertyOptional({ description: 'One catalog source; all of them when absent' })
   @IsOptional()
-  @IsIn(['changes', 'all', 'errors'])
+  @IsString()
+  @MaxLength(40)
+  source?: string;
+
+  @ApiPropertyOptional({
+    enum: ACTIVITY_FILTERS,
+    default: 'all',
+    description: 'created / updated (gone from the service included) / unchanged titles, errors, or all (passes included)',
+  })
+  @IsOptional()
+  @IsIn([...ACTIVITY_FILTERS])
   filter?: ActivityFilter;
 
   @ApiPropertyOptional({ description: 'Last event id of the previous page' })
@@ -131,6 +141,7 @@ class ActiveTitleDto {
 
 class ActivityEventDto {
   @ApiProperty() id: number;
+  @ApiProperty() source: string;
   @ApiProperty({
     description:
       'Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check',
@@ -140,7 +151,7 @@ class ActivityEventDto {
   @ApiPropertyOptional({ nullable: true, type: String }) name: string | null;
   @ApiPropertyOptional({ nullable: true, type: Number, description: 'Full passes: titles listed by the service' }) found: number | null;
   @ApiPropertyOptional({ nullable: true, type: Number, description: 'Passes and checks: titles queued' }) queued: number | null;
-  @ApiPropertyOptional({ nullable: true, type: String, description: 'Error, or the kind of pass (fill / refresh)' })
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'Error, who pressed, or the kind of pass (fill / refresh)' })
   message: string | null;
   @ApiProperty() at: string;
 }
@@ -157,8 +168,9 @@ class PassStateDto {
   @ApiProperty({ description: 'Queued at (waiting, retry) or started at (running)' }) since: string;
 }
 
-class ActivityDto {
-  @ApiProperty({ type: WorkerStateDto }) worker: WorkerStateDto;
+class SourceLiveDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
   @ApiPropertyOptional({ nullable: true, type: PassStateDto, description: 'The full pass waiting or running, if any' })
   pass: PassStateDto | null;
   @ApiProperty({ description: 'Titles waiting in the queue' }) queued: number;
@@ -166,6 +178,11 @@ class ActivityDto {
   @ApiProperty({ description: 'Titles left halfway by a worker that stopped; retried when a worker runs again' })
   stalled: number;
   @ApiProperty({ type: [ActiveTitleDto], description: 'Titles being read right now' }) active: ActiveTitleDto[];
+}
+
+class ActivityLogDto {
+  @ApiProperty({ type: WorkerStateDto }) worker: WorkerStateDto;
+  @ApiProperty({ type: [SourceLiveDto], description: 'Every catalog source, in panel order' }) sources: SourceLiveDto[];
   @ApiProperty({ type: [ActivityEventDto], description: 'Newest first' }) events: ActivityEventDto[];
   @ApiProperty({ description: 'Older events exist (ask again with before = last id)' }) more: boolean;
 }
@@ -278,25 +295,38 @@ export class AdminServicesController {
     await this.activity.passCancelled(id, admin.email);
   }
 
-  // What the catalog worker is doing for a source (queue, titles being read)
-  // and what it did (last week), newest first. Database only.
-  @Get(':id/activity')
-  @ApiOkResponse({ type: ActivityDto })
+  // The catalog log: what the worker is doing now (per source) and what it did
+  // in the last week, newest first, filtered by outcome and source. Database only.
+  @Get('activity')
+  @ApiOkResponse({ type: ActivityLogDto })
   @ApiNotFoundResponse({ type: ErrorDto, description: 'SERVICE_NOT_FOUND' })
-  async activityOf(@Param('id') id: string, @Query() q: ActivityQueryDto): Promise<ActivityDto> {
-    if (!SERVICES.some((s) => s.id === id && s.catalog)) throw notFound();
-    const [live, page] = await Promise.all([this.activity.live(id), this.activity.events(id, q.filter ?? 'changes', q.before, q.limit ?? 50)]);
+  async activityLog(@Query() q: ActivityQueryDto): Promise<ActivityLogDto> {
+    if (q.source && !SERVICES.some((s) => s.id === q.source && s.catalog)) throw notFound();
+    const [live, page] = await Promise.all([
+      this.activity.live(),
+      this.activity.events(q.source, q.filter ?? 'all', q.before, q.limit ?? 50),
+    ]);
     return {
-      ...live,
       worker: {
         online: live.worker.online,
         startedAt: live.worker.startedAt?.toISOString() ?? null,
         seenAt: live.worker.seenAt?.toISOString() ?? null,
       },
-      pass: live.pass ? { state: live.pass.state as PassStateDto['state'], since: live.pass.since.toISOString() } : null,
-      active: live.active.map((a) => ({ externalId: a.externalId, name: a.name, startedAt: a.startedOn?.toISOString() ?? null })),
+      sources: SERVICES.filter((s) => s.catalog).map((s) => {
+        const src = live.source(s.id);
+        return {
+          id: s.id,
+          name: s.name,
+          pass: src.pass ? { state: src.pass.state as PassStateDto['state'], since: src.pass.since.toISOString() } : null,
+          queued: src.queued,
+          retrying: src.retrying,
+          stalled: src.stalled,
+          active: src.active.map((a) => ({ externalId: a.externalId, name: a.name, startedAt: a.startedOn?.toISOString() ?? null })),
+        };
+      }),
       events: page.events.map((e) => ({
         id: e.id,
+        source: e.provider,
         kind: e.kind,
         externalId: e.externalId,
         name: e.name,

@@ -228,14 +228,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/services/{id}/activity": {
+    "/admin/services/activity": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["AdminServicesController_activityOf"];
+        get: operations["AdminServicesController_activityLog"];
         put?: never;
         post?: never;
         delete?: never;
@@ -668,22 +668,9 @@ export interface components {
             name?: string | null;
             startedAt?: string | null;
         };
-        ActivityEventDto: {
-            id: number;
-            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check */
-            kind: string;
-            externalId?: string | null;
-            name?: string | null;
-            /** @description Full passes: titles listed by the service */
-            found?: number | null;
-            /** @description Passes and checks: titles queued */
-            queued?: number | null;
-            /** @description Error, or the kind of pass (fill / refresh) */
-            message?: string | null;
-            at: string;
-        };
-        ActivityDto: {
-            worker: components["schemas"]["WorkerStateDto"];
+        SourceLiveDto: {
+            id: string;
+            name: string;
             /** @description The full pass waiting or running, if any */
             pass?: components["schemas"]["PassStateDto"] | null;
             /** @description Titles waiting in the queue */
@@ -694,6 +681,26 @@ export interface components {
             stalled: number;
             /** @description Titles being read right now */
             active: components["schemas"]["ActiveTitleDto"][];
+        };
+        ActivityEventDto: {
+            id: number;
+            source: string;
+            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check */
+            kind: string;
+            externalId?: string | null;
+            name?: string | null;
+            /** @description Full passes: titles listed by the service */
+            found?: number | null;
+            /** @description Passes and checks: titles queued */
+            queued?: number | null;
+            /** @description Error, who pressed, or the kind of pass (fill / refresh) */
+            message?: string | null;
+            at: string;
+        };
+        ActivityLogDto: {
+            worker: components["schemas"]["WorkerStateDto"];
+            /** @description Every catalog source, in panel order */
+            sources: components["schemas"]["SourceLiveDto"][];
             /** @description Newest first */
             events: components["schemas"]["ActivityEventDto"][];
             /** @description Older events exist (ask again with before = last id) */
@@ -1397,19 +1404,19 @@ export interface operations {
             };
         };
     };
-    AdminServicesController_activityOf: {
+    AdminServicesController_activityLog: {
         parameters: {
             query?: {
-                /** @description changes = all but the unchanged titles */
-                filter?: "changes" | "all" | "errors";
+                /** @description One catalog source; all of them when absent */
+                source?: string;
+                /** @description created / updated (gone from the service included) / unchanged titles, errors, or all (passes included) */
+                filter?: "all" | "created" | "updated" | "unchanged" | "errors";
                 /** @description Last event id of the previous page */
                 before?: number;
                 limit?: number;
             };
             header?: never;
-            path: {
-                id: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -1419,7 +1426,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityDto"];
+                    "application/json": components["schemas"]["ActivityLogDto"];
                 };
             };
             /** @description NOT_ADMIN */

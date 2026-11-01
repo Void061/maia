@@ -85,9 +85,9 @@ Visibile solo agli account `ADMIN` attivi: ci si arriva dal menu del profilo nel
 rispondono 403 `NOT_ADMIN`. Il ruolo è ricontrollato sul database a ogni chiamata, quindi togliere
 il ruolo o sospendere un admin ha effetto subito.
 
-Due schede, la cui scelta resta nell'indirizzo (`/admin?tab=services`: ricaricando si torna sulla
-stessa), ognuna con un badge su ciò che chiede attenzione: **Account** (badge: account da
-approvare) e **Servizi** (badge: servizi spenti o in pausa automatica).
+Tre schede, la cui scelta resta nell'indirizzo (`/admin?tab=services`, `/admin?tab=log`: ricaricando
+si torna sulla stessa): **Account** (badge: account da approvare), **Servizi** (badge: servizi spenti o
+in pausa automatica) e **Log**.
 
 - **Servizi**: un interruttore per ogni servizio esterno (RaiPlay, TMDB) per fermare
   subito ogni richiesta verso quel servizio; mostra chi l'ha spento e quando, la pausa automatica
@@ -96,9 +96,11 @@ approvare) e **Servizi** (badge: servizi spenti o in pausa automatica).
   di un servizio spento ha il bordo rosso, perché il solo interruttore si legge male. Sotto ogni
   fonte di catalogo (RaiPlay) c'è **Aggiornamento**: automatico (ora della passata giornaliera e
   ogni quante ore i controlli) o manuale, ultima passata e ultimo controllo, tasto "Aggiorna ora"
-  con conferma (vedi tv/catalog.md, "Orari di aggiornamento per fonte"). Sotto ancora c'è
-  **Attività**: cosa sta leggendo il worker, la coda e la lista di ciò che ha fatto nell'ultima
-  settimana, con filtri Modifiche / Tutto / Solo errori (vedi tv/catalog.md, "Attività del worker").
+  con conferma; mentre una passata aspetta o gira, un'etichetta corta (In coda / In corso / Da
+  riprovare) e "Togli dalla coda" (vedi tv/catalog.md, "Orari di aggiornamento per fonte").
+- **Log**: un registro unico del catalogo per tutte le fonti: in alto se il worker è acceso e cosa sta
+  leggendo, sotto la lista dell'ultima settimana con un solo filtro (Tutto, Nuovi, Modificati,
+  Invariati, Errori) e la scelta della fonte (vedi tv/catalog.md, "Log del catalogo").
 - **Account** — filtri con i conteggi: **Da approvare** (si apre qui), Email da confermare, Attivi, Sospesi, Tutti;
   ricerca per nome o email.
 - Ogni riga: nome, email, stato, badge Admin, data di registrazione, email confermata o no, numero

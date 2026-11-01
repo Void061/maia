@@ -286,3 +286,17 @@ credere che SDM si stesse aggiornando, mentre la passata era solo in coda. Per l
 il riquadro di "Aggiornamento" mostra un'etichetta corta (In coda / In corso / Da riprovare) con la
 spiegazione sotto, invece di una frase lunga nel pulsante (illeggibile su telefono, segnalato
 dall'utente), e una passata non ancora partita si può togliere dalla coda.
+
+**Log del catalogo in una scheda sola** (2026-11-01, chiesto dall'utente: "nei log non si capisce
+niente, basta una tab di log unica"): le sezioni "Attività" sotto ogni fonte, con i loro filtri,
+diventano la scheda **Log** del pannello admin: un registro per tutte le fonti con un solo filtro
+per esito (Tutto, Nuovi, Modificati, Invariati, Errori) e la scelta della fonte a pillole (la select
+nativa era brutta su telefono).
+
+**Giro di controllo del frontend** (2026-11-01, desktop, tablet, TV e telefono): la trama della card
+grande di "In primo piano" usciva intera perché `sm:block` annullava `line-clamp` (ora 3 righe);
+le stagioni di una serie lunga (22) occupavano mezza pagina su telefono, ora sono una riga che
+scorre; immagini in cima caricate subito (avvisi LCP di Next). Errori di Next: l'idratazione su
+`<body>` veniva da un'estensione del browser (`suppressHydrationWarning` su `<html>` e `<body>`); il
+`redirect()` nella pagina `/` rompeva il controllo di prerender a ogni visita, ora `/` lo gestisce
+il proxy.
