@@ -282,4 +282,7 @@ pg-boss. Prima l'esito stava solo nella console del worker e i titoli invariati 
 nemmeno lì. Scelte: gli invariati si salvano ma di base si nascondono (sono la maggior parte),
 storico di 7 giorni, nessun evento per i titoli rimandati con il servizio spento o in pausa.
 Il worker scrive anche un segnale di vita: "Aggiornamento in corso" con il worker spento lasciava
-credere che SDM si stesse aggiornando, mentre la passata era solo in coda.
+credere che SDM si stesse aggiornando, mentre la passata era solo in coda. Per lo stesso motivo
+il riquadro di "Aggiornamento" mostra un'etichetta corta (In coda / In corso / Da riprovare) con la
+spiegazione sotto, invece di una frase lunga nel pulsante (illeggibile su telefono, segnalato
+dall'utente), e una passata non ancora partita si può togliere dalla coda.

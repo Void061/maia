@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -18,7 +18,7 @@ import { ErrorDto } from '../auth/dto.js';
 import { CacheService } from '../cache/cache.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CatalogActivity, type ActivityFilter } from '../tv/catalog/catalog.activity.js';
-import { CatalogScheduler } from '../tv/catalog/catalog.scheduler.js';
+import { CatalogScheduler, type PassState } from '../tv/catalog/catalog.scheduler.js';
 import { CHECK_HOURS, DEFAULT_SYNC } from '../tv/catalog/queues.js';
 import { baseUrl, defaultBaseUrl, normalizeBaseUrl } from '../tv/providers/base-urls.js';
 import { ServiceSwitches } from '../tv/providers/service-switches.js';
@@ -61,6 +61,14 @@ class SyncInfoDto {
   @ApiPropertyOptional({ nullable: true, type: LastRunDto }) lastRun: LastRunDto | null;
   @ApiPropertyOptional({ nullable: true, type: String }) lastCheckAt: string | null;
   @ApiProperty({ description: 'A full pass is queued or running' }) running: boolean;
+  @ApiPropertyOptional({
+    nullable: true,
+    enum: ['waiting', 'running', 'retry'],
+    description: 'The full pass: waiting = queued, not started yet; null = none',
+  })
+  passState: 'waiting' | 'running' | 'retry' | null;
+  @ApiProperty({ description: 'A catalog worker is running: without one a queued pass does not start' })
+  workerOnline: boolean;
 }
 
 class SyncSettingsDto {
@@ -125,7 +133,7 @@ class ActivityEventDto {
   @ApiProperty() id: number;
   @ApiProperty({
     description:
-      'Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-start | pass-done | pass-aborted | pass-failed | check',
+      'Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check',
   })
   kind: string;
   @ApiPropertyOptional({ nullable: true, type: String }) externalId: string | null;
@@ -196,8 +204,9 @@ export class AdminServicesController {
          GROUP BY 1`.catch(() => []),
       this.prisma.syncRun.findMany({ distinct: ['provider'], orderBy: { startedAt: 'desc' } }),
     ]);
-    const running = new Map<string, boolean>();
-    for (const s of SERVICES.filter((x) => x.catalog)) running.set(s.id, await this.scheduler.running(s.id));
+    const passes = new Map<string, PassState | null>();
+    for (const s of SERVICES.filter((x) => x.catalog)) passes.set(s.id, (await this.scheduler.pass(s.id))?.state ?? null);
+    const workerOnline = await this.activity.workerOnline();
     return SERVICES.map((s) => {
       const h = health.find((x) => x.provider === s.id);
       const paused = h?.status === 'DOWN' && h.retryAfter && h.retryAfter > new Date();
@@ -215,7 +224,7 @@ export class AdminServicesController {
         queued: queued.find((q) => q.provider === s.id)?.n ?? 0,
         baseUrl: s.baseUrl ? baseUrl(s.id) : null,
         defaultBaseUrl: defaultBaseUrl(s.id),
-        sync: s.catalog ? this.syncInfo(h, runs.find((r) => r.provider === s.id), running.get(s.id) ?? false) : null,
+        sync: s.catalog ? this.syncInfo(h, runs.find((r) => r.provider === s.id), passes.get(s.id) ?? null, workerOnline) : null,
       };
     });
   }
@@ -248,6 +257,25 @@ export class AdminServicesController {
     }
     const admin = await this.prisma.account.findUniqueOrThrow({ where: { id: me.accountId }, select: { email: true } });
     await this.activity.passQueued(id, admin.email);
+  }
+
+  // Takes a queued full pass back out before it starts (e.g. pressed by mistake,
+  // or the worker is off). A running pass is stopped with the service switch.
+  @Delete(':id/sync-now')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse({ type: ErrorDto, description: 'SERVICE_NOT_FOUND' })
+  @ApiConflictResponse({ type: ErrorDto, description: 'NOT_QUEUED' })
+  async cancelSyncNow(@CurrentUser() me: AuthUser, @Param('id') id: string) {
+    if (!SERVICES.some((s) => s.id === id && s.catalog)) throw notFound();
+    if (!(await this.scheduler.cancelQueued(id))) {
+      throw new ConflictException({
+        code: 'NOT_QUEUED',
+        message: 'Nessuna passata in coda: è già partita (per fermarla spegni il servizio) o è già finita.',
+      });
+    }
+    const admin = await this.prisma.account.findUniqueOrThrow({ where: { id: me.accountId }, select: { email: true } });
+    await this.activity.passCancelled(id, admin.email);
   }
 
   // What the catalog worker is doing for a source (queue, titles being read)
@@ -310,7 +338,8 @@ export class AdminServicesController {
   private syncInfo(
     h: { syncMode: 'AUTO' | 'MANUAL'; syncAt: string; syncEveryHours: number | null; lastCheckAt: Date | null } | undefined,
     run: { startedAt: Date; finishedAt: Date | null; status: string; found: number | null } | undefined,
-    running: boolean,
+    pass: PassState | null,
+    workerOnline: boolean,
   ): SyncInfoDto {
     return {
       mode: h?.syncMode ?? DEFAULT_SYNC.mode,
@@ -320,7 +349,9 @@ export class AdminServicesController {
         ? { startedAt: run.startedAt.toISOString(), finishedAt: run.finishedAt?.toISOString() ?? null, status: run.status, found: run.found }
         : null,
       lastCheckAt: h?.lastCheckAt?.toISOString() ?? null,
-      running,
+      running: pass !== null,
+      passState: pass,
+      workerOnline,
     };
   }
 

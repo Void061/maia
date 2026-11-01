@@ -222,7 +222,7 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["AdminServicesController_syncNow"];
-        delete?: never;
+        delete: operations["AdminServicesController_cancelSyncNow"];
         options?: never;
         head?: never;
         patch?: never;
@@ -604,6 +604,13 @@ export interface components {
             lastCheckAt?: string | null;
             /** @description A full pass is queued or running */
             running: boolean;
+            /**
+             * @description The full pass: waiting = queued, not started yet; null = none
+             * @enum {string|null}
+             */
+            passState?: "waiting" | "running" | "retry" | null;
+            /** @description A catalog worker is running: without one a queued pass does not start */
+            workerOnline: boolean;
         };
         AdminServiceDto: {
             id: string;
@@ -663,7 +670,7 @@ export interface components {
         };
         ActivityEventDto: {
             id: number;
-            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-start | pass-done | pass-aborted | pass-failed | check */
+            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check */
             kind: string;
             externalId?: string | null;
             name?: string | null;
@@ -1334,6 +1341,52 @@ export interface operations {
                 };
             };
             /** @description SERVICE_OFF | ALREADY_RUNNING */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_cancelSyncNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description NOT_QUEUED */
             409: {
                 headers: {
                     [name: string]: unknown;

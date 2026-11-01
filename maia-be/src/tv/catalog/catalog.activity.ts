@@ -43,6 +43,15 @@ export class CatalogActivity {
     await this.record({ provider, kind: 'pass-queued', message: by });
   }
 
+  async passCancelled(provider: string, by: string) {
+    await this.record({ provider, kind: 'pass-cancelled', message: by });
+  }
+
+  async workerOnline(): Promise<boolean> {
+    const beat = await this.prisma.catalogWorkerBeat.findUnique({ where: { id: 1 } }).catch(() => null);
+    return !!beat && beat.seenAt.getTime() > Date.now() - BEAT_TIMEOUT_MS;
+  }
+
   async beat(startedAt: Date) {
     const seenAt = new Date();
     await this.prisma.catalogWorkerBeat

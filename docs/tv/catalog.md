@@ -371,8 +371,11 @@ sotto ogni fonte di catalogo; impostazioni in `provider_health`, programmazioni 
   3, 4, 6, 8 o 12 ore nelle ore in mezzo, oppure solo la passata giornaliera. Passando ad
   automatico il pannello propone le 3:00 con controlli ogni 3 ore.
 - In entrambi i casi i video scaduti si spengono ogni ora.
-- Il pannello mostra l'ultima passata (quando, esito, titoli trovati), l'ultimo controllo e se una
-  passata è in corso; "Aggiorna ora" non parte se il servizio è spento o se una passata è già in
+- Il pannello mostra l'ultima passata (quando, esito, titoli trovati), l'ultimo controllo e lo stato
+  della passata con un'etichetta corta: **In coda** (non ancora partita; sotto dice se il worker è
+  spento e quindi non partirà), **In corso** o **Da riprovare**. Una passata in coda o da riprovare
+  si toglie con **"Togli dalla coda"** (`DELETE /admin/services/:id/sync-now`); una già partita si
+  ferma con l'interruttore del servizio; "Aggiorna ora" non parte se il servizio è spento o se una passata è già in
   corso.
 - **Passate interrotte**: c'è un solo worker per volta, quindi quando parte chiude le passate rimaste
   "in corso" dal processo precedente (riavvio, deploy). Altrimenti pg-boss le rilancerebbe da sole
@@ -393,7 +396,8 @@ catalogo; `catalog/catalog.activity.ts`, tabella `catalog_events`, API
   pg-boss li fa riprovare solo quando un worker riparte, quindi non compaiono come "in lettura".
   Se il worker è acceso, ci sono titoli in coda ma nessuno in lettura, il servizio è spento o in
   pausa.
-- Sotto, quello che è successo, dal più recente: "Aggiorna ora" premuto (e da chi), ogni titolo letto (**Nuovo**,
+- Sotto, quello che è successo, dal più recente: "Aggiorna ora" premuto o passata tolta dalla coda
+  (e da chi), ogni titolo letto (**Nuovo**,
   **Aggiornato**, **Invariato**, **Non più sul servizio**, **Errore** con il messaggio), l'inizio e
   la fine di ogni passata completa (titoli trovati e messi in coda; annullata se l'elenco sembrava
   incompleto; non riuscita o saltata perché il servizio era spento) e ogni controllo delle novità.

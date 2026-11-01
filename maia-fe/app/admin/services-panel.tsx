@@ -276,8 +276,29 @@ function SyncSection({
       return refresh();
     },
   });
+  const cancel = useMutation({
+    mutationFn: () =>
+      api(`/admin/services/${id}/sync-now`, { method: "DELETE" }),
+    onSuccess: refresh,
+  });
   const edit = (patch: Partial<SyncSettings>) =>
     setDraft({ ...value, ...patch });
+  const pass = sync.passState ?? null;
+  // Short label in the chip; the explanation goes on its own line below.
+  const passChip =
+    pass === "running"
+      ? { label: "In corso", tone: "bg-[#18301f] text-[#7ee2a0]" }
+      : pass === "retry"
+        ? { label: "Da riprovare", tone: "bg-[#3a311a] text-[#ffd98a]" }
+        : { label: "In coda", tone: "bg-[#3a311a] text-[#ffd98a]" };
+  const passNote =
+    pass === "running"
+      ? "Passata completa in corso: i titoli letti compaiono in Attività."
+      : pass === "retry"
+        ? "La passata non è riuscita e verrà riprovata."
+        : sync.workerOnline
+          ? "La passata sta per partire."
+          : "Il worker è spento: la passata non parte finché non viene avviato.";
 
   const run = sync.lastRun;
   const lastRun = run
@@ -375,10 +396,23 @@ function SyncSection({
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {sync.running ? (
-          <span className="rounded-full bg-white/[0.08] px-3 py-1.5 text-sm text-muted">
-            Passata completa in coda o in corso: dettagli in Attività
-          </span>
+        {pass ? (
+          <>
+            <span
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold ${passChip.tone}`}
+            >
+              {passChip.label}
+            </span>
+            {pass !== "running" && (
+              <button
+                onClick={() => cancel.mutate()}
+                disabled={cancel.isPending}
+                className="focusable pill-focus h-10 rounded-full bg-white/[0.12] px-4 text-sm font-medium disabled:opacity-50"
+              >
+                Togli dalla coda
+              </button>
+            )}
+          </>
         ) : confirm ? (
           <>
             <button
@@ -410,15 +444,16 @@ function SyncSection({
           </span>
         )}
       </div>
-      {confirm && (
+      {pass && <p className="mt-2 text-sm text-muted">{passNote}</p>}
+      {confirm && !pass && (
         <p className="mt-2 text-sm text-muted">
           Rilegge l&apos;elenco completo di {name} e controlla le novità:
           qualche centinaio di richieste, al solito ritmo di una al secondo.
         </p>
       )}
-      {(save.error || runNow.error) && (
+      {(save.error || runNow.error || cancel.error) && (
         <div className="mt-3">
-          <Notice>{(save.error ?? runNow.error)!.message}</Notice>
+          <Notice>{(save.error ?? runNow.error ?? cancel.error)!.message}</Notice>
         </div>
       )}
     </div>
@@ -441,6 +476,7 @@ const TITLE_KINDS: Record<string, { label: string; tone: string }> = {
 
 const PASS_TONE: Record<string, string> = {
   "pass-queued": "text-muted",
+  "pass-cancelled": "text-muted",
   "pass-start": "text-muted",
   "pass-done": "text-[#7ee2a0]",
   "pass-aborted": "text-[#ffd98a]",
@@ -466,6 +502,8 @@ function passText(e: ActivityEvent) {
   switch (e.kind) {
     case "pass-queued":
       return `“Aggiorna ora” premuto${e.message ? ` da ${e.message}` : ""}: passata completa in coda`;
+    case "pass-cancelled":
+      return `Passata completa tolta dalla coda${e.message ? ` da ${e.message}` : ""}`;
     case "pass-start":
       return `${what} iniziata: lettura dell’elenco del servizio`;
     case "pass-done":
