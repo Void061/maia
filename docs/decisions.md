@@ -300,3 +300,9 @@ scorre; immagini in cima caricate subito (avvisi LCP di Next). Errori di Next: l
 `<body>` veniva da un'estensione del browser (`suppressHydrationWarning` su `<html>` e `<body>`); il
 `redirect()` nella pagina `/` rompeva il controllo di prerender a ogni visita, ora `/` lo gestisce
 il proxy.
+
+**Pausa del worker dal pannello** (2026-11-01, chiesto dall'utente): il worker si mette in pausa e
+riprende dalla scheda Log, senza fermare il processo (in produzione gira dentro il backend). In
+pausa non prende lavori nuovi e la coda resta intatta, così alla ripresa continua dallo stesso punto;
+i titoli già in lettura finiscono. Nel Log su telefono i filtri vanno a capo invece di uscire dallo
+schermo.

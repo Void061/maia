@@ -244,6 +244,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/services/worker/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AdminServicesController_pauseWorker"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/services/worker/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AdminServicesController_resumeWorker"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/services/{id}/base-url": {
         parameters: {
             query?: never;
@@ -649,6 +681,11 @@ export interface components {
         WorkerStateDto: {
             /** @description A catalog worker is running (heartbeat within 90 s) */
             online: boolean;
+            /** @description Paused from the panel: no new job is taken, the queue waits */
+            paused: boolean;
+            /** @description Last pause or resume */
+            changedAt?: string | null;
+            changedBy?: string | null;
             startedAt?: string | null;
             /** @description Last heartbeat */
             seenAt?: string | null;
@@ -685,7 +722,7 @@ export interface components {
         ActivityEventDto: {
             id: number;
             source: string;
-            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check */
+            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check. Worker (source "worker"): worker-paused | worker-resumed */
             kind: string;
             externalId?: string | null;
             name?: string | null;
@@ -1440,6 +1477,58 @@ export interface operations {
             };
             /** @description SERVICE_NOT_FOUND */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_pauseWorker: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_resumeWorker: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

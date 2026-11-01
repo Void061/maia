@@ -98,8 +98,8 @@ in pausa automatica) e **Log**.
   ogni quante ore i controlli) o manuale, ultima passata e ultimo controllo, tasto "Aggiorna ora"
   con conferma; mentre una passata aspetta o gira, un'etichetta corta (In coda / In corso / Da
   riprovare) e "Togli dalla coda" (vedi tv/catalog.md, "Orari di aggiornamento per fonte").
-- **Log**: un registro unico del catalogo per tutte le fonti: in alto se il worker è acceso e cosa sta
-  leggendo, sotto la lista dell'ultima settimana con un solo filtro (Tutto, Nuovi, Modificati,
+- **Log**: un registro unico del catalogo per tutte le fonti: in alto se il worker è acceso, cosa sta
+  leggendo e il tasto per metterlo in pausa o farlo riprendere, sotto la lista dell'ultima settimana con un solo filtro (Tutto, Nuovi, Modificati,
   Invariati, Errori) e la scelta della fonte (vedi tv/catalog.md, "Log del catalogo").
 - **Account** — filtri con i conteggi: **Da approvare** (si apre qui), Email da confermare, Attivi, Sospesi, Tutti;
   ricerca per nome o email.
