@@ -331,9 +331,9 @@ model ProviderHealth {
   retryAfter    DateTime?      @map("retry_after")
   lastSuccessAt DateTime?      @map("last_success_at")
   lastError     String?        @map("last_error")
-  /// Catalog sources only. AUTO: full pass every day at syncAt (Rome time,
+  /// Catalog sources only, MANUAL by default. AUTO: full pass every day at syncAt (Rome time,
   /// "HH:MM") and checks every syncEveryHours hours (null = none in between).
-  syncMode       SyncMode  @default(AUTO) @map("sync_mode")
+  syncMode       SyncMode  @default(MANUAL) @map("sync_mode")
   syncAt         String    @default("03:00") @map("sync_at")
   syncEveryHours Int?      @default(3) @map("sync_every_hours")
   lastCheckAt    DateTime? @map("last_check_at")

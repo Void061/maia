@@ -15,7 +15,9 @@ export const TZ = 'Europe/Rome';
 // How often a catalog source updates, set per source in the admin panel.
 export type SyncMode = 'AUTO' | 'MANUAL';
 export type SyncSettings = { mode: SyncMode; at: string; everyHours: number | null };
-export const DEFAULT_SYNC: SyncSettings = { mode: 'AUTO', at: '03:00', everyHours: 3 };
+// Manual by default: a source updates only from the admin panel until someone
+// sets a schedule there.
+export const DEFAULT_SYNC: SyncSettings = { mode: 'MANUAL', at: '03:00', everyHours: 3 };
 // Divisors of 24, so the checks fall at the same hours every day.
 export const CHECK_HOURS = [1, 2, 3, 4, 6, 8, 12] as const;
 

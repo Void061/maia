@@ -291,3 +291,12 @@ sono diventati il "controllo" di ogni fonte; resta fisso solo lo spegnimento ora
 scaduti, che non fa richieste. Il worker chiude all'avvio le passate rimaste a metà: una passata
 interrotta dai riavvii di questa notte stava per ripartire da sola dopo che l'utente aveva scelto
 la modalità manuale.
+
+**Aggiornamenti in manuale di base** (chiesto dall'utente): i lavori del catalogo non partono più da
+soli; una fonte si aggiorna con "Aggiorna ora" finché nel pannello non si sceglie l'automatico
+(passata ogni notte all'ora voluta, controlli ripetuti ogni N ore). Lo spegnimento orario dei video
+scaduti resta, perché non fa richieste ai servizi.
+
+**Tastiera della ricerca chiusa di base** e **scheda del pannello admin nell'indirizzo** (segnalati
+dall'utente: su TV la tastiera era aperta anche senza premere la ricerca; cambiando scheda e
+ricaricando si tornava su Account).

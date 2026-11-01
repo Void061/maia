@@ -17,7 +17,7 @@ describe('syncCrons', () => {
     expect(syncCrons({ mode: 'AUTO', at: '22:00', everyHours: 8 })).toEqual({ full: '0 22 * * *', check: '0 6,14 * * *' });
   });
 
-  it('the default: 03:00 and every 3 hours', () => {
+  it('03:00 and every 3 hours (the old fixed schedule)', () => {
     expect(syncCrons({ mode: 'AUTO', at: '03:00', everyHours: 3 }).check).toBe('0 0,6,9,12,15,18,21 * * *');
   });
 });

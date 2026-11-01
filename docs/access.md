@@ -85,7 +85,8 @@ Visibile solo agli account `ADMIN` attivi: ci si arriva dal menu del profilo nel
 rispondono 403 `NOT_ADMIN`. Il ruolo è ricontrollato sul database a ogni chiamata, quindi togliere
 il ruolo o sospendere un admin ha effetto subito.
 
-Due schede, ognuna con un badge su ciò che chiede attenzione: **Account** (badge: account da
+Due schede, la cui scelta resta nell'indirizzo (`/admin?tab=services`: ricaricando si torna sulla
+stessa), ognuna con un badge su ciò che chiede attenzione: **Account** (badge: account da
 approvare) e **Servizi** (badge: servizi spenti o in pausa automatica).
 
 - **Servizi**: un interruttore per ogni servizio esterno (RaiPlay, TMDB) per fermare

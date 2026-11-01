@@ -336,12 +336,13 @@ Codice in `maia-be/src/tv/`:
 **Orari di aggiornamento per fonte** (pannello `/admin`, scheda Servizi, sezione "Aggiornamento"
 sotto ogni fonte di catalogo; impostazioni in `provider_health`, programmazioni scritte da
 `CatalogScheduler`):
-- **Automatico**: passata completa ogni giorno all'ora scelta (ora di Roma) e controlli ogni 1, 2,
-  3, 4, 6, 8 o 12 ore nelle ore in mezzo, oppure solo la passata giornaliera. Predefinito: alle
-  3:00, controlli ogni 3 ore.
-- **Manuale**: nessuna passata né controllo programmati; il catalogo si aggiorna solo con
+- **Manuale (predefinito)**: nessuna passata né controllo programmati; il catalogo si aggiorna solo con
   **"Aggiorna ora"** (passata completa più controllo, con conferma). Quello che è già in coda viene
-  comunque smaltito; per fermarlo subito c'è l'interruttore del servizio.
+  comunque smaltito; per fermarlo subito c'è l'interruttore del servizio. Una fonte nuova parte così:
+  non contatta il servizio finché un amministratore non lo decide.
+- **Automatico**: passata completa ogni giorno all'ora scelta (ora di Roma) e controlli ogni 1, 2,
+  3, 4, 6, 8 o 12 ore nelle ore in mezzo, oppure solo la passata giornaliera. Passando ad
+  automatico il pannello propone le 3:00 con controlli ogni 3 ore.
 - In entrambi i casi i video scaduti si spengono ogni ora.
 - Il pannello mostra l'ultima passata (quando, esito, titoli trovati), l'ultimo controllo e se una
   passata è in corso; "Aggiorna ora" non parte se il servizio è spento o se una passata è già in

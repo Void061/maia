@@ -6,7 +6,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Avatar from "@/components/avatar";
 import { BackIcon, SearchIcon } from "@/components/icons";
@@ -60,7 +60,13 @@ type Tab = "accounts" | "services";
 export default function AdminPanel() {
   const router = useRouter();
   const { data: me } = useMe();
-  const [tab, setTab] = useState<Tab>("accounts");
+  // The open tab is in the URL, so a reload (or a bookmark) opens the same one.
+  const params = useSearchParams();
+  const tab: Tab = params.get("tab") === "services" ? "services" : "accounts";
+  const setTab = (t: Tab) =>
+    router.replace(t === "services" ? "/admin?tab=services" : "/admin", {
+      scroll: false,
+    });
   const [filter, setFilter] = useState<Status | "ALL">("PENDING_APPROVAL");
   const [typed, setTyped] = useState("");
   const [q, setQ] = useState("");

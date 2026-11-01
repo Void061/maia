@@ -82,7 +82,7 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 | `/tv/movies/[genre]`, `/tv/series/[genre]` | pagina del genere: hero corto e griglia completa |
 | `/tv/genre/[genre]` | scorciatoia su film **e** serie insieme (es. "Commedie") |
 | `/tv/title/[id]` | scheda: hero con Guarda/Riprendi, poi le schede *Episodi* (con le stagioni), *Extra* (highlights, clip, anticipazioni: solo se ce ne sono, divisi in gruppi, prima quelli della stagione scelta, poi quelli generali), *Altri come questo*, *Dettagli*; nessuna indicazione delle fonti |
-| `/tv/search` | ricerca con tastiera a griglia su schermi grandi |
+| `/tv/search` | ricerca; su schermi grandi (TV) una tastiera a griglia **chiusa di base**: si apre premendo il campo (OK, clic o Invio, non solo arrivandoci con le frecce; col telecomando il focus va sulla prima lettera), si chiude con "Chiudi tastiera", Indietro/Esc (restando sulla pagina) o uscendo dall'area di ricerca; mentre è aperta è un livello `data-focus-trap` |
 | `/watch/[id]` | player a schermo intero |
 
 **Menu (TV, desktop, tablet):** barra in alto, trasparente sopra l'immagine e in vetro quando si
