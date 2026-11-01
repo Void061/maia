@@ -4,7 +4,7 @@ _Stato: catalogo RaiPlay nel database con aggiornamento automatico; il frontend 
 
 ## Servizi
 
-Solo servizi gratuiti e legali. Primo servizio: **RaiPlay**; secondo: **SDM**, il server
+Primo servizio: **RaiPlay**; secondo: **SDM**, il server
 multimediale di casa dell'utente (vedi "SDM"). Poi, uno alla volta, gli altri,
 ognuno dopo aver verificato che funziona con i vincoli sotto.
 
@@ -36,9 +36,8 @@ Prove fatte da IP italiano (casa) e da un IP di data center a Francoforte:
 
 ## Rispetto dei servizi (regola per ogni provider)
 
-MAIA usa servizi di altri (RaiPlay, TMDB e quelli che verranno). Non deve mai pesare su di loro
-né sembrare un abuso: rischieremmo un blocco o problemi legali. Vale per **qualsiasi provider**,
-di catalogo o di metadati, presente o futuro:
+MAIA usa servizi di altri (RaiPlay, TMDB e quelli che verranno). Vale per **qualsiasi provider**,
+di catalogo o di metadati, presente o futuro: Lo scraping è morbido anche se diventa lento, mai aggressivo.
 
 - **Tutte le richieste a un servizio passano da `polite-fetch`**: una alla volta per host, al
   massimo **1 al secondo** (`DEFAULT_GAP_MS`). Più veloce solo per un'API ufficiale che pubblica
