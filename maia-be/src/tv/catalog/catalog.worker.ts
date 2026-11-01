@@ -5,20 +5,11 @@ import { CacheService } from '../../cache/cache.service.js';
 import { HttpError, ServiceStoppedError } from '../providers/polite-fetch.js';
 import { ServiceSwitches } from '../providers/service-switches.js';
 import { SECTIONS } from '../providers/raiplay/raiplay.adapter.js';
+import { CatalogScheduler } from './catalog.scheduler.js';
 import { CatalogService, ProviderPausedError } from './catalog.service.js';
+import { QUEUES, TZ, type CheckJob, type DiscoverJob, type SyncTitleJob } from './queues.js';
 
-// Job queues of the catalog sync, stored in Postgres (schema "pgboss").
-export const QUEUES = {
-  discover: 'catalog-discover', // list a whole service; fill or nightly refresh
-  syncTitle: 'catalog-sync-title', // read one title and merge it
-  due: 'catalog-due', // hourly: titles whose turn has come, expired videos off
-  news: 'catalog-news', // every 3 hours: the services' front lists
-} as const;
-
-export type DiscoverJob = { provider: string; mode: 'fill' | 'refresh' };
-export type SyncTitleJob = { provider: string; externalId: string };
-
-const TZ = 'Europe/Rome';
+export { QUEUES };
 // Catalog changes close together (a burst of titles) drop the cache once.
 const INVALIDATE_DELAY_MS = 10_000;
 // A title whose service is switched off waits this long before trying again.
@@ -38,6 +29,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly cache: CacheService,
     private readonly switches: ServiceSwitches,
+    private readonly scheduler: CatalogScheduler,
   ) {}
 
   // The services a job needs: the catalog service itself, and TMDB for matching.
@@ -78,20 +70,23 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     // stately + singletonKey: at most one queued and one running job per title.
     await this.queue(QUEUES.syncTitle, { policy: 'stately', retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 900 });
     await this.queue(QUEUES.due, { policy: 'singleton', expireInSeconds: 1800 });
-    await this.queue(QUEUES.news, { policy: 'singleton', expireInSeconds: 1800 });
+    await this.queue(QUEUES.check, { policy: 'singleton', expireInSeconds: 1800 });
 
-    for (const provider of Object.keys(this.catalog.adapters)) {
-      await boss.schedule(QUEUES.discover, '0 3 * * *', { provider, mode: 'refresh' } satisfies DiscoverJob, { tz: TZ, key: provider });
-    }
+    const closed = await this.catalog.closeInterruptedRuns();
+    if (closed) this.logger.warn(`${closed} full pass(es) cut short by the previous worker closed`);
+
+    // Expired videos go off every hour whatever the update settings (no request to any service).
     await boss.schedule(QUEUES.due, '15 * * * *', {}, { tz: TZ });
-    await boss.schedule(QUEUES.news, '0 */3 * * *', {}, { tz: TZ });
+    // Full passes and checks follow each source's settings (admin panel).
+    await boss.unschedule('catalog-news'); // replaced by catalog-check
+    await this.scheduler.applyAll();
 
     await boss.work<DiscoverJob>(QUEUES.discover, { batchSize: 1 }, ([job]) => this.onDiscover(job));
     // Several in parallel: titles wait on TMDB and the database while the service's
     // requests stay one at a time (polite-fetch), so this does not load the service more.
     await boss.work<SyncTitleJob>(QUEUES.syncTitle, { batchSize: 1, localConcurrency: 8 }, ([job]) => this.onSyncTitle(job));
     await boss.work(QUEUES.due, { batchSize: 1 }, () => this.onDue());
-    await boss.work(QUEUES.news, { batchSize: 1 }, () => this.onNews());
+    await boss.work<CheckJob>(QUEUES.check, { batchSize: 1 }, ([job]) => this.onCheck(job));
     this.logger.log('Catalog workers running');
   }
 
@@ -122,6 +117,8 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     await this.enqueueTitles(provider, ids);
     this.catalogChanged(); // titles no longer listed lose their sources
     this.logger.log(`${provider} ${mode}: ${ids.length} titles queued`);
+    // A full pass also does what a check does: front lists and titles whose turn has come.
+    if (mode === 'refresh') await this.check(provider);
   }
 
   private async onSyncTitle(job: Job<SyncTitleJob>) {
@@ -147,27 +144,35 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     await this.boss!.send(QUEUES.syncTitle, data, { singletonKey: `${data.provider}:${data.externalId}`, startAfter: STOPPED_RETRY_SEC });
   }
 
+  // Hourly, database only.
   private async onDue() {
-    const due = await this.catalog.dueTitles();
-    for (const t of due) await this.enqueueTitles(t.provider, [t.externalId]);
-    this.catalogChanged(); // expired videos were switched off
-    if (due.length) this.logger.log(`${due.length} titles due for a check`);
+    if (await this.catalog.expireVideos()) this.catalogChanged();
   }
 
-  // Front lists change first: new films and episodes appear there.
-  private async onNews() {
-    if (this.switches.isStopped('raiplay')) return;
-    const adapter = this.catalog.adapters.raiplay;
+  private async onCheck(job: Job<CheckJob>) {
+    await this.check(job.data.provider);
+  }
+
+  // A source's front lists (new films and episodes appear there first) and its
+  // titles whose next check has come (adaptive rhythm).
+  private async check(provider: string) {
+    if (this.switches.isStopped(provider)) return;
     const ids = new Set<string>();
-    for (const section of SECTIONS) {
-      try {
-        for (const id of await adapter.listSection(section)) ids.add(id);
-      } catch (err) {
-        if (err instanceof HttpError && err.slowDown) throw err;
-        if (err instanceof ServiceStoppedError) return; // switched off while listing
-        this.logger.warn(`raiplay section ${section} skipped: ${String(err)}`); // e.g. a section RaiPlay removed
+    if (provider === 'raiplay') {
+      const adapter = this.catalog.adapters.raiplay;
+      for (const section of SECTIONS) {
+        try {
+          for (const id of await adapter.listSection(section)) ids.add(id);
+        } catch (err) {
+          if (err instanceof HttpError && err.slowDown) throw err;
+          if (err instanceof ServiceStoppedError) return; // switched off while listing
+          this.logger.warn(`raiplay section ${section} skipped: ${String(err)}`); // e.g. a section RaiPlay removed
+        }
       }
     }
-    await this.enqueueTitles('raiplay', [...ids]);
+    for (const t of await this.catalog.dueTitles(provider)) ids.add(t.externalId);
+    await this.enqueueTitles(provider, [...ids]);
+    await this.catalog.checked(provider);
+    this.logger.log(`${provider} check: ${ids.size} titles queued`);
   }
 }

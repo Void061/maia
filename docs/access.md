@@ -92,7 +92,10 @@ approvare) e **Servizi** (badge: servizi spenti o in pausa automatica).
   subito ogni richiesta verso quel servizio; mostra chi l'ha spento e quando, la pausa automatica
   per errori e i titoli in coda. Funzionamento in [tv/catalog.md](tv/catalog.md), "Interruttori dei
   servizi". Lo stato è scritto accanto all'interruttore ("Attivo" verde / "Spento" rosso) e la riga
-  di un servizio spento ha il bordo rosso, perché il solo interruttore si legge male.
+  di un servizio spento ha il bordo rosso, perché il solo interruttore si legge male. Sotto ogni
+  fonte di catalogo (RaiPlay) c'è **Aggiornamento**: automatico (ora della passata giornaliera e
+  ogni quante ore i controlli) o manuale, ultima passata e ultimo controllo, tasto "Aggiorna ora"
+  con conferma (vedi tv/catalog.md, "Orari di aggiornamento per fonte").
 - **Account** — filtri con i conteggi: **Da approvare** (si apre qui), Email da confermare, Attivi, Sospesi, Tutti;
   ricerca per nome o email.
 - Ogni riga: nome, email, stato, badge Admin, data di registrazione, email confermata o no, numero
@@ -181,3 +184,5 @@ Documentazione interattiva su `http://localhost:3000/docs` (JSON su `/docs-json`
 | DELETE | `/admin/accounts/:id` | rifiuta / elimina |
 | GET | `/admin/services` | servizi esterni con interruttore, pausa automatica e titoli in coda |
 | POST | `/admin/services/:id` | `{enabled}`: spegne o riaccende un servizio (subito) |
+| PATCH | `/admin/services/:id/sync` | `{mode: AUTO\|MANUAL, at: "HH:MM", everyHours}`: orari di aggiornamento di una fonte |
+| POST | `/admin/services/:id/sync-now` | passata completa adesso (409 `SERVICE_OFF` / `ALREADY_RUNNING`) |

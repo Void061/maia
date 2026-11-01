@@ -196,6 +196,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/services/{id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["AdminServicesController_setSync"];
+        trace?: never;
+    };
+    "/admin/services/{id}/sync-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AdminServicesController_syncNow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/services/{id}": {
         parameters: {
             query?: never;
@@ -522,6 +554,25 @@ export interface components {
             /** @enum {string} */
             role: "USER" | "ADMIN";
         };
+        LastRunDto: {
+            startedAt: string;
+            finishedAt?: string | null;
+            /** @description running | done | aborted | failed */
+            status: string;
+            found?: number | null;
+        };
+        SyncInfoDto: {
+            /** @enum {string} */
+            mode: "AUTO" | "MANUAL";
+            /** @description Daily full pass, Rome time HH:MM */
+            at: string;
+            /** @description Checks every N hours; null = only the daily pass */
+            everyHours?: number | null;
+            lastRun?: components["schemas"]["LastRunDto"] | null;
+            lastCheckAt?: string | null;
+            /** @description A full pass is queued or running */
+            running: boolean;
+        };
         AdminServiceDto: {
             id: string;
             name: string;
@@ -541,6 +592,16 @@ export interface components {
             lastError?: string | null;
             /** @description Titles waiting in the catalog queue for this service */
             queued: number;
+            /** @description Catalog sources only */
+            sync?: components["schemas"]["SyncInfoDto"] | null;
+        };
+        SyncSettingsDto: {
+            /** @enum {string} */
+            mode: "AUTO" | "MANUAL";
+            /** @example 03:00 */
+            at: string;
+            /** @enum {number|null} */
+            everyHours?: 1 | 2 | 3 | 4 | 6 | 8 | 12 | null;
         };
         SwitchDto: {
             enabled: boolean;
@@ -1085,6 +1146,94 @@ export interface operations {
             };
             /** @description NOT_ADMIN */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_setSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncSettingsDto"];
+            };
+        };
+        responses: {
+            /** @description Schedules updated at once */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_syncNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_OFF | ALREADY_RUNNING */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -282,3 +282,12 @@ MAIA non usa account Rai e non guarda quel flag.
 **Connettori di siti pirata rifiutati** (StreamingCommunity con altri nomi, "TSD", "C1": stesso
 codice, host video esterni come vixsrc.to, film ancora al cinema). Non si integrano, nemmeno come
 fonte "custom" configurabile.
+
+**Orari di aggiornamento scelti dal pannello, per fonte** (chiesto dall'utente: poter scegliere
+"ogni giorno alle 3" o aggiornare solo quando serve). Automatico: passata completa giornaliera
+all'ora scelta più controlli ogni N ore (divisori di 24, così cadono sempre alle stesse ore);
+manuale: solo con "Aggiorna ora". Le novità ogni 3 ore e i titoli da ricontrollare, prima fissi,
+sono diventati il "controllo" di ogni fonte; resta fisso solo lo spegnimento orario dei video
+scaduti, che non fa richieste. Il worker chiude all'avvio le passate rimaste a metà: una passata
+interrotta dai riavvii di questa notte stava per ripartire da sola dopo che l'utente aveva scelto
+la modalità manuale.

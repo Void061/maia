@@ -328,15 +328,32 @@ Codice in `maia-be/src/tv/`:
 
 | Coda | Quando | Cosa |
 |---|---|---|
-| `catalog-discover` | ogni notte alle 3 (`refresh`) o a mano (`fill`) | elenco completo del servizio; *fill* mette in coda tutti i titoli, *refresh* solo i nuovi; i titoli non elencati contano una mancanza (alla seconda di fila le fonti si spengono); se trova meno del 70% dei titoli della passata precedente si annulla |
+| `catalog-discover` | ogni giorno all'ora scelta nel pannello (`refresh`, solo in automatico), con "Aggiorna ora" o a mano (`fill`) | elenco completo del servizio, poi un controllo come `catalog-check`; *fill* mette in coda tutti i titoli, *refresh* solo i nuovi; i titoli non elencati contano una mancanza (alla seconda di fila le fonti si spengono); se trova meno del 70% dei titoli della passata precedente si annulla |
 | `catalog-sync-title` | dai lavori sopra o a mano | un titolo: lettura + inserimento; una richiesta per titolo alla volta (politica `stately` con chiave), 3 tentativi con attesa crescente, 3 titoli in parallelo |
-| `catalog-due` | ogni ora al minuto 15 | mette in coda i titoli arrivati al prossimo controllo; spegne fonti ed extra scaduti |
-| `catalog-news` | ogni 3 ore | rilegge le liste in evidenza delle sezioni (dove compaiono le novità) |
+| `catalog-check` | ogni N ore tra una passata e l'altra, se impostato nel pannello | rilegge le liste in evidenza delle sezioni (dove compaiono le novità) e mette in coda i titoli arrivati al prossimo controllo (ritmo adattivo) |
+| `catalog-due` | ogni ora al minuto 15, sempre | solo database: spegne fonti ed extra scaduti (nessuna richiesta ai servizi) |
 
-Al termine di `catalog-discover`, `catalog-due` e di ogni `catalog-sync-title` che ha cambiato il
+**Orari di aggiornamento per fonte** (pannello `/admin`, scheda Servizi, sezione "Aggiornamento"
+sotto ogni fonte di catalogo; impostazioni in `provider_health`, programmazioni scritte da
+`CatalogScheduler`):
+- **Automatico**: passata completa ogni giorno all'ora scelta (ora di Roma) e controlli ogni 1, 2,
+  3, 4, 6, 8 o 12 ore nelle ore in mezzo, oppure solo la passata giornaliera. Predefinito: alle
+  3:00, controlli ogni 3 ore.
+- **Manuale**: nessuna passata né controllo programmati; il catalogo si aggiorna solo con
+  **"Aggiorna ora"** (passata completa più controllo, con conferma). Quello che è già in coda viene
+  comunque smaltito; per fermarlo subito c'è l'interruttore del servizio.
+- In entrambi i casi i video scaduti si spengono ogni ora.
+- Il pannello mostra l'ultima passata (quando, esito, titoli trovati), l'ultimo controllo e se una
+  passata è in corso; "Aggiorna ora" non parte se il servizio è spento o se una passata è già in
+  corso.
+- **Passate interrotte**: c'è un solo worker per volta, quindi quando parte chiude le passate rimaste
+  "in corso" dal processo precedente (riavvio, deploy). Altrimenti pg-boss le rilancerebbe da sole
+  dopo ore, anche in modalità manuale.
+
+Al termine di `catalog-discover`, di un `catalog-due` che ha spento qualcosa e di ogni `catalog-sync-title` che ha cambiato il
 titolo (non quelli "invariati"), il worker **svuota tutta la cache di MAIA** in Redis. Le modifiche
 ravvicinate (es. tanti titoli di fila) si raccolgono in un solo svuotamento dopo 10 secondi.
-`catalog-news` mette solo in coda titoli: lo svuotamento arriva dai loro `sync-title`.
+`catalog-check` mette solo in coda titoli: lo svuotamento arriva dai loro `sync-title`.
 Subito dopo lo svuotamento parte il riscaldamento della cache (pagine, poi tutte le schede).
 
 Stato del servizio: un errore di rete o 5xx incrementa il contatore; dopo 5 di fila il servizio

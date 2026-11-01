@@ -402,12 +402,38 @@ export class CatalogService {
   }
 
   // Titles whose turn has come (adaptive rhythm), and expired videos off.
-  async dueTitles(limit = 1000) {
+  // A full pass cut short by a restart (deploy, dev reload) stays "active" in
+  // pg-boss for hours and then runs again on its own, even in manual mode.
+  // There is one worker at a time: at its start, anything still running is an
+  // orphan of the previous process.
+  async closeInterruptedRuns(): Promise<number> {
+    const jobs = await this.prisma.$executeRaw`
+      UPDATE pgboss.job SET state = 'cancelled', completed_on = now()
+       WHERE name = 'catalog-discover' AND state IN ('active', 'retry')`.catch(() => 0);
+    await this.prisma.syncRun.updateMany({
+      where: { status: 'running' },
+      data: { status: 'failed', finishedAt: new Date(), note: 'interrotta: worker riavviato durante la passata' },
+    });
+    return jobs;
+  }
+
+  async checked(provider: string) {
     const now = new Date();
-    await this.prisma.source.updateMany({ where: { available: true, expiresAt: { lt: now } }, data: { available: false } });
-    await this.prisma.extra.updateMany({ where: { available: true, expiresAt: { lt: now } }, data: { available: false } });
+    await this.prisma.providerHealth.upsert({ where: { provider }, create: { provider, lastCheckAt: now }, update: { lastCheckAt: now } });
+  }
+
+  // Videos past their expiry date go off. Database only. Returns how many.
+  async expireVideos(): Promise<number> {
+    const now = new Date();
+    const sources = await this.prisma.source.updateMany({ where: { available: true, expiresAt: { lt: now } }, data: { available: false } });
+    const extras = await this.prisma.extra.updateMany({ where: { available: true, expiresAt: { lt: now } }, data: { available: false } });
+    return sources.count + extras.count;
+  }
+
+  // A source's titles whose next check (adaptive rhythm) has come.
+  async dueTitles(provider: string, limit = 1000) {
     return this.prisma.providerTitle.findMany({
-      where: { nextCheckAt: { lte: now } },
+      where: { provider, nextCheckAt: { lte: new Date() } },
       select: { provider: true, externalId: true },
       orderBy: { nextCheckAt: 'asc' },
       take: limit,

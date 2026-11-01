@@ -19,8 +19,9 @@ Il primo amministratore in produzione si crea dal terminale del container maia-b
 ## Catalogo MAIA TV
 
 Il backend in produzione esegue anche i lavori del catalogo (pg-boss, tabelle nello schema
-`pgboss` dello stesso database): passata notturna alle 3, novità ogni 3 ore, controlli dei titoli in
-scadenza ogni ora. Non serve un'altra risorsa. Il primo riempimento si avvia una volta dal
+`pgboss` dello stesso database). Gli orari si scelgono per ogni fonte dal pannello admin (scheda
+Servizi): automatico (predefinito: passata alle 3, controlli ogni 3 ore) o manuale con "Aggiorna
+ora"; i video scaduti si spengono ogni ora. Non serve un'altra risorsa. Il primo riempimento si avvia una volta dal
 terminale del container maia-be con `npm run catalog -- fill raiplay` (qualche ora; avanzamento con
 `npm run catalog -- status`). `CATALOG_WORKERS=false` li spegne.
 
