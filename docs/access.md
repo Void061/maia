@@ -96,7 +96,9 @@ approvare) e **Servizi** (badge: servizi spenti o in pausa automatica).
   di un servizio spento ha il bordo rosso, perché il solo interruttore si legge male. Sotto ogni
   fonte di catalogo (RaiPlay) c'è **Aggiornamento**: automatico (ora della passata giornaliera e
   ogni quante ore i controlli) o manuale, ultima passata e ultimo controllo, tasto "Aggiorna ora"
-  con conferma (vedi tv/catalog.md, "Orari di aggiornamento per fonte").
+  con conferma (vedi tv/catalog.md, "Orari di aggiornamento per fonte"). Sotto ancora c'è
+  **Attività**: cosa sta leggendo il worker, la coda e la lista di ciò che ha fatto nell'ultima
+  settimana, con filtri Modifiche / Tutto / Solo errori (vedi tv/catalog.md, "Attività del worker").
 - **Account** — filtri con i conteggi: **Da approvare** (si apre qui), Email da confermare, Attivi, Sospesi, Tutti;
   ricerca per nome o email.
 - Ogni riga: nome, email, stato, badge Admin, data di registrazione, email confermata o no, numero

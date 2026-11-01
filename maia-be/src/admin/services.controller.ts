@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -11,11 +11,13 @@ import {
   ApiPropertyOptional,
   ApiTags,
 } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { ErrorDto } from '../auth/dto.js';
 import { CacheService } from '../cache/cache.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { CatalogActivity, type ActivityFilter } from '../tv/catalog/catalog.activity.js';
 import { CatalogScheduler } from '../tv/catalog/catalog.scheduler.js';
 import { CHECK_HOURS, DEFAULT_SYNC } from '../tv/catalog/queues.js';
 import { baseUrl, defaultBaseUrl, normalizeBaseUrl } from '../tv/providers/base-urls.js';
@@ -91,6 +93,60 @@ class BaseUrlResultDto {
   @ApiProperty({ description: 'Saved links (videos, pictures) moved to the new address' }) moved: number;
 }
 
+class ActivityQueryDto {
+  @ApiPropertyOptional({ enum: ['changes', 'all', 'errors'], default: 'changes', description: 'changes = all but the unchanged titles' })
+  @IsOptional()
+  @IsIn(['changes', 'all', 'errors'])
+  filter?: ActivityFilter;
+
+  @ApiPropertyOptional({ description: 'Last event id of the previous page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  before?: number;
+
+  @ApiPropertyOptional({ default: 50, maximum: 200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
+}
+
+class ActiveTitleDto {
+  @ApiProperty() externalId: string;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'null for a title not read before' }) name: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) startedAt: string | null;
+}
+
+class ActivityEventDto {
+  @ApiProperty() id: number;
+  @ApiProperty({
+    description:
+      'Titles: created | updated | unchanged | missing | failed. Passes: pass-start | pass-done | pass-aborted | pass-failed | check',
+  })
+  kind: string;
+  @ApiPropertyOptional({ nullable: true, type: String }) externalId: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) name: string | null;
+  @ApiPropertyOptional({ nullable: true, type: Number, description: 'Full passes: titles listed by the service' }) found: number | null;
+  @ApiPropertyOptional({ nullable: true, type: Number, description: 'Passes and checks: titles queued' }) queued: number | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'Error, or the kind of pass (fill / refresh)' })
+  message: string | null;
+  @ApiProperty() at: string;
+}
+
+class ActivityDto {
+  @ApiProperty({ description: 'Titles waiting in the queue' }) queued: number;
+  @ApiProperty({ description: 'Titles waiting to try again after an error' }) retrying: number;
+  @ApiProperty({ description: 'Titles left halfway by a worker that stopped; retried when a worker runs again' })
+  stalled: number;
+  @ApiProperty({ type: [ActiveTitleDto], description: 'Titles being read right now' }) active: ActiveTitleDto[];
+  @ApiProperty({ type: [ActivityEventDto], description: 'Newest first' }) events: ActivityEventDto[];
+  @ApiProperty({ description: 'Older events exist (ask again with before = last id)' }) more: boolean;
+}
+
 class SwitchDto {
   @ApiProperty()
   @IsBoolean()
@@ -110,6 +166,7 @@ export class AdminServicesController {
     private readonly switches: ServiceSwitches,
     private readonly scheduler: CatalogScheduler,
     private readonly cache: CacheService,
+    private readonly activity: CatalogActivity,
   ) {}
 
   @Get()
@@ -174,6 +231,31 @@ export class AdminServicesController {
     if (!(await this.scheduler.runNow(id))) {
       throw new ConflictException({ code: 'ALREADY_RUNNING', message: 'Un aggiornamento è già in corso.' });
     }
+  }
+
+  // What the catalog worker is doing for a source (queue, titles being read)
+  // and what it did (last week), newest first. Database only.
+  @Get(':id/activity')
+  @ApiOkResponse({ type: ActivityDto })
+  @ApiNotFoundResponse({ type: ErrorDto, description: 'SERVICE_NOT_FOUND' })
+  async activityOf(@Param('id') id: string, @Query() q: ActivityQueryDto): Promise<ActivityDto> {
+    if (!SERVICES.some((s) => s.id === id && s.catalog)) throw notFound();
+    const [live, page] = await Promise.all([this.activity.live(id), this.activity.events(id, q.filter ?? 'changes', q.before, q.limit ?? 50)]);
+    return {
+      ...live,
+      active: live.active.map((a) => ({ externalId: a.externalId, name: a.name, startedAt: a.startedOn?.toISOString() ?? null })),
+      events: page.events.map((e) => ({
+        id: e.id,
+        kind: e.kind,
+        externalId: e.externalId,
+        name: e.name,
+        found: e.found,
+        queued: e.queued,
+        message: e.message,
+        at: e.at.toISOString(),
+      })),
+      more: page.more,
+    };
   }
 
   // The address a catalog source is read from (e.g. the home server's IP).

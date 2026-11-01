@@ -361,3 +361,26 @@ model SyncRun {
   @@index([provider, startedAt])
   @@map("sync_runs")
 }
+
+/// What the catalog worker did, one row per title or pass (admin panel,
+/// "Attività"). Kept for a week.
+model CatalogEvent {
+  id         Int      @id @default(autoincrement())
+  provider   String
+  /// Titles: created | updated | unchanged | missing | failed.
+  /// Passes: pass-start | pass-done | pass-aborted | pass-failed | check.
+  kind       String
+  externalId String?  @map("external_id")
+  name       String?
+  /// Full passes: titles listed by the service.
+  found      Int?
+  /// Passes and checks: titles put in the queue.
+  queued     Int?
+  /// Errors, or what the pass was (fill / refresh).
+  message    String?
+  at         DateTime @default(now())
+
+  @@index([provider, id])
+  @@index([at])
+  @@map("catalog_events")
+}

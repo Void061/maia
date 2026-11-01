@@ -228,6 +228,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/services/{id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AdminServicesController_activityOf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/services/{id}/base-url": {
         parameters: {
             query?: never;
@@ -622,6 +638,40 @@ export interface components {
             at: string;
             /** @enum {number|null} */
             everyHours?: 1 | 2 | 3 | 4 | 6 | 8 | 12 | null;
+        };
+        ActiveTitleDto: {
+            externalId: string;
+            /** @description null for a title not read before */
+            name?: string | null;
+            startedAt?: string | null;
+        };
+        ActivityEventDto: {
+            id: number;
+            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-start | pass-done | pass-aborted | pass-failed | check */
+            kind: string;
+            externalId?: string | null;
+            name?: string | null;
+            /** @description Full passes: titles listed by the service */
+            found?: number | null;
+            /** @description Passes and checks: titles queued */
+            queued?: number | null;
+            /** @description Error, or the kind of pass (fill / refresh) */
+            message?: string | null;
+            at: string;
+        };
+        ActivityDto: {
+            /** @description Titles waiting in the queue */
+            queued: number;
+            /** @description Titles waiting to try again after an error */
+            retrying: number;
+            /** @description Titles left halfway by a worker that stopped; retried when a worker runs again */
+            stalled: number;
+            /** @description Titles being read right now */
+            active: components["schemas"]["ActiveTitleDto"][];
+            /** @description Newest first */
+            events: components["schemas"]["ActivityEventDto"][];
+            /** @description Older events exist (ask again with before = last id) */
+            more: boolean;
         };
         BaseUrlDto: {
             /**
@@ -1266,6 +1316,51 @@ export interface operations {
             };
             /** @description SERVICE_OFF | ALREADY_RUNNING */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_activityOf: {
+        parameters: {
+            query?: {
+                /** @description changes = all but the unchanged titles */
+                filter?: "changes" | "all" | "errors";
+                /** @description Last event id of the previous page */
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityDto"];
+                };
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

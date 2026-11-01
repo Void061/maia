@@ -274,3 +274,10 @@ HTML (attributo `data-page`). L'adapter SDM ora legge quello al posto del format
 `/api/titles`, con percorsi, chiavi e campi in un blocco `CONFIG` modificabile. Non provato sul
 server vero (raggiungibile solo dalla sua rete): solo test con pagine simulate. Lasciati fuori
 l'etichetta Sub/Dub e i server esterni basati su TMDB.
+
+**Registro dell'attività del worker nel pannello admin** (2026-11-01, chiesto dall'utente): per
+sapere sempre cosa fa il worker, ogni titolo letto, ogni passata e ogni controllo finiscono nella
+tabella `catalog_events` e nella sezione "Attività" sotto ogni fonte, insieme alla coda letta da
+pg-boss. Prima l'esito stava solo nella console del worker e i titoli invariati non comparivano
+nemmeno lì. Scelte: gli invariati si salvano ma di base si nascondono (sono la maggior parte),
+storico di 7 giorni, nessun evento per i titoli rimandati con il servizio spento o in pausa.

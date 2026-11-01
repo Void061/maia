@@ -1,12 +1,20 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useState } from "react";
 import { Notice } from "@/components/ui";
 import { api, type components } from "@/lib/api";
 
 export type Service = components["schemas"]["AdminServiceDto"];
 type Sync = components["schemas"]["SyncInfoDto"];
+type Activity = components["schemas"]["ActivityDto"];
+type ActivityEvent = components["schemas"]["ActivityEventDto"];
+type ActivityFilter = "changes" | "all" | "errors";
 type SyncSettings = {
   mode: Sync["mode"];
   at: string;
@@ -132,6 +140,7 @@ export default function ServicesPanel({ enabled }: { enabled: boolean }) {
                   serviceOn={s.enabled}
                 />
               )}
+              {s.sync && <ActivitySection id={s.id} name={s.name} />}
             </li>
           );
         })}
@@ -411,6 +420,225 @@ function SyncSection({
         <div className="mt-3">
           <Notice>{(save.error ?? runNow.error)!.message}</Notice>
         </div>
+      )}
+    </div>
+  );
+}
+
+const FILTERS: [ActivityFilter, string][] = [
+  ["changes", "Modifiche"],
+  ["all", "Tutto"],
+  ["errors", "Solo errori"],
+];
+
+const TITLE_KINDS: Record<string, { label: string; tone: string }> = {
+  created: { label: "Nuovo", tone: "bg-[#18301f] text-[#7ee2a0]" },
+  updated: { label: "Aggiornato", tone: "bg-[#1b2740] text-[#9cc2ff]" },
+  unchanged: { label: "Invariato", tone: "bg-white/[0.08] text-faint" },
+  missing: { label: "Non più sul servizio", tone: "bg-[#3a311a] text-[#ffd98a]" },
+  failed: { label: "Errore", tone: "bg-[#3a1d1d] text-[#ffb4b4]" },
+};
+
+const PASS_TONE: Record<string, string> = {
+  "pass-start": "text-muted",
+  "pass-done": "text-[#7ee2a0]",
+  "pass-aborted": "text-[#ffd98a]",
+  "pass-failed": "text-[#ffb4b4]",
+  check: "text-muted",
+};
+
+const SWITCHED_OFF = "service switched off";
+
+// Today: just the time, to the second; older: day and time.
+const stamp = (iso: string) => {
+  const d = new Date(iso);
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString("it-IT")
+    : when(iso);
+};
+
+// A full pass, a check or how it ended, in words.
+function passText(e: ActivityEvent) {
+  const what = e.message?.startsWith("fill")
+    ? "Riempimento completo"
+    : "Passata completa";
+  switch (e.kind) {
+    case "pass-start":
+      return `${what} iniziata: lettura dell’elenco del servizio`;
+    case "pass-done":
+      return `${what} finita${e.found != null ? `: ${e.found} titoli trovati` : ""}, ${e.queued ?? 0} in coda`;
+    case "pass-aborted":
+      return `${what} annullata: l’elenco sembrava incompleto${e.found != null ? ` (${e.found} titoli)` : ""}`;
+    case "pass-failed":
+      return e.message?.includes(SWITCHED_OFF)
+        ? "Passata saltata: servizio spento"
+        : `${what} non riuscita`;
+    case "check":
+      return `Controllo delle novità: ${e.queued ?? 0} titoli in coda`;
+    default:
+      return e.kind;
+  }
+}
+
+// What the catalog worker is doing for this source (titles being read, queue)
+// and what it did in the last week, newest first. Refreshes on its own.
+function ActivitySection({ id, name }: { id: string; name: string }) {
+  const [filter, setFilter] = useState<ActivityFilter>("changes");
+  const feed = useInfiniteQuery({
+    queryKey: ["admin", "services", id, "activity", filter],
+    queryFn: ({ pageParam }) =>
+      api<Activity>(
+        `/admin/services/${id}/activity?filter=${filter}${pageParam ? `&before=${pageParam}` : ""}`,
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (last) =>
+      last.more ? last.events[last.events.length - 1]?.id : undefined,
+    refetchInterval: 5_000,
+  });
+  const live = feed.data?.pages[0];
+  const events = feed.data?.pages.flatMap((p) => p.events) ?? [];
+  const idle =
+    live &&
+    !live.active.length &&
+    !live.queued &&
+    !live.retrying &&
+    !live.stalled;
+
+  return (
+    <div className="mt-4 border-t border-white/10 pt-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="font-semibold">Attività</p>
+        <div
+          role="group"
+          aria-label={`Attività di ${name}: cosa mostrare`}
+          className="flex gap-1 rounded-full bg-white/[0.06] p-1"
+        >
+          {FILTERS.map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setFilter(value)}
+              aria-pressed={filter === value}
+              className="focusable pill-focus h-9 rounded-full px-4 text-sm font-medium text-muted aria-pressed:bg-white aria-pressed:text-black"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {live && (
+        <div className="mt-3 text-sm" aria-live="polite">
+          {idle ? (
+            <p className="text-muted">Fermo: nessun titolo in coda.</p>
+          ) : (
+            <>
+              <p className="text-muted">
+                {live.queued} in coda
+                {live.retrying > 0 &&
+                  ` · ${live.retrying} da riprovare dopo un errore`}
+                {live.stalled > 0 &&
+                  ` · ${live.stalled} rimasti a metà dall’ultimo worker (ripartono quando lo riavvii)`}
+              </p>
+              {live.active.length > 0 ? (
+                <ul className="mt-1 grid gap-0.5">
+                  {live.active.map((a) => (
+                    <li key={a.externalId} className="flex items-center gap-2">
+                      <span
+                        aria-hidden
+                        className="size-2 shrink-0 animate-pulse rounded-full bg-[#30d158]"
+                      />
+                      <span className="truncate">
+                        Sto leggendo{" "}
+                        {a.name ?? (
+                          <span className="font-mono">{a.externalId}</span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                live.queued + live.retrying + live.stalled > 0 && (
+                  <p className="mt-1 text-faint">
+                    Nessun titolo in lettura: il worker è spento o il servizio
+                    è in pausa.
+                  </p>
+                )
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {feed.error && (
+        <div className="mt-3">
+          <Notice>{feed.error.message}</Notice>
+        </div>
+      )}
+
+      {feed.data && !events.length ? (
+        <p className="mt-3 text-sm text-faint">
+          {filter === "errors"
+            ? "Nessun errore nell’ultima settimana."
+            : "Niente nell’ultima settimana."}
+        </p>
+      ) : (
+        <ol className="mt-3 max-h-96 overflow-y-auto rounded-2xl bg-white/[0.04] text-sm">
+          {events.map((e) => {
+            const title = TITLE_KINDS[e.kind];
+            const detail =
+              e.message &&
+              (e.kind === "failed" ||
+                (e.kind === "pass-failed" && !e.message.includes(SWITCHED_OFF)));
+            return (
+              <li
+                key={e.id}
+                className="flex gap-3 border-b border-white/[0.06] px-3 py-2 last:border-0"
+              >
+                <time
+                  dateTime={e.at}
+                  className="w-24 shrink-0 tabular-nums text-faint"
+                >
+                  {stamp(e.at)}
+                </time>
+                <div className="min-w-0 flex-1">
+                  {title ? (
+                    <p className="flex items-center gap-2">
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${title.tone}`}
+                      >
+                        {title.label}
+                      </span>
+                      <span className="truncate">
+                        {e.name ?? (
+                          <span className="font-mono">{e.externalId}</span>
+                        )}
+                      </span>
+                    </p>
+                  ) : (
+                    <p className={`font-medium ${PASS_TONE[e.kind] ?? ""}`}>
+                      {passText(e)}
+                    </p>
+                  )}
+                  {detail && (
+                    <p className="mt-0.5 font-mono text-xs break-words text-faint">
+                      {e.message}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      {feed.hasNextPage && (
+        <button
+          onClick={() => feed.fetchNextPage()}
+          disabled={feed.isFetchingNextPage}
+          className="focusable pill-focus mt-3 h-10 rounded-full bg-white/[0.12] px-4 text-sm font-medium disabled:opacity-50"
+        >
+          Mostra altri
+        </button>
       )}
     </div>
   );

@@ -306,6 +306,7 @@ ProviderTitle (provider + externalId unici; kind, name, year, titleId, verdict A
 MatchReview (providerTitleId, candidati TMDB con punteggio, stato PENDING|ACCEPTED|REJECTED)
 ProviderHealth (provider, status OK|DEGRADED|DOWN, failStreak, retryAfter, lastSuccessAt, lastError)
 SyncRun (provider, inizio/fine, trovati, messi in coda, stato, nota)
+CatalogEvent (provider, tipo, externalId?, nome?, trovati?, in coda?, messaggio?, ora): attività del worker, 7 giorni
 ```
 
 Previsti, non ancora fatti: generi come tabella (`Genre`, `GenreAlias`; oggi `genres[]` testuale
@@ -326,6 +327,7 @@ Codice in `maia-be/src/tv/`:
 | `matching/episodes.ts`                  | colloca un episodio nella struttura TMDB: per **data di messa in onda** (±1 giorno, stagione speciali esclusa), poi stagione + numero (anche "Stagione 2026" = edizione andata in onda nel 2026) |
 | `matching/tmdb.client.ts`               | ricerca, candidati, metadati in italiano, episodi per stagione                                                                                                                                   |
 | `catalog/catalog.service.ts`            | inserimento nel catalogo, fonti, extra, spegnimenti, ritmo, stato del servizio                                                                                                                   |
+| `catalog/catalog.activity.ts`           | registro dell'attività del worker (`catalog_events`) e stato della coda per il pannello admin                                                                                                   |
 | `catalog/catalog.worker.ts`             | code e lavori pg-boss                                                                                                                                                                            |
 | `catalog/worker.main.ts`                | worker in un processo a sé (sviluppo locale)                                                                                                                                                     |
 | `probe.ts`                              | misura su un campione, senza scrivere nel database                                                                                                                                               |
@@ -375,6 +377,27 @@ sotto ogni fonte di catalogo; impostazioni in `provider_health`, programmazioni 
 - **Passate interrotte**: c'è un solo worker per volta, quindi quando parte chiude le passate rimaste
   "in corso" dal processo precedente (riavvio, deploy). Altrimenti pg-boss le rilancerebbe da sole
   dopo ore, anche in modalità manuale.
+
+**Attività del worker** (pannello `/admin`, scheda Servizi, sezione "Attività" sotto ogni fonte di
+catalogo; `catalog/catalog.activity.ts`, tabella `catalog_events`, API
+`GET /admin/services/:id/activity`):
+
+- In alto lo stato della coda, letto da pg-boss: titoli **in coda**, **da riprovare** dopo un
+  errore e quelli **in lettura adesso** (con il nome, se il titolo era già noto). I lavori rimasti
+  "attivi" oltre il loro tempo massimo (15 minuti) sono **rimasti a metà** da un worker fermato:
+  pg-boss li fa riprovare solo quando un worker riparte, quindi non compaiono come "in lettura".
+  Se ci sono titoli in coda ma nessuno in lettura, il worker è spento o il servizio è in pausa.
+- Sotto, quello che il worker ha fatto, dal più recente: ogni titolo letto (**Nuovo**,
+  **Aggiornato**, **Invariato**, **Non più sul servizio**, **Errore** con il messaggio), l'inizio e
+  la fine di ogni passata completa (titoli trovati e messi in coda; annullata se l'elenco sembrava
+  incompleto; non riuscita o saltata perché il servizio era spento) e ogni controllo delle novità.
+- Filtri: **Modifiche** (predefinito: tutto tranne gli invariati, che sono la maggior parte di ogni
+  passata), **Tutto**, **Solo errori**. 50 righe per volta con "Mostra altri"; si aggiorna da sola
+  ogni 5 secondi.
+- Non registrati: i titoli rimandati perché il servizio è spento o in pausa automatica (lo stato
+  è già nella riga del servizio e riproverebbero ogni pochi minuti).
+- Gli eventi restano **7 giorni**; li cancella il lavoro orario `catalog-due`. Scriverli e
+  leggerli usa solo il database; se la scrittura fallisce il lavoro continua lo stesso.
 
 Al termine di `catalog-discover`, di un `catalog-due` che ha spento qualcosa e di ogni `catalog-sync-title` che ha cambiato il
 titolo (non quelli "invariati"), il worker **svuota tutta la cache di MAIA** in Redis. Le modifiche
