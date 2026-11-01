@@ -116,6 +116,14 @@ export default function ServicesPanel({ enabled }: { enabled: boolean }) {
                   />
                 </button>
               </div>
+              {s.baseUrl && (
+                <AddressSection
+                  id={s.id}
+                  name={s.name}
+                  current={s.baseUrl}
+                  fallback={s.defaultBaseUrl ?? null}
+                />
+              )}
               {s.sync && (
                 <SyncSection
                   id={s.id}
@@ -129,6 +137,91 @@ export default function ServicesPanel({ enabled }: { enabled: boolean }) {
         })}
       </ul>
     </section>
+  );
+}
+
+// The address a catalog source is read from (e.g. the home server's IP). The
+// links already saved move to the new address; nothing is re-read.
+function AddressSection({
+  id,
+  name,
+  current,
+  fallback,
+}: {
+  id: string;
+  name: string;
+  current: string;
+  fallback: string | null;
+}) {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState(current);
+  const save = useMutation({
+    mutationFn: (baseUrl: string | null) =>
+      api<{ baseUrl: string; moved: number }>(`/admin/services/${id}/base-url`, {
+        method: "PATCH",
+        body: { baseUrl },
+      }),
+    onSuccess: (res) => {
+      setDraft(res.baseUrl);
+      return qc.invalidateQueries({ queryKey: ["admin", "services"] });
+    },
+  });
+  const changed = draft.trim() !== current;
+
+  return (
+    <div className="mt-4 border-t border-white/10 pt-4">
+      <label className="block">
+        <span className="font-semibold">Indirizzo</span>
+        <input
+          type="url"
+          inputMode="url"
+          spellCheck={false}
+          autoComplete="off"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          aria-label={`Indirizzo di ${name}`}
+          className="focusable mt-2 block h-11 w-full rounded-xl bg-white/[0.08] px-3 font-mono text-base [color-scheme:dark]"
+        />
+      </label>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {changed && (
+          <>
+            <button
+              onClick={() => save.mutate(draft.trim())}
+              disabled={save.isPending || !draft.trim()}
+              className="focusable h-10 rounded-full bg-white px-4 text-sm font-semibold text-black disabled:opacity-50"
+            >
+              Salva
+            </button>
+            <button
+              onClick={() => setDraft(current)}
+              className="focusable pill-focus h-10 rounded-full bg-white/[0.12] px-4 text-sm font-medium"
+            >
+              Annulla
+            </button>
+          </>
+        )}
+        {!changed && fallback && current !== fallback && (
+          <button
+            onClick={() => save.mutate(null)}
+            disabled={save.isPending}
+            className="focusable pill-focus h-10 rounded-full bg-white/[0.12] px-4 text-sm font-medium disabled:opacity-50"
+          >
+            Torna a {fallback}
+          </button>
+        )}
+        <span className="text-sm text-faint">
+          {save.data
+            ? `Salvato${save.data.moved ? `: ${save.data.moved} link spostati sul nuovo indirizzo` : ""}.`
+            : "Cambiandolo, i video e le immagini già nel catalogo passano al nuovo indirizzo."}
+        </span>
+      </div>
+      {save.error && (
+        <div className="mt-3">
+          <Notice>{save.error.message}</Notice>
+        </div>
+      )}
+    </div>
   );
 }
 

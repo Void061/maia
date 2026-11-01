@@ -4,6 +4,7 @@ import { Prisma, type TitleKind } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CatalogService } from './catalog/catalog.service.js';
 import { presentExtras } from './extras.js';
+import { baseUrl } from './providers/base-urls.js';
 import type { GenreDto, HomeDto, PlaybackDto, TitleCardDto, TitleDetailDto, TitlePageDto } from './tv.dto.js';
 
 // A video users can watch: listed by the service right now and not DRM-protected.
@@ -34,14 +35,14 @@ const CARD = {
 type CardRow = Prisma.TitleGetPayload<{ select: typeof CARD }>;
 
 // RaiPlay artwork is stored at full size (a 1536x2048 poster is 0.5-1 MB);
-// its image service crops it to the size the cards need (~45 KB).
-const RAIPLAY_IMG = 'https://www.raiplay.it/';
+// its image service crops it to the size the cards need (~45 KB). At the
+// RaiPlay address in use (admin panel).
 // Episode and extra thumbnails (cards up to ~320 px wide, x2 for sharp screens).
 const THUMB = '640x360';
-const sized = (url: string | null, size: string) =>
-  url?.startsWith(RAIPLAY_IMG) && !url.startsWith(`${RAIPLAY_IMG}cropgd/`)
-    ? `${RAIPLAY_IMG}cropgd/${size}/${url.slice(RAIPLAY_IMG.length)}`
-    : url;
+const sized = (url: string | null, size: string) => {
+  const rai = `${baseUrl('raiplay')}/`;
+  return url?.startsWith(rai) && !url.startsWith(`${rai}cropgd/`) ? `${rai}cropgd/${size}/${url.slice(rai.length)}` : url;
+};
 
 const toCard = (t: CardRow): TitleCardDto => ({
   id: t.id,

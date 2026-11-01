@@ -1,7 +1,7 @@
 // Provider layer: what a service says about a title, normalized but not yet
 // matched to the MAIA catalog (see docs/tv/catalog.md, "Due livelli").
 
-export type ProviderId = 'raiplay';
+export type ProviderId = 'raiplay' | 'sdm';
 
 export type TitleKind = 'MOVIE' | 'SERIES';
 
@@ -73,8 +73,15 @@ export type ProviderTitle = {
 
 export interface ProviderAdapter {
   readonly id: ProviderId;
-  // External ids of the titles listed in one section of the service.
-  listSection(section: string): Promise<string[]>;
+  // Every request goes to the source's address in use (base-urls.ts), read at
+  // request time: an admin can change it from the panel.
+  // The whole catalog: external ids of every title.
+  discover?(): Promise<string[]>;
+  // Front lists the checks read (new titles appear there first), and the
+  // external ids listed in one of them. Sources without them are checked
+  // only through the titles whose turn has come.
+  readonly frontSections?: readonly string[];
+  listSection?(section: string): Promise<string[]>;
   getTitle(externalId: string): Promise<ProviderTitle | null>;
   // Fallback when the device cannot play the recipe as it is: the direct
   // stream URL, resolved from the server (short-lived, never stored). Null if

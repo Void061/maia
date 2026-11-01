@@ -1,5 +1,6 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { baseUrl, serviceHosts, setBaseUrlOverrides } from './base-urls.js';
 import { setStoppedHosts } from './polite-fetch.js';
 import { SERVICES } from './services.js';
 
@@ -9,7 +10,8 @@ import { SERVICES } from './services.js';
 const POLL_MS = 3000;
 
 // Admin on/off switches for the outside services (panel /admin). A service
-// switched off gets no request at all: polite-fetch refuses its hosts.
+// switched off gets no request at all: polite-fetch refuses its hosts. Also
+// keeps the catalog sources' addresses (base-urls.ts) in sync.
 @Injectable()
 export class ServiceSwitches implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ServiceSwitches.name);
@@ -52,12 +54,50 @@ export class ServiceSwitches implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // Changes the address a catalog source is read from (null = back to the
+  // default). The links already saved with the old address (videos, pictures)
+  // move to the new one in the database, without any request to the source.
+  // Returns how many links moved.
+  async setBaseUrl(service: string, url: string | null, by: string): Promise<number> {
+    const old = baseUrl(service);
+    await this.prisma.providerHealth.upsert({
+      where: { provider: service },
+      create: { provider: service, baseUrl: url },
+      update: { baseUrl: url },
+    });
+    await this.refresh();
+    const next = baseUrl(service);
+    this.logger.warn(`${service} address set to ${next} by ${by}`);
+    if (next === old) return 0;
+    // The slash keeps http://192.168.1.9 from matching http://192.168.1.90.
+    const from = `${old}/`;
+    const to = `${next}/`;
+    const skip = from.length + 1;
+    const moved = await this.prisma.$transaction([
+      this.prisma.$executeRaw`UPDATE sources SET playback_url = ${to} || substr(playback_url, ${skip})
+                               WHERE provider = ${service} AND starts_with(playback_url, ${from})`,
+      this.prisma.$executeRaw`UPDATE extras SET playback_url = ${to} || substr(playback_url, ${skip})
+                               WHERE starts_with(playback_url, ${from})`,
+      this.prisma.$executeRaw`UPDATE extras SET image_url = ${to} || substr(image_url, ${skip})
+                               WHERE starts_with(image_url, ${from})`,
+      this.prisma.$executeRaw`UPDATE episodes SET image_url = ${to} || substr(image_url, ${skip})
+                               WHERE starts_with(image_url, ${from})`,
+      this.prisma.$executeRaw`UPDATE titles SET poster_url = ${to} || substr(poster_url, ${skip})
+                               WHERE starts_with(poster_url, ${from})`,
+      this.prisma.$executeRaw`UPDATE titles SET backdrop_url = ${to} || substr(backdrop_url, ${skip})
+                               WHERE starts_with(backdrop_url, ${from})`,
+    ]);
+    return moved.reduce((a, b) => a + b, 0);
+  }
+
   private async refresh() {
     try {
-      const off = await this.prisma.providerHealth.findMany({ where: { enabled: false }, select: { provider: true } });
-      const stopped = new Set(off.map((s) => s.provider));
+      const rows = await this.prisma.providerHealth.findMany({ select: { provider: true, enabled: true, baseUrl: true } });
+      // Addresses first: a switched-off source is stopped at its current address.
+      setBaseUrlOverrides(new Map(rows.filter((r) => r.baseUrl).map((r) => [r.provider, r.baseUrl!])));
+      const stopped = new Set(rows.filter((r) => !r.enabled).map((r) => r.provider));
       const hosts = new Map<string, string>();
-      for (const s of SERVICES) if (stopped.has(s.id)) for (const h of s.hosts) hosts.set(h, s.id);
+      for (const s of SERVICES) if (stopped.has(s.id)) for (const h of serviceHosts(s.id)) hosts.set(h, s.id);
       setStoppedHosts(hosts);
       this.stopped = stopped;
     } catch (err) {

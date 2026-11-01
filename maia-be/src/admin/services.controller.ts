@@ -1,5 +1,6 @@
-import { Body, ConflictException, Controller, Get, HttpCode, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCookieAuth,
   ApiForbiddenResponse,
@@ -10,12 +11,14 @@ import {
   ApiPropertyOptional,
   ApiTags,
 } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsOptional, Matches } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { ErrorDto } from '../auth/dto.js';
+import { CacheService } from '../cache/cache.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CatalogScheduler } from '../tv/catalog/catalog.scheduler.js';
 import { CHECK_HOURS, DEFAULT_SYNC } from '../tv/catalog/queues.js';
+import { baseUrl, defaultBaseUrl, normalizeBaseUrl } from '../tv/providers/base-urls.js';
 import { ServiceSwitches } from '../tv/providers/service-switches.js';
 import { SERVICES } from '../tv/providers/services.js';
 import { AdminGuard } from './admin.guard.js';
@@ -33,6 +36,10 @@ class AdminServiceDto {
   @ApiPropertyOptional({ nullable: true, type: String }) lastSuccessAt: string | null;
   @ApiPropertyOptional({ nullable: true, type: String }) lastError: string | null;
   @ApiProperty({ description: 'Titles waiting in the catalog queue for this service' }) queued: number;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'Catalog sources only: the address in use' })
+  baseUrl: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'Catalog sources only: the default address' })
+  defaultBaseUrl: string | null;
   @ApiPropertyOptional({ nullable: true, type: () => SyncInfoDto, description: 'Catalog sources only' })
   sync: SyncInfoDto | null;
 }
@@ -71,6 +78,19 @@ class SyncSettingsDto {
 
 const notFound = () => new NotFoundException({ code: 'SERVICE_NOT_FOUND', message: 'Servizio sconosciuto.' });
 
+class BaseUrlDto {
+  @ApiPropertyOptional({ nullable: true, type: String, example: 'http://192.168.1.9', description: 'null = back to the default' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  baseUrl: string | null;
+}
+
+class BaseUrlResultDto {
+  @ApiProperty() baseUrl: string;
+  @ApiProperty({ description: 'Saved links (videos, pictures) moved to the new address' }) moved: number;
+}
+
 class SwitchDto {
   @ApiProperty()
   @IsBoolean()
@@ -89,6 +109,7 @@ export class AdminServicesController {
     private readonly prisma: PrismaService,
     private readonly switches: ServiceSwitches,
     private readonly scheduler: CatalogScheduler,
+    private readonly cache: CacheService,
   ) {}
 
   @Get()
@@ -120,6 +141,8 @@ export class AdminServicesController {
         lastSuccessAt: h?.lastSuccessAt?.toISOString() ?? null,
         lastError: h?.lastError ?? null,
         queued: queued.find((q) => q.provider === s.id)?.n ?? 0,
+        baseUrl: s.baseUrl ? baseUrl(s.id) : null,
+        defaultBaseUrl: defaultBaseUrl(s.id),
         sync: s.catalog ? this.syncInfo(h, runs.find((r) => r.provider === s.id), running.get(s.id) ?? false) : null,
       };
     });
@@ -151,6 +174,32 @@ export class AdminServicesController {
     if (!(await this.scheduler.runNow(id))) {
       throw new ConflictException({ code: 'ALREADY_RUNNING', message: 'Un aggiornamento è già in corso.' });
     }
+  }
+
+  // The address a catalog source is read from (e.g. the home server's IP).
+  // Takes effect at once here, within seconds in the worker; the links already
+  // saved move to the new address and the cache is dropped.
+  @Patch(':id/base-url')
+  @ApiOkResponse({ type: BaseUrlResultDto })
+  @ApiNotFoundResponse({ type: ErrorDto, description: 'SERVICE_NOT_FOUND' })
+  @ApiBadRequestResponse({ type: ErrorDto, description: 'INVALID_BASE_URL' })
+  async setBaseUrl(@CurrentUser() me: AuthUser, @Param('id') id: string, @Body() dto: BaseUrlDto): Promise<BaseUrlResultDto> {
+    if (!SERVICES.some((s) => s.id === id && s.baseUrl)) throw notFound();
+    let url: string | null = null;
+    if (dto.baseUrl) {
+      url = normalizeBaseUrl(dto.baseUrl);
+      if (!url) {
+        throw new BadRequestException({
+          code: 'INVALID_BASE_URL',
+          message: 'Indirizzo non valido: scrivilo completo, per esempio http://192.168.1.9 o https://server:8443.',
+        });
+      }
+      if (url === defaultBaseUrl(id)) url = null;
+    }
+    const admin = await this.prisma.account.findUniqueOrThrow({ where: { id: me.accountId }, select: { email: true } });
+    const moved = await this.switches.setBaseUrl(id, url, admin.email);
+    await this.cache.invalidateAll(); // the API builds some links from the address (RaiPlay's image crops)
+    return { baseUrl: baseUrl(id), moved };
   }
 
   private syncInfo(
