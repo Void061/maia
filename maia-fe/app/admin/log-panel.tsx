@@ -49,6 +49,11 @@ const PASS_TONE: Record<string, string> = {
 
 const SWITCHED_OFF = "service switched off";
 
+// A title read for the first time has no name yet: show the readable end of its
+// id (e.g. "movie/1766/nightmare-before-christmas" → "nightmare-before-christmas").
+const shortId = (id: string | null | undefined) =>
+  id ? (id.split("/").filter(Boolean).pop() ?? id) : "";
+
 const when = (iso: string) =>
   new Date(iso).toLocaleString("it-IT", {
     day: "numeric",
@@ -205,8 +210,8 @@ export default function LogPanel({ enabled }: { enabled: boolean }) {
                         >
                           {title.label}
                         </span>
-                        <span className="truncate">
-                          {e.name ?? <span className="font-mono">{e.externalId}</span>}
+                        <span className="min-w-0 truncate" title={e.name ?? e.externalId ?? undefined}>
+                          {e.name ?? shortId(e.externalId)}
                         </span>
                       </>
                     ) : (
@@ -259,7 +264,7 @@ function Now({ worker, sources }: { worker: Log["worker"]; sources: Source[] }) 
   );
   const reading = sources.reduce((n, s) => n + s.active.length, 0);
   return (
-    <div className="grid gap-2 rounded-3xl bg-surface p-4 text-sm sm:p-5" aria-live="polite">
+    <div className="grid min-w-0 gap-2 overflow-hidden rounded-3xl bg-surface p-4 text-sm sm:p-5" aria-live="polite">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p className="flex min-w-0 flex-1 basis-56 items-center gap-2 font-semibold">
           <Dot tone={!worker.online ? "off" : worker.paused ? "paused" : "on"} />
@@ -291,7 +296,7 @@ function Now({ worker, sources }: { worker: Log["worker"]; sources: Source[] }) 
         <p className="text-muted">Niente in coda.</p>
       ) : (
         busy.map((s) => (
-          <div key={s.id} className="border-t border-white/[0.06] pt-2">
+          <div key={s.id} className="min-w-0 border-t border-white/[0.06] pt-2">
             <p className="font-semibold">{s.name}</p>
             {s.pass && (
               <p className="text-muted">
@@ -314,10 +319,10 @@ function Now({ worker, sources }: { worker: Log["worker"]; sources: Source[] }) 
               </p>
             )}
             {s.active.map((a) => (
-              <p key={a.externalId} className="flex items-center gap-2">
+              <p key={a.externalId} className="flex min-w-0 items-center gap-2">
                 <Dot tone="busy" />
-                <span className="truncate">
-                  Sto leggendo {a.name ?? <span className="font-mono">{a.externalId}</span>}
+                <span className="min-w-0 truncate" title={a.name ?? a.externalId}>
+                  Sto leggendo {a.name ?? shortId(a.externalId)}
                 </span>
               </p>
             ))}

@@ -404,6 +404,8 @@ tutte le fonti; `catalog/catalog.activity.ts`, tabella `catalog_events`, API
   passata tolta dalla coda (e da chi), inizio e fine di ogni passata completa (titoli trovati e
   messi in coda; annullata se l'elenco sembrava incompleto; non riuscita o saltata perché il
   servizio era spento) e ogni controllo delle novità. Su schermi larghi ogni riga dice la fonte.
+  Un titolo letto per la prima volta non ha ancora un nome: si vede la parte finale del suo id
+  (es. `nightmare-before-christmas`); i testi lunghi si tagliano e non allargano mai la pagina.
 - **Un solo filtro**: **Tutto** (predefinito, passate comprese), **Nuovi**, **Modificati** (anche i
   titoli tolti dal servizio), **Invariati**, **Errori**; più la scelta della fonte (Tutte le fonti,
   RaiPlay, SDM…). 50 righe per volta con "Mostra altri"; si aggiorna da sola ogni 5 secondi.
