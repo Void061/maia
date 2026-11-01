@@ -1,4 +1,4 @@
-# Local environment. Day-to-day development: `docker compose up -d postgres`
+# Local environment. Day-to-day development: `docker compose up -d postgres redis mailpit`
 # and run the apps with `npm run start:dev` / `npm run dev` (hot reload).
 # Full stack in containers, as on Coolify: `docker compose up --build`.
 services:
@@ -19,6 +19,12 @@ services:
       timeout: 3s
       retries: 10
 
+  # Cache of the API responses (keys MAIA_APP_*). Nothing to keep: no volume.
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+
   # Catches every email sent in development: web UI on http://localhost:8025.
   mailpit:
     image: axllent/mailpit:latest
@@ -38,9 +44,12 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-MAIA <noreply@maia.local>}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
       mailpit:
         condition: service_started
 

@@ -165,3 +165,138 @@ maia-be; i dati finti restano solo per le dirette (`lib/live-demo.ts`). Le pagin
 hanno un solo parametro segnaposto in `generateStaticParams` (Cache Components ne vuole almeno uno)
 e caricano i dati nel browser, perché il catalogo cambia di continuo. Il player non usa hls.js per
 il catalogo: il link va in `<video src>` (vedi riproduzione sul dispositivo).
+
+**Cache delle API in Redis** (chiesto dall'utente: la navigazione era lenta, la home impiegava
+~1,5-2 s). Chiavi `MAIA_APP_<chiave dell'elemento>`; ogni lavoro del catalogo che cambia i dati
+svuota tutta la cache di MAIA; un valore che va in errore 3 volte (`CACHE_MAX_FAILS`) si cancella e
+si ricalcola. Redis è solo un acceleratore: senza, l'app funziona come prima. Cambia la decisione
+precedente "niente Redis": quella riguardava la coda dei lavori, che resta su pg-boss/Postgres.
+
+**Immagini RaiPlay ritagliate dal loro servizio `cropgd`.** Le locandine originali pesano 0,5-1 MB
+(1536×2048) e la home ne carica quasi 200; ritagliate a 384×512 pesano ~45 KB.
+
+**Il player si ferma quando si esce.** Con Cache Components Next nasconde le pagine visitate invece
+di smontarle, e il video nascosto continuava a suonare (segnalato dopo schermo intero + rotazione e
+uscita). Ora si mette in pausa, esce dallo schermo intero e riprende dallo stesso punto al ritorno.
+
+**Riserva hls.js per i flussi che l'HLS nativo rifiuta.** "Le staffette della memoria" risultava
+"non disponibile": la fonte c'era, ma Chrome non legge la sua playlist (una sola qualità senza
+`CODECS`), mentre hls.js sì. Il relinker non ha CORS, quindi il link diretto lo legge il backend
+(una richiesta, il video passa comunque dal dispositivo). Corregge la decisione "niente hls.js per
+il catalogo": resta l'HLS nativo come prima scelta, hls.js è la riserva.
+
+**Riscaldamento della cache dopo ogni svuotamento** (idea dell'utente: un "mini bot" che dopo il
+job fa un giro di MAIA). Fatto dentro il backend chiamando direttamente `TvService` invece che con
+richieste HTTP: niente sessione da gestire e chiavi identiche a quelle delle API per costruzione.
+
+**Immagini vere degli episodi** (chiesto dall'utente: le miniature erano tutte lo sfondo del
+titolo). Si prende l'immagine che RaiPlay dà a ogni puntata e clip, non quella di TMDB: è del video
+che si riproduce e c'è anche per le puntate che TMDB non ha. Per caricarle sui dati esistenti sono
+stati rimessi in coda una volta tutti i titoli con puntate o extra (2737).
+
+**Comando `npm run catalog -- resync <servizio> [--episodes]`.** Rilegge subito tutti i titoli già
+presenti. Serve quando cambia il nostro codice del catalogo (non RaiPlay): il ritmo adattivo
+aggiornerebbe i titoli fermi solo dopo settimane. La regola è anche in `CLAUDE.md`, così viene
+ricordata a ogni modifica di questo tipo e al deploy.
+
+**Rispetto dei servizi come regola per ogni provider** (chiesto dall'utente: non dare fastidio ai
+servizi, rischio di blocchi e denunce). RaiPlay passa da una richiesta ogni 250 ms a una al secondo
+(~20 titoli al minuto invece di ~40), TMDB da richieste sovrapposte ogni 40 ms a una alla volta
+ogni 250 ms; 429/403 fermano subito il servizio per 6 ore; attese più lunghe tra i tentativi;
+operazioni massicce solo con conferma. Il primo riempimento e i `resync` durano circa il doppio:
+accettato, girano di notte o una volta sola.
+
+**Nessun Referer verso i servizi, per tutti i provider** (chiesto dall'utente: video e copertine non
+devono rivelare l'app da cui arrivano). `Referrer-Policy: no-referrer` su tutto il frontend, in due
+punti (header e meta). Limite noto: l'`Origin` delle richieste hls.js non si può togliere. Escluso
+esplicitamente fingersi il servizio o copiarne i token.
+
+**Condizioni d'uso di RaiPlay: verificate per quanto possibile, si va avanti.** Il testo ufficiale
+delle condizioni non è stato trovato (non indicizzato; rai.it e raiplay.it bloccano gli strumenti
+AI, che non si aggirano). La privacy policy dei prodotti multimediali Rai non parla dell'uso da app
+di terzi. Le guide trovate vietano solo lo **scaricamento** con strumenti non ufficiali; nessuna
+fonte conferma un divieto di embedding. La giurisprudenza della Corte di Giustizia UE (link ed
+embed di contenuti liberamente accessibili non violano il diritto d'autore, salvo aggiramento di
+misure tecniche contro l'embedding) va nella direzione di MAIA. Decisione dell'utente: si continua,
+restando privati (uso di casa, niente soldi né diffusione) e con le regole di "Rispetto dei
+servizi" (docs/tv/catalog.md). Punto da tenere d'occhio: la riserva hls.js, dove il server legge
+il link del video, è la parte più vicina a un aggiramento; si toglie se emergesse un dubbio. Se
+MAIA uscisse dalla cerchia di casa: leggere il testo ufficiale e sentire un legale.
+
+**Generi uniti per identificativo e cache con versione.** La navigazione dava errori di React
+(chiavi duplicate) perché RaiPlay scrive lo stesso genere con e senza maiuscola: ora le varianti
+con lo stesso slug sono un genere solo, fatto in lettura senza `resync`. Cambiando la forma dei
+generi in cache è emerso che il codice nuovo avrebbe letto valori scritti dal vecchio: le chiavi
+hanno ora una versione (`MAIA_APP_v2:`) da alzare a ogni cambio di forma. Regola aggiunta in
+`CLAUDE.md`: niente errori o avvisi in console prima di un commit del frontend.
+
+**Programmi che non seguono lo schema delle serie** (segnalato dall'utente su "Da Grande": su
+RaiPlay due serate e molte clip, in MAIA "2 stagioni" con una puntata ciascuna e 22 clip ammucchiate
+negli extra). La data della puntata si legge anche dal titolo dell'episodio, così le puntate si
+collocano nella stessa stagione; le clip si mostrano raggruppate per puntata e con nomi ripuliti, in
+lettura. Misurato: 21 programmi divisi come "Da Grande" e 82 con puntate provvisorie senza data.
+
+**Pluto TV: le condizioni d'uso lo escludono, oltre al limite tecnico.** Letti i Termini di
+Utilizzo italiani di Pluto TV (Pluto TV Europe GmbH, in vigore dal 14/11/2022,
+legal.paramount.com/it/it/plutotv/terms-of-use): uso solo personale e non commerciale; **vietato
+accedere al servizio con software automatici, script o robot senza autorizzazione scritta**
+(sezione 6); vietato riprodurre o visualizzare i contenuti fuori dal servizio (sezione 4);
+conseguenze: revoca dell'uso e blocco degli IP. A differenza di RaiPlay il divieto di lettura
+automatica è esplicito, e il catalogo di MAIA si costruisce proprio così. Insieme al limite tecnico
+già misurato (catalogo assegnato per IP, API aperte solo a pluto.tv), Pluto TV non si aggiunge.
+
+**Interruttori dei servizi nel pannello admin** (chiesto dall'utente: poter fermare subito
+l'acquisizione da un servizio che dà problemi). Il blocco è in `polite-fetch`, prima di ogni
+richiesta, così vale anche per quelle già partite; i processi rileggono gli interruttori ogni 3
+secondi. I titoli in coda non si perdono: si rimandano e ripartono alla riaccensione. Anche TMDB ha
+il suo interruttore (spegnerlo ferma gli abbinamenti, quindi rimanda tutti i titoli).
+
+**Quali altri servizi (analisi dei termini, 2026-10-31).** Fattibili solo i servizi che permettono
+esplicitamente di mostrare i contenuti in app di terzi o con contenuti liberi:
+- **Internet Archive** (film di pubblico dominio / Creative Commons, API ufficiale): permesso ma
+  **scartato dall'utente**, perché il catalogo (film vecchi, muti, quasi tutti in inglese) non è
+  quello che serve a MAIA;
+- **Dailymotion** (API ufficiale + loro player non modificato, pubblicità inclusa; poco in italiano);
+- **ARTE** con riserva (player esterno permesso, catalogo solo con API per partner).
+**YouTube escluso per scelta dell'utente** (sarebbe stato permesso con il player ufficiale, ma
+richiede il Referer e il loro player). Esclusi per i termini: Mediaset Infinity e La7 (vietano
+espressamente lo scraping), Pluto TV (vedi sopra); Rakuten TV, Plex, Samsung TV Plus (nessun accesso
+ufficiale per app di terzi).
+In pratica, per film, serie e programmi italiani recenti RaiPlay resta l'unico servizio praticabile:
+la priorità è farlo funzionare al meglio; ARTE solo se interessa quel genere (serve l'accesso API).
+
+## 2026-11-01
+
+**Niente dirette né replay.** Dirette dei canali Rai (HLS senza DRM) e Replay della guida TV degli
+ultimi 7 giorni sono stati realizzati e verificati, poi tolti per scelta dell'utente ("non ci
+interessano"), insieme ai canali finti di prova (La7, Pluto) e alla voce "Live" del menu: MAIA TV è
+il catalogo (Home, Film, Serie, Cerca). Tabelle, lavori e migrazioni relativi sono stati rimossi
+prima di arrivare in develop. Se tornassero utili: endpoint della guida RaiPlay
+(`/guidatv.json`, `/palinsesto/app/<canale>/<gg-mm-aaaa>.json`, `/dirette/<canale>.json`), Rai 4K
+solo DASH.
+
+**Il login di RaiPlay si ignora.** Rai segna quasi tutti i video come "accesso richiesto", anche i
+film del catalogo che MAIA riproduce, ma il video lo serve senza controllarlo. L'utente ha scelto:
+MAIA non usa account Rai e non guarda quel flag.
+
+**Connettori di siti pirata rifiutati** (StreamingCommunity con altri nomi, "TSD", "C1": stesso
+codice, host video esterni come vixsrc.to, film ancora al cinema). Non si integrano, nemmeno come
+fonte "custom" configurabile.
+
+**Orari di aggiornamento scelti dal pannello, per fonte** (chiesto dall'utente: poter scegliere
+"ogni giorno alle 3" o aggiornare solo quando serve). Automatico: passata completa giornaliera
+all'ora scelta più controlli ogni N ore (divisori di 24, così cadono sempre alle stesse ore);
+manuale: solo con "Aggiorna ora". Le novità ogni 3 ore e i titoli da ricontrollare, prima fissi,
+sono diventati il "controllo" di ogni fonte; resta fisso solo lo spegnimento orario dei video
+scaduti, che non fa richieste. Il worker chiude all'avvio le passate rimaste a metà: una passata
+interrotta dai riavvii di questa notte stava per ripartire da sola dopo che l'utente aveva scelto
+la modalità manuale.
+
+**Aggiornamenti in manuale di base** (chiesto dall'utente): i lavori del catalogo non partono più da
+soli; una fonte si aggiorna con "Aggiorna ora" finché nel pannello non si sceglie l'automatico
+(passata ogni notte all'ora voluta, controlli ripetuti ogni N ore). Lo spegnimento orario dei video
+scaduti resta, perché non fa richieste ai servizi.
+
+**Tastiera della ricerca chiusa di base** e **scheda del pannello admin nell'indirizzo** (segnalati
+dall'utente: su TV la tastiera era aperta anche senza premere la ricerca; cambiando scheda e
+ricaricando si tornava su Account).

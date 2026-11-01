@@ -47,7 +47,12 @@ export const useTitle = (id: string) =>
 export const fetchPlayback = (itemId: string, exclude: string[] = []) =>
   api<Playback>(`/tv/playback/${itemId}${exclude.length ? `?exclude=${exclude.join(",")}` : ""}`);
 
-export const reportPlaybackFailed = (itemId: string, provider: string) =>
+// The same source as a direct playlist link for hls.js, resolved by maia-be,
+// for when the device's native HLS rejects it.
+export const fetchStream = (itemId: string, provider: string) =>
+  api<Playback>(`/tv/playback/${itemId}/stream?provider=${encodeURIComponent(provider)}`);
+
+export const reportPlaybackFailed =(itemId: string, provider: string) =>
   api(`/tv/playback/${itemId}/failed`, { method: "POST", body: { provider } }).catch(() => {});
 
 // Episodes of a series in watching order, across seasons.

@@ -11,7 +11,7 @@
 Sviluppo di tutti i giorni: database in Docker, app in locale con ricaricamento automatico.
 
 ```bash
-docker compose up -d postgres mailpit   # Postgres su :5433, Mailpit su :8025 (web) e :1025 (SMTP)
+docker compose up -d postgres redis mailpit   # Postgres :5433, Redis :6379, Mailpit :8025 (web) e :1025 (SMTP)
 cd maia-be && npm run start:dev         # http://localhost:3000 (Swagger su /docs)
 cd maia-fe && npm run dev               # http://localhost:3001
 ```
@@ -23,6 +23,11 @@ email vere (dopo aver riavviato il backend: le variabili si leggono all'avvio).
 **Primo account:** registrati dall'app, apri il link di conferma in Mailpit, poi da `maia-be/`:
 `npm run account:approve -- tua@email.it --admin`. Da lì in poi gli altri account si approvano
 dal pannello `/admin`.
+
+**Cache:** le risposte delle API restano in Redis finché un lavoro del catalogo non le svuota.
+Per vederle: `docker compose exec redis redis-cli --scan --pattern 'MAIA_APP_*'`; per svuotarle a
+mano: `docker compose exec redis redis-cli --scan --pattern 'MAIA_APP_*' | xargs docker compose exec -T redis redis-cli unlink`
+(o semplicemente `docker compose restart redis`: non ha volume).
 
 **Database:** dopo una modifica a `prisma/schema.prisma`, `npm run db:migrate` (crea la migrazione
 e rigenera il client Prisma).
@@ -37,8 +42,14 @@ li tiene fuori dal server web). Da maia-be, con `TMDB_API_KEY` in `.env`:
 npm run catalog:worker                       # i worker (lasciarlo acceso, come processo separato)
 npm run catalog -- fill raiplay              # primo riempimento: tutto RaiPlay (qualche ora)
 npm run catalog -- sync raiplay marefuori    # solo i titoli indicati, subito
+npm run catalog -- resync raiplay            # rilegge tutti i titoli già presenti (vedi sotto)
 npm run catalog -- status                    # titoli, abbinamenti, episodi, fonti, coda
 ```
+
+**Dopo una modifica a cosa salva il catalogo** (adapter o inserimento) va lanciato
+`npm run catalog -- resync raiplay` (o `--episodes`), altrimenti i titoli già presenti si
+aggiornano solo al loro prossimo controllo, anche dopo un mese. Quando serve e quando no:
+[tv/catalog.md](tv/catalog.md), "Rileggere tutto il catalogo".
 
 Log del worker avviato come processo separato: `%TEMP%\maia-logs\catalog-worker.log`.
 
@@ -57,7 +68,7 @@ le due modalità insieme.
 
 | File | Contenuto |
 |---|---|
-| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo), `CATALOG_WORKERS` (`false` = lavori del catalogo fuori dal server web) |
+| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo), `CATALOG_WORKERS` (`false` = lavori del catalogo fuori dal server web), `REDIS_URL` (cache; vuota = niente cache), `CACHE_TTL_SECONDS`, `CACHE_MAX_FAILS` |
 | `maia-fe/.env.local` | `API_URL=http://localhost:3000` (dove il gateway `/api` trova maia-be) |
 
 Sono ignorati da git; i modelli sono i rispettivi `.env.example`.

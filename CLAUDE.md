@@ -24,6 +24,26 @@ Tutto ciò che è stato deciso e implementato è in [`docs/`](docs/README.md).
   leggi la guida in `maia-fe/node_modules/next/dist/docs/` (vedi `maia-fe/AGENTS.md`).
 - Niente aggiramento del DRM e solo servizi gratuiti (vedi `docs/tv/catalog.md`).
 - Prisma resta sulla versione fissata nel `package.json` del backend: non usare `prisma@latest`.
+- **Rispetto dei servizi (ogni provider, anche futuro):** mai pesare su RaiPlay, TMDB o altri.
+  Tutte le richieste passano da `polite-fetch` (una alla volta, max 1/s), stop immediato su
+  429/403, niente operazioni massicce (`fill`, `resync`, misure, test ripetuti) senza la conferma
+  dell'utente e senza dire prima quante richieste comportano. Ogni servizio esterno va registrato
+  in `maia-be/src/tv/providers/services.ts` (host inclusi), così ha il suo interruttore nel
+  pannello admin. Il frontend non manda mai il Referer
+  (`no-referrer` su tutte le pagine); niente token copiati né imitazioni dei servizi. Dettagli: `docs/tv/catalog.md`,
+  "Rispetto dei servizi".
+- **Catalogo: se una modifica cambia cosa salva il catalogo** (adapter di un servizio o
+  inserimento in `CatalogService`), i titoli già presenti non si aggiornano da soli prima del loro
+  prossimo controllo (anche un mese). Dopo la modifica **proponi** all'utente
+  `npm run catalog -- resync raiplay` (o `--episodes`) in locale e ricordagli di lanciarlo anche in
+  produzione dopo il deploy (è pesante: va confermato, vedi la regola sopra). Quando serve e quando no: `docs/tv/catalog.md`, "Rileggere tutto il catalogo".
+- **Cache Redis:** se un valore messo in cache cambia a parità di dati (forma del DTO o del tipo
+  interno, oppure come l'API lo calcola), alza
+  `CACHE_VERSION` in `maia-be/src/cache/cache.service.ts` (vedi `docs/architecture.md`, "Cache").
+- **Frontend senza errori in console:** dopo una modifica al frontend naviga l'app in Chrome
+  (desktop e formato telefono: home, Film, Serie, generi, una scheda, il player, ricerca) e
+  controlla che non compaiano errori o avvisi di React/Next nella console; vanno risolti prima del
+  commit.
 - Fine riga solo LF.
 - Porte locali fisse: `maia-be` su 3000, `maia-fe` su 3001.
 - **Server di sviluppo e tunnel sempre come processi separati**, mai come comandi in background

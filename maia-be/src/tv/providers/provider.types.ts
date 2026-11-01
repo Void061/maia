@@ -24,6 +24,8 @@ export type ProviderEpisode = ProviderVideo & {
   episode: number | null;
   title: string;
   airDate: string | null;
+  // The episode's own picture (a frame of it), not the show's artwork.
+  imageUrl: string | null;
 };
 
 export type ProviderSeason = {
@@ -40,7 +42,7 @@ export type ProviderSeason = {
 // TMDB: they belong to the title they were found on.
 export type ExtraKind = 'HIGHLIGHTS' | 'CLIPS' | 'PREVIEWS' | 'EXTRAS';
 
-export type ProviderExtra = ProviderVideo & { externalId: string; title: string };
+export type ProviderExtra = ProviderVideo & { externalId: string; title: string; imageUrl: string | null };
 
 export type ProviderExtraGroup = {
   externalId: string;
@@ -74,4 +76,8 @@ export interface ProviderAdapter {
   // External ids of the titles listed in one section of the service.
   listSection(section: string): Promise<string[]>;
   getTitle(externalId: string): Promise<ProviderTitle | null>;
+  // Fallback when the device cannot play the recipe as it is: the direct
+  // stream URL, resolved from the server (short-lived, never stored). Null if
+  // the service refuses it from here (geo-blocked).
+  resolveStream?(recipeUrl: string): Promise<string | null>;
 }

@@ -6,7 +6,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Avatar from "@/components/avatar";
 import { BackIcon, SearchIcon } from "@/components/icons";
@@ -14,6 +14,7 @@ import Logo from "@/components/logo";
 import { Notice } from "@/components/ui";
 import { useMe } from "@/lib/account";
 import { api, type components } from "@/lib/api";
+import ServicesPanel, { type Service } from "./services-panel";
 
 type AdminAccount = components["schemas"]["AdminAccountDto"];
 type Accounts = components["schemas"]["AdminAccountsDto"];
@@ -52,10 +53,20 @@ const date = (iso: string) =>
 const hueOf = (s: string) =>
   [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 
-// Admin panel: accounts by status, search, and the actions each status allows.
+type Tab = "accounts" | "services";
+
+// Admin panel, one tab per area: accounts (by status, search, the actions each
+// status allows) and the outside services (on/off switches).
 export default function AdminPanel() {
   const router = useRouter();
   const { data: me } = useMe();
+  // The open tab is in the URL, so a reload (or a bookmark) opens the same one.
+  const params = useSearchParams();
+  const tab: Tab = params.get("tab") === "services" ? "services" : "accounts";
+  const setTab = (t: Tab) =>
+    router.replace(t === "services" ? "/admin?tab=services" : "/admin", {
+      scroll: false,
+    });
   const [filter, setFilter] = useState<Status | "ALL">("PENDING_APPROVAL");
   const [typed, setTyped] = useState("");
   const [q, setQ] = useState("");
@@ -76,6 +87,15 @@ export default function AdminPanel() {
     enabled: isAdmin,
     placeholderData: keepPreviousData,
   });
+  // Shares the cache with the Servizi tab: its badge counts the services off or paused.
+  const services = useQuery({
+    queryKey: ["admin", "services"],
+    queryFn: () => api<Service[]>("/admin/services"),
+    refetchInterval: 10_000,
+    enabled: isAdmin,
+  });
+  const servicesAlert =
+    services.data?.filter((s) => !s.enabled || s.status === "DOWN").length ?? 0;
   const counts = list.data?.counts;
   const total = counts
     ? Object.values(counts).reduce((a, b) => a + b, 0)
@@ -105,72 +125,114 @@ export default function AdminPanel() {
           </div>
         ) : (
           <>
-            <div className="rail -mx-4 mt-8 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0">
-              {FILTERS.map((f) => {
-                const n = f.key === "ALL" ? total : counts?.[f.key];
-                return (
-                  <button
-                    key={f.key}
-                    onClick={() => setFilter(f.key)}
-                    aria-pressed={filter === f.key}
-                    className="focusable pill-focus flex h-10 shrink-0 items-center gap-2 rounded-full bg-white/10 px-4 text-sm font-medium text-muted aria-pressed:bg-white aria-pressed:text-black"
-                  >
-                    {f.label}
-                    {n !== undefined && (
-                      <span
-                        className={`rounded-full px-1.5 text-xs font-bold tabular-nums ${
-                          f.key === "PENDING_APPROVAL" && n > 0
-                            ? "bg-[#ffd98a] text-black"
-                            : "bg-black/20"
-                        }`}
-                      >
-                        {n}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+            <div
+              role="tablist"
+              aria-label="Sezioni"
+              className="mt-8 flex gap-6 overflow-x-auto border-b border-hairline [scrollbar-width:none]"
+            >
+              {(
+                [
+                  {
+                    key: "accounts",
+                    label: "Account",
+                    badge: counts?.PENDING_APPROVAL ?? 0,
+                  },
+                  { key: "services", label: "Servizi", badge: servicesAlert },
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.key}
+                  role="tab"
+                  aria-selected={tab === t.key}
+                  onClick={() => setTab(t.key)}
+                  className="focusable -mb-px flex shrink-0 items-center gap-2 rounded-t-lg border-b-2 border-transparent px-1 pb-3 pt-1 text-lg font-semibold text-faint aria-selected:border-white aria-selected:text-label"
+                >
+                  {t.label}
+                  {t.badge > 0 && (
+                    <span className="rounded-full bg-[#ffd98a] px-1.5 text-xs font-bold tabular-nums text-black">
+                      {t.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
 
-            <label className="relative mt-4 block">
-              <span className="sr-only">Cerca per nome o email</span>
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-faint">
-                <SearchIcon />
-              </span>
-              <input
-                value={typed}
-                onChange={(e) => setTyped(e.target.value)}
-                placeholder="Cerca per nome o email"
-                className="focusable h-12 w-full rounded-xl bg-white/[0.08] pl-12 pr-4 text-base placeholder:text-faint"
-              />
-            </label>
-
-            {list.error && (
-              <div className="mt-6">
-                <Notice>{list.error.message}</Notice>
-              </div>
-            )}
-
-            {!list.data ? (
-              <p className="mt-8 text-muted" role="status">
-                Caricamento…
-              </p>
-            ) : list.data.accounts.length === 0 ? (
-              <p className="mt-10 text-center text-lg text-muted">
-                {q
-                  ? `Nessun account corrisponde a “${q}”.`
-                  : filter === "PENDING_APPROVAL"
-                    ? "Nessun account da approvare."
-                    : "Nessun account qui."}
-              </p>
+            {tab === "services" ? (
+              <ServicesPanel enabled={isAdmin} />
             ) : (
-              <ul
-                className={`mt-6 grid gap-3 transition-opacity ${list.isFetching ? "opacity-70" : ""}`}
-              >
-                {list.data.accounts.map((a) => (
-                  <AccountRow key={a.id} account={a} self={a.id === me?.id} />
-                ))}
-              </ul>
+              <>
+                <div className="rail -mx-4 mt-6 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0">
+                  {FILTERS.map((f) => {
+                    const n = f.key === "ALL" ? total : counts?.[f.key];
+                    return (
+                      <button
+                        key={f.key}
+                        onClick={() => setFilter(f.key)}
+                        aria-pressed={filter === f.key}
+                        className="focusable pill-focus flex h-10 shrink-0 items-center gap-2 rounded-full bg-white/10 px-4 text-sm font-medium text-muted aria-pressed:bg-white aria-pressed:text-black"
+                      >
+                        {f.label}
+                        {n !== undefined && (
+                          <span
+                            className={`rounded-full px-1.5 text-xs font-bold tabular-nums ${
+                              f.key === "PENDING_APPROVAL" && n > 0
+                                ? "bg-[#ffd98a] text-black"
+                                : "bg-black/20"
+                            }`}
+                          >
+                            {n}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <label className="relative mt-4 block">
+                  <span className="sr-only">Cerca per nome o email</span>
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-faint">
+                    <SearchIcon />
+                  </span>
+                  <input
+                    value={typed}
+                    onChange={(e) => setTyped(e.target.value)}
+                    placeholder="Cerca per nome o email"
+                    className="focusable h-12 w-full rounded-xl bg-white/[0.08] pl-12 pr-4 text-base placeholder:text-faint"
+                  />
+                </label>
+
+                {list.error && (
+                  <div className="mt-6">
+                    <Notice>{list.error.message}</Notice>
+                  </div>
+                )}
+
+                {!list.data ? (
+                  <p className="mt-8 text-muted" role="status">
+                    Caricamento…
+                  </p>
+                ) : list.data.accounts.length === 0 ? (
+                  <p className="mt-10 text-center text-lg text-muted">
+                    {q
+                      ? `Nessun account corrisponde a “${q}”.`
+                      : filter === "PENDING_APPROVAL"
+                        ? "Nessun account da approvare."
+                        : "Nessun account qui."}
+                  </p>
+                ) : (
+                  <ul
+                    className={`mt-6 grid gap-3 transition-opacity ${list.isFetching ? "opacity-70" : ""}`}
+                  >
+                    {list.data.accounts.map((a) => (
+                      <AccountRow
+                        key={a.id}
+                        account={a}
+                        self={a.id === me?.id}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </>
         )}

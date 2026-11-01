@@ -7,7 +7,7 @@ import { placeEpisode, type TmdbSeasonEpisodes } from '../matching/episodes.js';
 import { decide, searchTitle } from '../matching/score.js';
 import { subjectOf } from '../matching/subject.js';
 import { TmdbClient, type TmdbMeta } from '../matching/tmdb.client.js';
-import { HttpError } from '../providers/polite-fetch.js';
+import { HttpError, ServiceStoppedError } from '../providers/polite-fetch.js';
 import type { ProviderAdapter, ProviderEpisode, ProviderTitle } from '../providers/provider.types.js';
 import { RaiPlayAdapter } from '../providers/raiplay/raiplay.adapter.js';
 
@@ -16,6 +16,8 @@ const DAY = 86_400_000;
 // After this many consecutive errors a service pauses (circuit breaker).
 const MAX_FAIL_STREAK = 5;
 const PAUSE_MS = 30 * 60_000;
+// The service asked us to slow down (429) or blocked us (403): pause at once, longer.
+const SLOW_DOWN_PAUSE_MS = 6 * 3600_000;
 // A discovery finding fewer titles than this share of the previous one is
 // treated as a broken listing: nothing is hidden.
 const MIN_DISCOVERY_RATIO = 0.7;
@@ -57,8 +59,11 @@ export class CatalogService {
     try {
       data = await this.adapter(provider).getTitle(externalId);
     } catch (err) {
-      // A single broken title (4xx) says nothing about the service's health.
-      if (!(err instanceof HttpError && err.status < 500)) await this.recordFailure(provider, err);
+      if (err instanceof ServiceStoppedError) throw err; // switched off by an admin: not the service's fault
+      // A single broken title (4xx) says nothing about the service's health,
+      // except "slow down" / "blocked", which pauses the service right away.
+      if (err instanceof HttpError && err.slowDown) await this.recordFailure(provider, err, SLOW_DOWN_PAUSE_MS);
+      else if (!(err instanceof HttpError && err.status < 500)) await this.recordFailure(provider, err);
       throw err;
     }
     await this.recordSuccess(provider);
@@ -270,6 +275,8 @@ export class CatalogService {
         if (!episodeId || prev?.episode?.provisional) {
           episodeId = await this.placeAndUpsertEpisode(titleId, season.number, ep, tmdbId ? await loadTmdbSeasons() : []);
         }
+        // The service's picture of this episode (kept when the service has none).
+        if (ep.imageUrl) await this.prisma.episode.update({ where: { id: episodeId }, data: { imageUrl: ep.imageUrl } });
         await this.prisma.source.upsert({
           where: { provider_externalId: { provider: data.provider, externalId: ep.externalId } },
           create: { provider: data.provider, externalId: ep.externalId, providerTitleId, episodeId, ...videoFields(ep, now) },
@@ -334,6 +341,7 @@ export class CatalogService {
           expiresAt: v.expiresAt ? new Date(v.expiresAt) : null,
           available: !v.drm,
           lastSeenAt: now,
+          imageUrl: v.imageUrl,
         };
         await this.prisma.extra.upsert({
           where: { groupId_externalId: { groupId: g.id, externalId: v.externalId } },
@@ -356,6 +364,7 @@ export class CatalogService {
   async discover(provider: string, mode: 'fill' | 'refresh'): Promise<string[]> {
     const adapter = this.adapter(provider);
     if (!adapter.discover) throw new Error(`${provider} cannot list its whole catalog`);
+    await this.assertNotPaused(provider);
     const run = await this.prisma.syncRun.create({ data: { provider } });
     try {
       const found = await adapter.discover();
@@ -387,17 +396,44 @@ export class CatalogService {
       return toSync;
     } catch (err) {
       await this.prisma.syncRun.update({ where: { id: run.id }, data: { status: 'failed', finishedAt: new Date(), note: String(err) } });
+      if (err instanceof HttpError && err.slowDown) await this.recordFailure(provider, err, SLOW_DOWN_PAUSE_MS);
       throw err;
     }
   }
 
   // Titles whose turn has come (adaptive rhythm), and expired videos off.
-  async dueTitles(limit = 1000) {
+  // A full pass cut short by a restart (deploy, dev reload) stays "active" in
+  // pg-boss for hours and then runs again on its own, even in manual mode.
+  // There is one worker at a time: at its start, anything still running is an
+  // orphan of the previous process.
+  async closeInterruptedRuns(): Promise<number> {
+    const jobs = await this.prisma.$executeRaw`
+      UPDATE pgboss.job SET state = 'cancelled', completed_on = now()
+       WHERE name = 'catalog-discover' AND state IN ('active', 'retry')`.catch(() => 0);
+    await this.prisma.syncRun.updateMany({
+      where: { status: 'running' },
+      data: { status: 'failed', finishedAt: new Date(), note: 'interrotta: worker riavviato durante la passata' },
+    });
+    return jobs;
+  }
+
+  async checked(provider: string) {
     const now = new Date();
-    await this.prisma.source.updateMany({ where: { available: true, expiresAt: { lt: now } }, data: { available: false } });
-    await this.prisma.extra.updateMany({ where: { available: true, expiresAt: { lt: now } }, data: { available: false } });
+    await this.prisma.providerHealth.upsert({ where: { provider }, create: { provider, lastCheckAt: now }, update: { lastCheckAt: now } });
+  }
+
+  // Videos past their expiry date go off. Database only. Returns how many.
+  async expireVideos(): Promise<number> {
+    const now = new Date();
+    const sources = await this.prisma.source.updateMany({ where: { available: true, expiresAt: { lt: now } }, data: { available: false } });
+    const extras = await this.prisma.extra.updateMany({ where: { available: true, expiresAt: { lt: now } }, data: { available: false } });
+    return sources.count + extras.count;
+  }
+
+  // A source's titles whose next check (adaptive rhythm) has come.
+  async dueTitles(provider: string, limit = 1000) {
     return this.prisma.providerTitle.findMany({
-      where: { nextCheckAt: { lte: now } },
+      where: { provider, nextCheckAt: { lte: new Date() } },
       select: { provider: true, externalId: true },
       orderBy: { nextCheckAt: 'asc' },
       take: limit,
@@ -427,16 +463,17 @@ export class CatalogService {
       throw new ProviderPausedError(`${provider} paused until ${health.retryAfter.toISOString()}`);
   }
 
-  private async recordFailure(provider: string, err: unknown) {
+  // `pauseNowMs`: pause at once for that long instead of after MAX_FAIL_STREAK errors.
+  private async recordFailure(provider: string, err: unknown, pauseNowMs?: number) {
     const health = await this.prisma.providerHealth.upsert({
       where: { provider },
       create: { provider, failStreak: 1, lastError: String(err) },
       update: { failStreak: { increment: 1 }, lastError: String(err) },
     });
-    if (health.failStreak >= MAX_FAIL_STREAK) {
+    if (pauseNowMs || health.failStreak >= MAX_FAIL_STREAK) {
       await this.prisma.providerHealth.update({
         where: { provider },
-        data: { status: 'DOWN', retryAfter: new Date(Date.now() + PAUSE_MS) },
+        data: { status: 'DOWN', retryAfter: new Date(Date.now() + (pauseNowMs ?? PAUSE_MS)) },
       });
       this.logger.error(`${provider} paused after ${health.failStreak} errors: ${String(err)}`);
     }

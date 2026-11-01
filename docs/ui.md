@@ -43,7 +43,7 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 - **Card** (`components/poster.tsx`):
   - `Poster` 2:3, stile Max: il titolo sta **dentro** l'immagine, in basso, su una sfumatura nera
     forte (metà altezza) così resta leggibile su qualunque foto;
-  - `Tile` 16:9 per *Continua a guardare*, *Novità*, canali live ed episodi, con didascalia sotto;
+  - `Tile` 16:9 per *Continua a guardare*, *Novità* ed episodi, con didascalia sotto;
   - `Top10Card`: numero enorme a contorno **accanto** alla locandina (non sovrapposto);
   - `GenreCard`: riquadro 16:9 con il nome del genere, porta d'ingresso alla categoria.
 - **Campi e pulsanti secondari** usano bianco semitrasparente (`bg-white/[0.08]`, `bg-white/[0.14]`)
@@ -62,7 +62,7 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 - un livello modale con `data-focus-trap` (selettore app, menu profilo, impostazioni del player)
   tiene la navigazione al suo interno e si chiude con Esc/Backspace;
 - un contenitore con `data-own-keys` gestisce da sé le frecce (il player: avanti/indietro di 10
-  secondi, su/giù per cambiare canale nei live).
+  secondi, su/giù per il volume).
 
 ## Schermate
 
@@ -76,20 +76,19 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 | `/welcome` | guida iniziale per un account senza profili (3 passi) |
 | `/profiles` | "Chi sta guardando?", massimo 5 profili; "Gestisci profili" (matita) e "Aggiungi" |
 | `/account` | impostazioni: nome, email, password, profili, (admin) link al pannello, esci |
-| `/admin` | pannello admin: filtri per stato con conteggi, ricerca, azioni per account |
+| `/admin` | pannello admin a schede: **Account** (filtri per stato con conteggi, ricerca, azioni) e **Servizi** (interruttori dei servizi esterni) |
 | `/tv` | Home, organizzata come HBO Max: hero a carosello (8 s, si ferma col telecomando sopra), *Continua a guardare*, *Top 10 di oggi*, *In onda ora*, *Esplora* (riquadri dei generi), *Novità*, riga *In primo piano*, poi una riga per genere |
-| `/tv/live` | come Pluto TV / Samsung TV Plus: in alto anteprima dal vivo (muta) del canale selezionato con programma, orario, avanzamento, "Dopo" e Guarda; filtri per categoria (Tutti, Generalisti, Film e serie, Lifestyle, Bambini); TV/desktop: guida con colonna canali fissa, riga orari e "Ora", linea dell'ora dietro i programmi (si vede solo negli spazi); muovendosi nella guida l'anteprima e i dettagli seguono il programma selezionato (l'anteprima cambia canale dopo una breve pausa). Telefono: per ogni canale *Ora* con avanzamento e *Dopo*; toccando un canale va nell'anteprima in alto |
 | `/tv/movies`, `/tv/series` | mini-Home del tipo: hero, Top dei film/serie, *Esplora per genere*, una riga per genere |
 | `/tv/movies/[genre]`, `/tv/series/[genre]` | pagina del genere: hero corto e griglia completa |
 | `/tv/genre/[genre]` | scorciatoia su film **e** serie insieme (es. "Commedie") |
 | `/tv/title/[id]` | scheda: hero con Guarda/Riprendi, poi le schede *Episodi* (con le stagioni), *Extra* (highlights, clip, anticipazioni: solo se ce ne sono, divisi in gruppi, prima quelli della stagione scelta, poi quelli generali), *Altri come questo*, *Dettagli*; nessuna indicazione delle fonti |
-| `/tv/search` | ricerca con tastiera a griglia su schermi grandi |
-| `/watch/[id]`, `/watch/live-[channel]` | player a schermo intero |
+| `/tv/search` | ricerca; su schermi grandi (TV) una tastiera a griglia **chiusa di base**: si apre premendo il campo (OK, clic o Invio, non solo arrivandoci con le frecce; col telecomando il focus va sulla prima lettera), si chiude con "Chiudi tastiera", Indietro/Esc (restando sulla pagina) o uscendo dall'area di ricerca; mentre è aperta è un livello `data-focus-trap` |
+| `/watch/[id]` | player a schermo intero |
 
 **Menu (TV, desktop, tablet):** barra in alto, trasparente sopra l'immagine e in vetro quando si
 scorre. A sinistra "maia TV" (apre il selettore delle app), al centro le voci a pillola (Home,
-Live, Film, Serie), a destra Cerca e l'avatar (cambia profilo, impostazioni, esci).
-**Telefono:** stessa barra in alto, più una barra in basso con 5 voci, come iOS. La barra in basso
+Film, Serie), a destra Cerca e l'avatar (cambia profilo, impostazioni, esci).
+**Telefono:** stessa barra in alto, più una barra in basso con le voci del menu più Cerca (Home, Film, Serie, Cerca), come iOS; le colonne seguono il numero di voci. La barra in basso
 è **quasi opaca** (`bg-black/90` + sfocatura) e le voci non attive sono grigio chiaro (`muted`):
 con il vetro trasparente e il grigio scuro non si leggeva sopra le immagini chiare.
 Sempre solo sul telefono, **le due barre si nascondono scorrendo verso il basso e ricompaiono
@@ -103,8 +102,8 @@ del mouse e per i lettori di schermo. Spariscono dopo 3 secondi di riproduzione 
 in pausa).
 - **In alto:** Indietro (e il titolo, sul telefono).
 - **In basso:** barra di avanzamento a tutta larghezza, poi tre gruppi: a sinistra play/pausa,
-  −10, +10, volume (nei live: canale su/giù al posto di ±10); al centro il titolo (e canale e
-  orario nei live); a destra audio e sottotitoli, schermo intero.
+  −10, +10, volume; al centro il titolo; a destra
+  audio e sottotitoli, schermo intero.
 - **Telefono:** −10 / play-pausa / +10 al centro dello schermo, come nelle app; in basso restano
   barra, volume, sottotitoli e schermo intero.
 - **Ruota schermo** (solo dispositivi touch, `pointer-coarse`), come l'app di YouTube: un tocco
@@ -112,6 +111,11 @@ in pausa).
   schermo intero, quindi il tasto ci entra se serve; uscendo dallo schermo intero la rotazione
   si sblocca. Su iPhone (Safari non permette il blocco) apre lo schermo intero nativo del video,
   che segue la rotazione del telefono. Il tasto schermo intero da solo non ruota.
+- **Uscendo dal player il video si ferma.** Con Cache Components Next non smonta le pagine
+  visitate, le nasconde (`<Activity>`, `display: none`): un `<video>` nascosto continuerebbe a
+  suonare. Lasciando il player (Indietro, un link, il gesto indietro del sistema) il video va in
+  pausa, smette di scaricare, esce dallo schermo intero e la rotazione si sblocca; tornando sulla
+  pagina riparte dal punto in cui era.
 - **Volume** (`VolumeControl`), come Netflix: l'icona apre una piccola finestra **verticale**
   sopra di sé, **chiusa di base**, che si apre solo premendo l'icona. Dentro: percentuale,
   cursore verticale con perno (trascinabile, o ↑/↓ col focus) e tasto muto. Si chiude premendo
@@ -124,7 +128,7 @@ in pausa).
   che appare come un "mini player" rettangolare.
 - **Due pannelli separati**, come YouTube/Netflix:
   - **Audio e sottotitoli** (icona fumetto, tasto C): lingua audio e sottotitoli;
-  - **Impostazioni** (icona ingranaggio): qualità e velocità (la velocità non c'è nei live).
+  - **Impostazioni** (icona ingranaggio): qualità e velocità.
 
   Sono elenchi con il segno di spunta sulla voce attiva, in due colonne su schermi grandi.
   Quando un pannello è aperto spariscono tutti i comandi e il video si scurisce; il pannello è
@@ -159,11 +163,10 @@ in pausa).
   | Spazio / K / Invio | play/pausa |
   | F | schermo intero |
   | M | audio sì/no |
-  | ↑ / ↓ | volume ±10%, con l'indicatore della percentuale in alto (titoli on demand) |
+  | ↑ / ↓ | volume ±10%, con l'indicatore della percentuale in alto |
   | C | apre "Audio e sottotitoli" (qualità e velocità sono nel pannello Impostazioni) |
   | N / P | episodio successivo / precedente (serie) |
   | Esc / Indietro | a schermo intero esce dallo schermo intero; altrimenti torna alla pagina precedente |
-  | ↑ / ↓ nei live | cambiano canale, come in TV |
 
   Con il mouse i comandi ricompaiono anche muovendolo; sul touch no, così un tocco non li
   riaccende per sbaglio.
@@ -172,17 +175,21 @@ in pausa).
 
 - **Film, serie, generi, ricerca, schede ed episodi** vengono dal catalogo di maia-be
   (`maia-fe/lib/tv.ts`: `/tv/home`, `/tv/genres`, `/tv/titles`, `/tv/titles/:id`, `/tv/playback/:id`).
-  Locandine e sfondi sono quelli di TMDB (o di RaiPlay per i titoli che TMDB non ha); senza
-  immagine il riquadro mostra un gradiente. Le miniature degli episodi usano lo sfondo del titolo.
+  Locandine e sfondi sono quelli di TMDB (o di RaiPlay per i titoli che TMDB non ha, ritagliate
+  da RaiPlay alla misura delle schede: vedi [tv/catalog.md](tv/catalog.md)); senza immagine il
+  riquadro mostra un gradiente. Episodi ed extra hanno la **loro immagine** (quella del servizio,
+  un fotogramma della puntata, 640×360) nella scheda, nel pannello episodi del player e in
+  "Prossimo episodio"; lo sfondo del titolo resta solo per quelli che non ne hanno una.
 - **Riproduzione**: il player chiede a maia-be cosa riprodurre e mette il link in `<video src>`
-  (HLS nativo del browser, niente hls.js per il catalogo). Se il video non parte segnala l'errore
-  e chiede la fonte successiva; senza fonti mostra "Questo contenuto ora non è disponibile". Su
-  browser senza HLS nativo (Firefox) avvisa di usare Chrome, Edge o Safari.
+  (HLS nativo del browser). Se l'HLS nativo rifiuta il flusso, chiede a maia-be il link diretto
+  (`/tv/playback/:id/stream`) e lo riproduce con hls.js; se non parte nemmeno così segnala
+  l'errore e chiede la fonte successiva; senza fonti mostra "Questo contenuto ora non è
+  disponibile". Su browser senza HLS nativo (Firefox) usa direttamente il link diretto con
+  hls.js; senza né HLS nativo né MSE avvisa di usare Chrome, Edge o Safari.
 - Pagine con parametro (`/tv/title/[id]`, `/watch/[id]`, generi): `generateStaticParams` restituisce
   un solo valore segnaposto (lo richiede Cache Components); i dati li carica il browser.
-- **Dirette** (canali, palinsesto, "In onda ora"): ancora dati di prova in
-  `maia-fe/lib/live-demo.ts`, con un flusso HLS pubblico (Mux), finché canali e palinsesto non sono
-  in maia-be.
+- **Niente dirette né replay**: provati e tolti per scelta dell'utente, insieme ai canali finti di
+  prova (vedi [decisions.md](decisions.md)). MAIA TV è il catalogo: Home, Film, Serie, Cerca.
 - Non ancora fatti: "Continua a guardare" e Top 10 (servono `WatchProgress` e statistiche),
   preferiti (il tasto + non salva ancora).
 - Account e profili sono veri (maia-be); il profilo scelto è in `localStorage` (`lib/session.ts`).

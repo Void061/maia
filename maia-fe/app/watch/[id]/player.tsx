@@ -2,11 +2,9 @@
 
 import type Hls from "hls.js";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BackIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   EpisodesIcon,
   ExitFullscreenIcon,
   Forward10Icon,
@@ -27,11 +25,17 @@ import {
 } from "@/components/icons";
 import { Art } from "@/components/poster";
 import { ApiError } from "@/lib/api";
-import { channels, demoStream, scheduleAround } from "@/lib/live-demo";
-import { episodeLabel, fetchPlayback, flatEpisodes, reportPlaybackFailed, type Episode, type TitleDetail } from "@/lib/tv";
-import { hhmm, useNow } from "@/lib/use-now";
+import {
+  episodeLabel,
+  fetchPlayback,
+  fetchStream,
+  flatEpisodes,
+  reportPlaybackFailed,
+  type Episode,
+  type TitleDetail,
+} from "@/lib/tv";
 
-type Props = { title?: TitleDetail; live?: { channelId: string } };
+type Props = { title: TitleDetail };
 type Level = { index: number; height: number };
 // lock()/unlock() are missing from some DOM typings and from iPhone Safari.
 type OrientationWithLock = ScreenOrientation & {
@@ -51,24 +55,23 @@ const fmt = (s: number) => {
   return h ? `${h}:${m.toString().padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 };
 
-export default function Player({ title, live }: Props) {
+export default function Player({ title }: Props) {
   const router = useRouter();
   const video = useRef<HTMLVideoElement>(null);
   const hls = useRef<Hls | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const [channelId, setChannelId] = useState(live?.channelId);
   // Series: which episode is playing (?ep= in the URL, else the first one).
   // Extras play on their own (?extra=), without episode navigation.
   const params = useSearchParams();
   const extraId = params.get("extra");
   const extra = useMemo(
-    () => (extraId ? title?.extras.flatMap((g) => g.items).find((x) => x.id === extraId) ?? null : null),
+    () => (extraId ? title.extras.flatMap((g) => g.items).find((x) => x.id === extraId) ?? null : null),
     [extraId, title],
   );
-  const isSeries = title?.kind === "SERIES" && !extraId;
-  const episodes = useMemo(() => (title && isSeries ? flatEpisodes(title) : []), [title, isSeries]);
+  const isSeries = title.kind === "SERIES" && !extraId;
+  const episodes = useMemo(() => (isSeries ? flatEpisodes(title) : []), [title, isSeries]);
   const [episode, setEpisode] = useState<Episode | null>(() => {
     if (!episodes.length) return null;
     return episodes.find((e) => e.id === params.get("ep")) ?? episodes[0];
@@ -76,8 +79,14 @@ export default function Player({ title, live }: Props) {
   const at = episode ? episodes.findIndex((e) => e.id === episode.id) : -1;
   const upNext = at >= 0 && at < episodes.length - 1 ? episodes[at + 1] : null;
   const previous = at > 0 ? episodes[at - 1] : null;
-  // What the stream is for: a movie, an episode, an extra, or a live channel.
-  const playId = live ? null : (extraId ?? (isSeries ? episode?.id : title?.id) ?? null);
+  // What the stream is for: a movie, an episode or an extra.
+  const playId = extraId ?? (isSeries ? episode?.id : title.id) ?? null;
+  const playIdRef = useRef(playId);
+  useLayoutEffect(() => {
+    playIdRef.current = playId;
+  }, [playId]);
+  // Where to pick up when a hidden player page is shown again.
+  const resume = useRef<{ id: string | null; at: number } | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
@@ -106,13 +115,6 @@ export default function Player({ title, live }: Props) {
   const lastPointer = useRef<string>("mouse");
   const singleTapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const now = useNow(15_000);
-  const channel = channels.find((c) => c.id === channelId);
-  const onAir = useMemo(
-    () => (now && channelId ? scheduleAround(now).find((p) => p.channelId === channelId && p.start <= now && p.end > now) : undefined),
-    [now, channelId],
-  );
-
   // Controls fade out after 3s without input, like a TV.
   const poke = useCallback(() => {
     setChrome(true);
@@ -125,35 +127,84 @@ export default function Player({ title, live }: Props) {
   // Attach the stream. Live demo channels: hls.js where MSE exists, native HLS
   // otherwise. Catalog videos: maia-be says what to play and the link goes
   // straight into <video src>; the browser resolves it (the services check the
-  // viewer's country there) and plays it with its own HLS support. When a
-  // source does not play, the next one is asked for, excluding that service.
+  // viewer's country there) and plays it with its own HLS support. Some
+  // playlists are rejected by native HLS (Chrome cannot parse them): then
+  // maia-be resolves the direct link and hls.js plays it. When a source does
+  // not play either way, the next one is asked for, excluding that service.
   useEffect(() => {
     const v = video.current;
     if (!v) return;
     let cancelled = false;
     const tried: string[] = [];
     let onError: (() => void) | null = null;
+    // Back on a page that was only hidden: start where it was left.
+    const startAt = resume.current?.id === playId ? resume.current.at : 0;
     setFailure(null);
     setLevels([]);
     setAudio([]);
     setSubs([]);
 
+    const nativeHls = v.canPlayType("application/vnd.apple.mpegurl") !== "";
+    const mse = "MediaSource" in window || "ManagedMediaSource" in window;
+
+    // hls.js on `url`; false where MSE is missing (iPhone before iOS 17.1).
+    const attachHls = async (url: string, onFatal?: () => void) => {
+      const { default: HlsLib } = await import("hls.js");
+      if (cancelled || !HlsLib.isSupported()) return false;
+      hls.current?.destroy();
+      const h = new HlsLib(startAt ? { startPosition: startAt } : undefined);
+      hls.current = h;
+      h.loadSource(url);
+      h.attachMedia(v);
+      h.on(HlsLib.Events.MANIFEST_PARSED, () => {
+        setLevels(h.levels.map((l, index) => ({ index, height: l.height })).sort((a, b) => b.height - a.height));
+        setAudio(h.audioTracks.map((t, index) => ({ index, label: t.name || t.lang || `Traccia ${index + 1}` })));
+        setSubs(h.subtitleTracks.map((t, index) => ({ index, label: t.name || t.lang || `Sottotitoli ${index + 1}` })));
+        v.play().catch(() => {});
+      });
+      if (onFatal) h.on(HlsLib.Events.ERROR, (_, data) => data.fatal && !cancelled && onFatal());
+      return true;
+    };
+
+    const nextSource = (id: string, provider: string) => {
+      if (cancelled) return;
+      hls.current?.destroy();
+      hls.current = null;
+      tried.push(provider);
+      void reportPlaybackFailed(id, provider);
+      void playCatalog(id);
+    };
+
+    const playResolved = async (id: string, provider: string) => {
+      try {
+        const s = await fetchStream(id, provider);
+        if (cancelled) return;
+        if (!(await attachHls(s.url, () => nextSource(id, provider)))) nextSource(id, provider);
+      } catch {
+        nextSource(id, provider);
+      }
+    };
+
     const playCatalog = async (id: string) => {
-      if (!v.canPlayType("application/vnd.apple.mpegurl")) {
+      if (!nativeHls && !mse) {
         setFailure("Questo browser non riproduce i video di MAIA. Usa Chrome, Edge o Safari.");
         return;
       }
       try {
         const p = await fetchPlayback(id, tried);
         if (cancelled) return;
+        if (!nativeHls) {
+          void playResolved(id, p.provider);
+          return;
+        }
         onError = () => {
           if (cancelled) return;
-          tried.push(p.provider);
-          void reportPlaybackFailed(id, p.provider);
-          void playCatalog(id);
+          v.removeAttribute("src");
+          void playResolved(id, p.provider);
         };
         v.addEventListener("error", onError, { once: true });
         v.src = p.url;
+        if (startAt) v.currentTime = startAt;
         v.play().catch(() => {});
       } catch (err) {
         if (!cancelled)
@@ -161,36 +212,36 @@ export default function Player({ title, live }: Props) {
       }
     };
 
-    if (playId) {
-      void playCatalog(playId);
-    } else {
-      (async () => {
-        const { default: HlsLib } = await import("hls.js");
-        if (cancelled) return;
-        if (HlsLib.isSupported()) {
-          const h = new HlsLib();
-          hls.current = h;
-          h.loadSource(demoStream);
-          h.attachMedia(v);
-          h.on(HlsLib.Events.MANIFEST_PARSED, () => {
-            setLevels(h.levels.map((l, index) => ({ index, height: l.height })).sort((a, b) => b.height - a.height));
-            setAudio(h.audioTracks.map((t, index) => ({ index, label: t.name || t.lang || `Traccia ${index + 1}` })));
-            setSubs(h.subtitleTracks.map((t, index) => ({ index, label: t.name || t.lang || `Sottotitoli ${index + 1}` })));
-            v.play().catch(() => {});
-          });
-        } else {
-          v.src = demoStream;
-          v.play().catch(() => {});
-        }
-      })();
-    }
+    if (playId) void playCatalog(playId);
     return () => {
       cancelled = true;
       if (onError) v.removeEventListener("error", onError);
       hls.current?.destroy();
       hls.current = null;
+      // Stop sound and download now: the page may only be hidden, not removed.
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
     };
   }, [playId]);
+
+  // Next keeps visited pages mounted but hidden (React Activity) instead of
+  // unmounting them, and a hidden <video> keeps playing. Leaving the player
+  // (back, a link, the system back gesture) pauses it, leaves fullscreen and
+  // releases the rotation lock; coming back resumes from the same point.
+  useLayoutEffect(() => {
+    const v = video.current as (HTMLVideoElement & { webkitDisplayingFullscreen?: boolean; webkitExitFullscreen?: () => void }) | null;
+    return () => {
+      if (v) {
+        // 0 = nothing loaded yet (or React's double run in dev): keep the last point.
+        if (v.currentTime > 0) resume.current = { id: playIdRef.current, at: v.currentTime };
+        v.pause();
+        if (v.webkitDisplayingFullscreen) v.webkitExitFullscreen?.();
+      }
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      (screen.orientation as OrientationWithLock).unlock?.();
+    };
+  }, []);
 
   useEffect(() => {
     // Controls start visible; just schedule the first fade-out.
@@ -319,7 +370,7 @@ export default function Player({ title, live }: Props) {
   // Plays another episode: the URL follows and the stream effect loads its source.
   const playEpisode = useCallback(
     (ep: Episode) => {
-      if (!title) return;
+      resume.current = null;
       setEpisode(ep);
       setPanel(null);
       setUpNextHidden(false);
@@ -328,16 +379,6 @@ export default function Player({ title, live }: Props) {
       router.replace(`/watch/${title.id}?ep=${ep.id}`, { scroll: false });
     },
     [title, router],
-  );
-
-  const zap = useCallback(
-    (dir: 1 | -1) => {
-      const i = channels.findIndex((c) => c.id === channelId);
-      const next = channels[(i + dir + channels.length) % channels.length];
-      setChannelId(next.id);
-      router.replace(`/watch/live-${next.id}`, { scroll: false });
-    },
-    [channelId, router],
   );
 
   // Remote keys while the controls layer is in charge (the settings panel
@@ -357,10 +398,10 @@ export default function Player({ title, live }: Props) {
     } else if (k === "m") {
       e.preventDefault();
       toggleMute();
-    } else if ((k === "ArrowLeft" || k === "j") && !live) {
+    } else if (k === "ArrowLeft" || k === "j") {
       e.preventDefault();
       seek(-10);
-    } else if ((k === "ArrowRight" || k === "l") && !live) {
+    } else if (k === "ArrowRight" || k === "l") {
       e.preventDefault();
       seek(10);
     } else if (k === "p" && previous) {
@@ -374,14 +415,11 @@ export default function Player({ title, live }: Props) {
       setPanel("subs");
     } else if (k === "ArrowUp" || k === "ArrowDown") {
       e.preventDefault();
-      const dir = k === "ArrowUp" ? 1 : -1;
-      // Live channels zap like a TV; on demand the arrows set the volume.
-      if (live) zap(dir === 1 ? -1 : 1);
-      else setVolume((muted ? 0 : volume) + dir * 0.1, true);
+      setVolume((muted ? 0 : volume) + (k === "ArrowUp" ? 0.1 : -0.1), true);
     }
   }
 
-  const heading = live ? onAir?.title ?? channel?.name : title?.name;
+  const heading = title.name;
   const subheading = extra
     ? extra.name
     : episode
@@ -417,7 +455,7 @@ export default function Player({ title, live }: Props) {
           const t = Date.now();
           const r = e.currentTarget.getBoundingClientRect();
           const side = e.clientX < r.left + r.width / 2 ? -10 : 10;
-          if (!live && t - lastTap.current < 300) {
+          if (t - lastTap.current < 300) {
             clearTimeout(singleTapTimer.current);
             seek(side);
           } else {
@@ -463,21 +501,7 @@ export default function Player({ title, live }: Props) {
         </div>
 
         <div className="pointer-events-auto bg-gradient-to-t from-black/85 via-black/50 to-transparent px-3 pb-3 pt-16 sm:px-8 sm:pb-6">
-          {!live ? (
-            <Scrubber time={time} duration={duration} onSeek={seekTo} onActivity={poke} />
-          ) : (
-            <div className="flex h-8 items-center gap-3">
-              <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-bold text-black">LIVE</span>
-              {onAir && now && (
-                <span className="relative h-1 flex-1 rounded-full bg-white/25">
-                  <span
-                    className="absolute inset-y-0 left-0 rounded-full bg-white"
-                    style={{ width: `${((now - onAir.start) / (onAir.end - onAir.start)) * 100}%` }}
-                  />
-                </span>
-              )}
-            </div>
-          )}
+          <Scrubber time={time} duration={duration} onSeek={seekTo} onActivity={poke} />
 
           <div className="mt-1 flex items-center justify-between gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]">
             {/* Left: transport + volume (on phones the transport sits mid-screen instead). */}
@@ -486,25 +510,12 @@ export default function Player({ title, live }: Props) {
                 <Ctl label={playing ? "Pausa" : "Riproduci"} onClick={toggle}>
                   {playing ? <PauseIcon /> : <PlayIcon />}
                 </Ctl>
-                {!live ? (
-                  <>
-                    <Ctl label="Indietro di 10 secondi" onClick={() => seek(-10)}>
-                      <Replay10Icon />
-                    </Ctl>
-                    <Ctl label="Avanti di 10 secondi" onClick={() => seek(10)}>
-                      <Forward10Icon />
-                    </Ctl>
-                  </>
-                ) : (
-                  <>
-                    <Ctl label="Canale precedente" onClick={() => zap(-1)}>
-                      <ChevronUpIcon />
-                    </Ctl>
-                    <Ctl label="Canale successivo" onClick={() => zap(1)}>
-                      <ChevronDownIcon />
-                    </Ctl>
-                  </>
-                )}
+                <Ctl label="Indietro di 10 secondi" onClick={() => seek(-10)}>
+                  <Replay10Icon />
+                </Ctl>
+                <Ctl label="Avanti di 10 secondi" onClick={() => seek(10)}>
+                  <Forward10Icon />
+                </Ctl>
               </span>
               <VolumeControl
                 level={muted ? 0 : volume}
@@ -516,12 +527,6 @@ export default function Player({ title, live }: Props) {
 
             {/* Centre: what is playing. */}
             <div className="hidden min-w-0 max-w-[40vw] text-center sm:block">
-              {live && channel && (
-                <p className="truncate text-xs font-medium text-muted">
-                  {channel.number} · {channel.name}
-                  {onAir && ` · ${hhmm(onAir.start)} – ${hhmm(onAir.end)}`}
-                </p>
-              )}
               <p className="truncate text-base font-semibold">{heading}</p>
               {subheading && <p className="truncate text-sm text-muted">{subheading}</p>}
             </div>
@@ -563,22 +568,14 @@ export default function Player({ title, live }: Props) {
       {/* Phone: transport in the middle of the screen, like the streaming apps. */}
       {chrome && !panel && !buffering && (
         <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-10 sm:hidden">
-          <Ctl
-            label={live ? "Canale precedente" : "Indietro di 10 secondi"}
-            onClick={() => (live ? zap(-1) : seek(-10))}
-            big
-          >
-            {live ? <ChevronUpIcon /> : <Replay10Icon />}
+          <Ctl label="Indietro di 10 secondi" onClick={() => seek(-10)} big>
+            <Replay10Icon />
           </Ctl>
           <Ctl label={playing ? "Pausa" : "Riproduci"} onClick={toggle} big strong>
             {playing ? <PauseIcon /> : <PlayIcon />}
           </Ctl>
-          <Ctl
-            label={live ? "Canale successivo" : "Avanti di 10 secondi"}
-            onClick={() => (live ? zap(1) : seek(10))}
-            big
-          >
-            {live ? <ChevronDownIcon /> : <Forward10Icon />}
+          <Ctl label="Avanti di 10 secondi" onClick={() => seek(10)} big>
+            <Forward10Icon />
           </Ctl>
         </div>
       )}
@@ -636,14 +633,14 @@ export default function Player({ title, live }: Props) {
       {/* Up next, Netflix/Prime-style: a compact card above the controls. The bar
           under the thumbnail fills as the countdown runs out; at the end the next
           episode starts on its own. */}
-      {showUpNext && upNext && title && (
+      {showUpNext && upNext && (
         <div className="absolute bottom-28 right-3 flex items-center gap-1 sm:bottom-32 sm:right-8">
           <button
             onClick={() => playEpisode(upNext)}
             className="focusable pill-focus group flex w-72 items-center gap-3 rounded-xl bg-black/80 p-2 pr-3 text-left sm:w-80"
           >
             <span className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-raised">
-              <Art src={title.backdropUrl} seed={upNext.id} />
+              <Art src={upNext.imageUrl ?? title.backdropUrl} seed={upNext.id} />
               <span className="absolute inset-0 grid place-items-center bg-black/30 [&>svg]:size-6">
                 <PlayIcon />
               </span>
@@ -687,7 +684,7 @@ export default function Player({ title, live }: Props) {
           }}
         />
       )}
-      {panel === "episodes" && title && episode && (
+      {panel === "episodes" && episode && (
         <EpisodesPanel
           title={title}
           current={episode}
@@ -712,7 +709,6 @@ export default function Player({ title, live }: Props) {
           onSub={(i) => { setSub(i); if (hls.current) hls.current.subtitleTrack = i; }}
           speed={speed}
           onSpeed={(s) => { setSpeed(s); if (video.current) video.current.playbackRate = s; }}
-          live={!!live}
         />
       )}
     </div>
@@ -786,7 +782,7 @@ function EpisodesPanel({
                 className="focusable pill-focus group flex w-full items-center gap-4 rounded-2xl p-2 text-left aria-[current=true]:bg-white/10"
               >
                 <span className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-raised sm:w-36">
-                  <Art src={title.backdropUrl} seed={ep.id} />
+                  <Art src={ep.imageUrl ?? title.backdropUrl} seed={ep.id} />
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm text-faint group-focus-visible:text-black/60">
@@ -826,7 +822,6 @@ function SettingsPanel(props: {
   onSub: (i: number) => void;
   speed: number;
   onSpeed: (s: number) => void;
-  live: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const { onClose } = props;
@@ -914,18 +909,16 @@ function SettingsPanel(props: {
               ))}
             </div>
           </section>
-          {!props.live && (
-            <section>
-              <h3 className="px-3 text-sm font-semibold text-faint">Velocità</h3>
-              <div className="mt-1">
-                {SPEEDS.map((sp) => (
-                  <button key={sp} className={row(props.speed === sp)} onClick={() => props.onSpeed(sp)}>
-                    <Check on={props.speed === sp} /> {sp === 1 ? "Normale" : `${sp}×`}
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
+          <section>
+            <h3 className="px-3 text-sm font-semibold text-faint">Velocità</h3>
+            <div className="mt-1">
+              {SPEEDS.map((sp) => (
+                <button key={sp} className={row(props.speed === sp)} onClick={() => props.onSpeed(sp)}>
+                  <Check on={props.speed === sp} /> {sp === 1 ? "Normale" : `${sp}×`}
+                </button>
+              ))}
+            </div>
+          </section>
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 # MAIA TV: catalogo e riproduzione
 
-*Stato: catalogo RaiPlay nel database con aggiornamento automatico; il frontend lo legge e riproduce i video dal dispositivo (vedi "Implementazione" e "API per il frontend"). Le dirette sono ancora dati di prova.*
+*Stato: catalogo RaiPlay nel database con aggiornamento automatico; il frontend lo legge e riproduce i video dal dispositivo (vedi "Implementazione" e "API per il frontend"). Niente dirette né replay: provati e tolti per scelta dell'utente (vedi decisions.md).*
 
 ## Servizi
 
@@ -38,6 +38,63 @@ Prove fatte da IP italiano (casa) e da un IP di data center a Francoforte:
   accettano solo l'origine `pluto.tv`. Senza un IP italiano non si può avere il catalogo
   italiano.
 
+## Rispetto dei servizi (regola per ogni provider)
+
+MAIA usa servizi di altri (RaiPlay, TMDB e quelli che verranno). Non deve mai pesare su di loro
+né sembrare un abuso: rischieremmo un blocco o problemi legali. Vale per **qualsiasi provider**,
+di catalogo o di metadati, presente o futuro:
+
+- **Tutte le richieste a un servizio passano da `polite-fetch`**: una alla volta per host, al
+  massimo **1 al secondo** (`DEFAULT_GAP_MS`). Più veloce solo per un'API ufficiale che pubblica
+  limiti più alti, restando molto sotto (TMDB: ~50/s consentite, noi 4/s).
+- **Mai richieste in parallelo verso lo stesso servizio**, nemmeno con più worker.
+- **Se il servizio dice di rallentare o ci blocca (HTTP 429 o 403)** ci si ferma subito: niente
+  nuovi tentativi, il servizio va in pausa per 6 ore (gli altri errori: pausa di 30 minuti dopo 5
+  di fila). Tra un tentativo e l'altro dopo un errore 5xx si aspettano 5-10 secondi.
+- **Il lavoro pesante si fa di notte** (passata alle 3) e il ritmo dei controlli si adatta
+  (giorno → settimana → mese): si rilegge solo quello che può essere cambiato.
+- **Il server non scarica video.** Video e immagini li chiede il dispositivo di chi guarda, come
+  sul sito del servizio; il server chiede al massimo un link quando l'utente avvia un video.
+- **Le pagine dell'app non chiamano i servizi**: leggono dal database e dalla cache.
+- **Nessun Referer verso i servizi, sempre e per tutti i provider**: `Referrer-Policy: no-referrer`
+  su ogni pagina (header in `maia-fe/next.config.ts` e `<meta name="referrer">` in
+  `app/layout.tsx`), così video e immagini chiesti dal browser non dicono da quale app arrivano.
+  Resta solo l'`Origin` sulle richieste di hls.js (il browser non permette di toglierlo).
+  Verificato il 2026-10-31: nessun Referer verso raiplay.it, i CDN video Rai e TMDB.
+- **Interruttore per ogni servizio** nel pannello admin: si può fermare subito ogni richiesta a un
+  servizio (vedi "Interruttori dei servizi" sotto).
+- **Niente imitazioni**: mai fingersi il servizio o la sua app (intestazioni falsificate, token
+  copiati, cambi di IP o identità per evitare blocchi). Se un servizio ci blocca ci si ferma.
+- **Operazioni massicce** (`fill`, `resync`, misure su molti titoli, test ripetuti) solo **con
+  la conferma dell'utente**, dicendo prima quante richieste comportano, e una volta sola.
+- Un nuovo adapter va scritto con queste regole dall'inizio; se un servizio pubblica limiti o
+  termini d'uso per le sue API, valgono quelli se più severi.
+
+### Interruttori dei servizi
+
+Dal pannello `/admin` (sezione Servizi) un amministratore spegne o riaccende un servizio esterno
+(oggi RaiPlay e TMDB) per fermarne l'acquisizione, per esempio se il servizio ha problemi o ci
+segnala qualcosa.
+
+- **Effetto immediato:** l'interruttore sta nel database (`provider_health.enabled`, con chi e
+  quando); backend e worker lo rileggono ogni 3 secondi (`ServiceSwitches`) e `polite-fetch`
+  rifiuta ogni richiesta verso gli host di un servizio spento, anche quelle già in coda o in attesa
+  di un nuovo tentativo. Misurato: nessun titolo letto mentre RaiPlay era spento.
+- **Niente lavoro perso:** un titolo il cui servizio è spento (o TMDB, che serve all'abbinamento)
+  non conta come errore: torna in coda per 10 minuti dopo; alla riaccensione i titoli rimandati
+  ripartono subito. Le passate complete e le novità di un servizio spento si saltano (la prossima
+  programmata parte normalmente). Non c'è pausa automatica né contatore di errori per uno stop
+  deciso da noi.
+- **Cosa non ferma:** la riproduzione sui dispositivi (video e immagini li chiede il browser di chi
+  guarda); si ferma invece la lettura del link fatta dal server per la riserva hls.js.
+- È diverso dalla **pausa automatica** (30 minuti dopo 5 errori, 6 ore su 429/403), che resta e si
+  vede nello stesso pannello.
+- **Ogni nuovo servizio** va aggiunto a `maia-be/src/tv/providers/services.ts` con i suoi host,
+  altrimenti non compare nel pannello e non si può spegnere.
+
+Volumi attuali (RaiPlay): un titolo = 2-5 richieste; ~20 titoli al minuto; passata notturna
+~qualche migliaio di richieste in qualche ora.
+
 ## Riproduzione: sempre sul dispositivo
 
 **Il video non passa mai dal server.** Il backend sceglie la fonte e consegna al frontend
@@ -46,9 +103,19 @@ riprodurlo.
 
 - RaiPlay: `<video src="<relinker>">` con HLS nativo del browser. Il relinker viene richiesto
   dal dispositivo, con il suo IP italiano.
+- **Riserva per i flussi che l'HLS nativo rifiuta.** Alcune playlist RaiPlay (una sola qualità,
+  audio e video insieme, senza `CODECS`, es. molti contenuti Rai Storia) danno a Chrome
+  `DEMUXER_ERROR_COULD_NOT_PARSE`, mentre hls.js le riproduce. hls.js però ha bisogno del link
+  finale, e il relinker non ha CORS: il browser non può leggerlo. Allora il player chiede a
+  maia-be `GET /tv/playback/:id/stream?provider=`: il backend chiede al relinker la versione JSON
+  (`output=62`) e restituisce il link della playlist (scade in pochi minuti, non si salva né va in
+  cache). Il video continua a passare dal dispositivo; il server legge solo il link. Dall'estero
+  (VPS) funziona per i contenuti senza blocco geografico; per quelli bloccati Rai risponde con il
+  suo video "non disponibile" e l'API dà `NO_SOURCE`.
 - Altri servizi: hls.js quando il flusso ha CORS aperto, altrimenti HLS nativo come sopra.
 - Il link del flusso **non si salva**: si ottiene al momento del play.
-- Limiti: **Firefox** non ha HLS nativo (i contenuti Rai non partono lì); il player nativo dà
+- Limiti: **Firefox** non ha HLS nativo: lì si usa solo la riserva sopra (partono i contenuti
+  senza blocco geografico); il player nativo dà
   meno controllo di hls.js su qualità e sottotitoli (da verificare cosa espone); dall'estero i
   contenuti bloccati non partono, come sull'app ufficiale.
 - DRM: se il player non riesce a riprodurre una fonte (protetta o rotta), il frontend lo
@@ -196,6 +263,13 @@ aggiungono voci e raccolte scelte a mano senza toccare il codice. I generi dei s
 traducono nei generi di MAIA con una tabella di alias (`GenreAlias`); un genere sconosciuto va in
 una lista "da associare".
 
+**Oggi (prima di `GenreAlias`)** i generi sono quelli dei titoli, con una sola unione automatica:
+le varianti che hanno lo stesso identificativo (`genreSlug`) sono **un genere solo**. RaiPlay
+scrive lo stesso genere in modi diversi ("Musica" e "musica", "Storia & arte" e "storia & arte"):
+`/tv/genres` li somma, li mostra con la maiuscola e i filtri per genere cercano tutte le varianti.
+Prima comparivano doppi e il frontend dava errori di chiavi duplicate. È fatto in lettura: nessun
+dato salvato cambia, quindi non serve `resync`.
+
 ## Modello dati
 
 Nel database (`maia-be/prisma/schema.prisma`, migrazione `catalog`):
@@ -215,7 +289,7 @@ SyncRun (provider, inizio/fine, trovati, messi in coda, stato, nota)
 
 Previsti, non ancora fatti: generi come tabella (`Genre`, `GenreAlias`; oggi `genres[]` testuale
 da TMDB o dal servizio), `MappingRule` (regole di numerazione decise a mano), `MenuEntry`,
-`Channel`/`Program` (dirette e palinsesto), `WatchProgress`/`Favorite`.
+`WatchProgress`/`Favorite`.
 
 ## Implementazione
 
@@ -224,7 +298,7 @@ Codice in `maia-be/src/tv/`:
 | File | Cosa fa |
 |---|---|
 | `providers/raiplay/raiplay.adapter.ts` | legge RaiPlay: esplorazione completa (`discover`), sezioni, titolo con stagioni, episodi, extra, immagini, DRM, scadenze |
-| `providers/polite-fetch.ts` | una richiesta alla volta per host con pausa minima (RaiPlay 250 ms, TMDB 60 ms), timeout, tentativi |
+| `providers/polite-fetch.ts` | una richiesta alla volta per host con pausa minima (1 s per i servizi, 250 ms per l'API di TMDB), timeout, tentativi con attesa lunga; vedi "Rispetto dei servizi" |
 | `matching/score.ts`, `subject.ts` | punteggio e verdetto dell'abbinamento a TMDB |
 | `matching/episodes.ts` | colloca un episodio nella struttura TMDB: per **data di messa in onda** (±1 giorno, stagione speciali esclusa), poi stagione + numero (anche "Stagione 2026" = edizione andata in onda nel 2026) |
 | `matching/tmdb.client.ts` | ricerca, candidati, metadati in italiano, episodi per stagione |
@@ -254,24 +328,116 @@ Codice in `maia-be/src/tv/`:
 
 | Coda | Quando | Cosa |
 |---|---|---|
-| `catalog-discover` | ogni notte alle 3 (`refresh`) o a mano (`fill`) | elenco completo del servizio; *fill* mette in coda tutti i titoli, *refresh* solo i nuovi; i titoli non elencati contano una mancanza (alla seconda di fila le fonti si spengono); se trova meno del 70% dei titoli della passata precedente si annulla |
+| `catalog-discover` | ogni giorno all'ora scelta nel pannello (`refresh`, solo in automatico), con "Aggiorna ora" o a mano (`fill`) | elenco completo del servizio, poi un controllo come `catalog-check`; *fill* mette in coda tutti i titoli, *refresh* solo i nuovi; i titoli non elencati contano una mancanza (alla seconda di fila le fonti si spengono); se trova meno del 70% dei titoli della passata precedente si annulla |
 | `catalog-sync-title` | dai lavori sopra o a mano | un titolo: lettura + inserimento; una richiesta per titolo alla volta (politica `stately` con chiave), 3 tentativi con attesa crescente, 3 titoli in parallelo |
-| `catalog-due` | ogni ora al minuto 15 | mette in coda i titoli arrivati al prossimo controllo; spegne fonti ed extra scaduti |
-| `catalog-news` | ogni 3 ore | rilegge le liste in evidenza delle sezioni (dove compaiono le novità) |
+| `catalog-check` | ogni N ore tra una passata e l'altra, se impostato nel pannello | rilegge le liste in evidenza delle sezioni (dove compaiono le novità) e mette in coda i titoli arrivati al prossimo controllo (ritmo adattivo) |
+| `catalog-due` | ogni ora al minuto 15, sempre | solo database: spegne fonti ed extra scaduti (nessuna richiesta ai servizi) |
+
+**Orari di aggiornamento per fonte** (pannello `/admin`, scheda Servizi, sezione "Aggiornamento"
+sotto ogni fonte di catalogo; impostazioni in `provider_health`, programmazioni scritte da
+`CatalogScheduler`):
+- **Manuale (predefinito)**: nessuna passata né controllo programmati; il catalogo si aggiorna solo con
+  **"Aggiorna ora"** (passata completa più controllo, con conferma). Quello che è già in coda viene
+  comunque smaltito; per fermarlo subito c'è l'interruttore del servizio. Una fonte nuova parte così:
+  non contatta il servizio finché un amministratore non lo decide.
+- **Automatico**: passata completa ogni giorno all'ora scelta (ora di Roma) e controlli ogni 1, 2,
+  3, 4, 6, 8 o 12 ore nelle ore in mezzo, oppure solo la passata giornaliera. Passando ad
+  automatico il pannello propone le 3:00 con controlli ogni 3 ore.
+- In entrambi i casi i video scaduti si spengono ogni ora.
+- Il pannello mostra l'ultima passata (quando, esito, titoli trovati), l'ultimo controllo e se una
+  passata è in corso; "Aggiorna ora" non parte se il servizio è spento o se una passata è già in
+  corso.
+- **Passate interrotte**: c'è un solo worker per volta, quindi quando parte chiude le passate rimaste
+  "in corso" dal processo precedente (riavvio, deploy). Altrimenti pg-boss le rilancerebbe da sole
+  dopo ore, anche in modalità manuale.
+
+Al termine di `catalog-discover`, di un `catalog-due` che ha spento qualcosa e di ogni `catalog-sync-title` che ha cambiato il
+titolo (non quelli "invariati"), il worker **svuota tutta la cache di MAIA** in Redis. Le modifiche
+ravvicinate (es. tanti titoli di fila) si raccolgono in un solo svuotamento dopo 10 secondi.
+`catalog-check` mette solo in coda titoli: lo svuotamento arriva dai loro `sync-title`.
+Subito dopo lo svuotamento parte il riscaldamento della cache (pagine, poi tutte le schede).
 
 Stato del servizio: un errore di rete o 5xx incrementa il contatore; dopo 5 di fila il servizio
 va in pausa 30 minuti (i suoi lavori riprovano dopo). Un 404 su un titolo conta come titolo
 sparito, non come guasto del servizio.
 
 Comandi (vedi [../dev.md](../dev.md)): `npm run catalog -- fill|refresh raiplay`,
-`npm run catalog -- sync raiplay <slug...>`, `npm run catalog -- status`,
-`npm run catalog:worker`, `npm run catalog:probe`.
+`npm run catalog -- sync raiplay <slug...>`, `npm run catalog -- resync raiplay [--episodes]`,
+`npm run catalog -- status`, `npm run catalog:worker`, `npm run catalog:probe`.
+
+### Rileggere tutto il catalogo (`resync`)
+
+Il ritmo dei controlli segue i cambiamenti **di RaiPlay**: un titolo fermo viene riletto anche solo
+una volta al mese. Quando invece cambia **il nostro codice** e il catalogo comincia a salvare un
+dato nuovo (o a leggerlo in modo diverso), i titoli già presenti lo prendono solo al loro prossimo
+controllo, quindi anche dopo settimane. In quel caso si rilegge tutto subito:
+
+```bash
+npm run catalog -- resync raiplay              # tutti i titoli già nel catalogo (~6750, ~5-6 ore)
+npm run catalog -- resync raiplay --episodes   # solo quelli con puntate o extra (~2700, ~2 ore e mezza)
+npm run catalog -- status                      # avanzamento ("sync-title created" = ancora da fare)
+```
+
+Mette in coda un `catalog-sync-title` per ogni titolo, dai più aggiornati di recente (quelli che si
+guardano prendono prima i dati nuovi). Il worker deve essere acceso; i titoli sono letti con la
+solita calma verso RaiPlay (~20 al minuto). È un'operazione pesante per il servizio (migliaia di
+richieste): si lancia **una volta sola** e **solo con la conferma dell'utente** (vedi "Rispetto
+dei servizi"). La cache si svuota e si riscalda da sola man mano.
+
+**Quando serve** (va fatto in locale *e* in produzione dopo il deploy):
+- l'adapter di un servizio restituisce un campo nuovo o diverso (es. immagini delle puntate,
+  2026-10-31: `resync raiplay --episodes`);
+- l'inserimento (`CatalogService.ingest` e seguenti) salva un dato nuovo o lo calcola in modo
+  diverso (date, numerazione, abbinamenti);
+- una correzione deve sistemare titoli già rovinati (es. una sincronizzazione che falliva).
+
+**Quando non serve:** modifiche solo alle API, al frontend o alla cache (i dati salvati non
+cambiano); una migrazione che aggiunge una colonna calcolabile dal database stesso (lì basta la
+migrazione o uno script SQL).
+
+Cambiare i dati restituiti dall'adapter cambia anche l'hash del titolo, quindi i titoli non
+vengono scartati come "invariati": vengono davvero reinseriti.
 
 **API per il frontend** (`maia-be/src/tv/tv.controller.ts`, solo con sessione): `GET /tv/home`,
 `GET /tv/genres?kind=`, `GET /tv/titles?kind&genre&q&skip&take`, `GET /tv/titles/:id` (stagioni ed
 episodi disponibili, extra, simili), `GET /tv/playback/:itemId?exclude=` (film, episodio o extra:
-la fonte migliore, prima i servizi OK e con meno errori), `POST /tv/playback/:itemId/failed`.
+la fonte migliore, prima i servizi OK e con meno errori), `GET /tv/playback/:itemId/stream?provider=`
+(link diretto per hls.js, vedi riproduzione), `POST /tv/playback/:itemId/failed`.
 Un titolo è visibile solo se ha almeno un video disponibile e senza DRM.
+
+**Immagini di episodi ed extra.** Ogni puntata e ogni clip ha la sua immagine su RaiPlay
+(`images.landscape` dell'elemento): si salva in `episodes.image_url` / `extras.image_url` a ogni
+sincronizzazione (se il servizio non ne dà una si tiene quella che c'era) e le API la restituiscono
+ritagliata 640×360. Non si usano le immagini degli episodi di TMDB: quelle di RaiPlay sono del
+video che si guarda davvero e ci sono anche per le puntate provvisorie.
+
+**Date delle puntate.** La data si cerca nel nome dell'elemento e, se non c'è, nel titolo
+dell'episodio (RaiPlay a volte chiama una puntata solo "Da Grande" e scrive "Puntata del
+19/09/2021" nel titolo): senza data la puntata restava provvisoria in una "Edizione 2021" separata
+dalla stagione TMDB in cui stava l'altra. La data vale solo se esiste davvero:
+RaiPlay a volte scrive segnaposto come "00/00/1992", che prima bloccavano la sincronizzazione
+dell'intero programma (Telefono giallo: 32 puntate su 41).
+
+**Extra presentati per puntata** (`maia-be/src/tv/extras.ts`, in lettura: i dati salvati restano
+quelli del servizio). Programmi come i talk e gli show hanno molte clip delle puntate in un unico
+gruppo "Clip". L'API:
+- ripulisce i nomi: toglie le parti che ripetono il nome del titolo o sono solo una data
+  ("Lillo diventa Adriano Celentano - Da Grande - 26/09/2021" → "Lillo diventa Adriano Celentano");
+- se le clip di un gruppo hanno quasi tutte una data e le date sono da 2 a 12, divide il gruppo per
+  data, dalla più recente: "Clip · puntata del 26 settembre 2021" (o "Clip · 26 settembre 2021" se
+  quella puntata non c'è); le clip senza data restano nel gruppo originale;
+- oltre 12 date (programmi quotidiani) il gruppo resta unico, in ordine dalla più recente, per non
+  avere una riga al giorno.
+
+**Immagini RaiPlay ritagliate.** RaiPlay fornisce locandine e sfondi a piena misura (una locandina
+1536×2048 pesa 0,5-1 MB; la home ne mostra quasi 200). Le API le restituiscono passando dal
+servizio immagini di RaiPlay, `https://www.raiplay.it/cropgd/<L>x<A>/<percorso>`: locandine
+384×512 (~45 KB), sfondi 1280×720. Nel database resta il link originale; quelle di TMDB sono già
+nella misura giusta (`w500`, `w1280`).
+
+**Cache delle risposte (Redis).** Home, generi, elenchi, schede e fonte scelta per un video sono
+in cache (vedi [../architecture.md](../architecture.md), "Cache"): ogni lavoro del catalogo che
+cambia qualcosa la svuota tutta.
 
 Ancora da fare: pannello admin per la
 coda di revisione e per le regole di numerazione, pannello stato, riabbinamento periodico dei

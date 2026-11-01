@@ -8,7 +8,6 @@ import {
   FilmIcon,
   HomeIcon,
   HouseGlyph,
-  LiveIcon,
   SearchIcon,
   SeriesIcon,
   TvGlyph,
@@ -20,10 +19,12 @@ import { useProfile } from "@/lib/session";
 
 const nav = [
   { href: "/tv", label: "Home", Icon: HomeIcon },
-  { href: "/tv/live", label: "Live", Icon: LiveIcon },
   { href: "/tv/movies", label: "Film", Icon: FilmIcon },
   { href: "/tv/series", label: "Serie", Icon: SeriesIcon },
 ];
+
+// Phone tab bar: the main sections plus search.
+const tabs = [...nav, { href: "/tv/search", label: "Cerca", Icon: SearchIcon }];
 
 const appGlyph: Record<string, () => React.JSX.Element> = { tv: TvGlyph, casa: HouseGlyph };
 
@@ -118,11 +119,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       {/* Phone: iOS-style tab bar. */}
       <nav
         aria-label="Menu principale"
-        className={`fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-white/10 bg-black/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl transition-transform duration-300 md:hidden ${
+        className={`fixed inset-x-0 bottom-0 z-30 grid border-t border-white/10 bg-black/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl transition-transform duration-300 md:hidden ${
           hide ? "translate-y-full" : "translate-y-0"
         }`}
+        // One column per tab, so no empty slot is left when the menu changes.
+        style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
       >
-        {[...nav, { href: "/tv/search", label: "Cerca", Icon: SearchIcon }].map(({ href, label, Icon }) => (
+        {tabs.map(({ href, label, Icon }) => (
           <Link
             key={href}
             href={href}

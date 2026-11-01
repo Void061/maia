@@ -182,6 +182,8 @@ model Episode {
   airDate     DateTime? @map("air_date") @db.Date
   /// Built from the service's data because TMDB does not have it (yet).
   provisional Boolean   @default(false)
+  /// The episode's own picture from the service (a frame of it), full size.
+  imageUrl    String?   @map("image_url")
 
   season  Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   sources Source[]
@@ -300,6 +302,8 @@ model Extra {
   expiresAt   DateTime? @map("expires_at")
   available   Boolean   @default(true)
   lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  /// The clip's own picture from the service, full size.
+  imageUrl    String?   @map("image_url")
 
   group ExtraGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
@@ -308,13 +312,31 @@ model Extra {
 }
 
 /// Circuit breaker per service: after repeated errors it pauses, alone.
+/// How a catalog source updates (admin panel): on a schedule, or only when asked.
+enum SyncMode {
+  AUTO
+  MANUAL
+}
+
 model ProviderHealth {
   provider      String         @id
+  /// Admin switch (panel /admin): false = no request at all to this service
+  /// until switched back on. Independent of the automatic pause below.
+  enabled       Boolean        @default(true)
+  switchedAt    DateTime?      @map("switched_at")
+  /// Who flipped the switch last (account email).
+  switchedBy    String?        @map("switched_by")
   status        ProviderStatus @default(OK)
   failStreak    Int            @default(0) @map("fail_streak")
   retryAfter    DateTime?      @map("retry_after")
   lastSuccessAt DateTime?      @map("last_success_at")
   lastError     String?        @map("last_error")
+  /// Catalog sources only, MANUAL by default. AUTO: full pass every day at syncAt (Rome time,
+  /// "HH:MM") and checks every syncEveryHours hours (null = none in between).
+  syncMode       SyncMode  @default(MANUAL) @map("sync_mode")
+  syncAt         String    @default("03:00") @map("sync_at")
+  syncEveryHours Int?      @default(3) @map("sync_every_hours")
+  lastCheckAt    DateTime? @map("last_check_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
   @@map("provider_health")

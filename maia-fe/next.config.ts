@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   // The floating "N" badge sits on top of the avatar when previewing on a
   // phone or TV; build/runtime errors are still shown without it.
   devIndicators: false,
+  // No Referer on any request leaving the app (videos, artwork, any provider).
+  // Same rule as the <meta name="referrer"> in app/layout.tsx.
+  headers: async () => [{ source: "/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] }],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
