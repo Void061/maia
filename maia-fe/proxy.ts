@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_ENTRY = new Set(["/", "/login"]);
+const PUBLIC_ENTRY = new Set(["/login"]);
 
 // Without the refresh-token cookie there is no way to be signed in: protected
 // pages redirect to the login before rendering anything. With it, "/" and the
@@ -11,6 +11,8 @@ export function proxy(request: NextRequest) {
   const signedIn = request.cookies.has("maia_rt");
   const { pathname } = request.nextUrl;
 
+  // "/" is only an entry point: it always redirects here, so its page never renders.
+  if (pathname === "/") return NextResponse.redirect(new URL(signedIn ? "/profiles" : "/login", request.url));
   if (PUBLIC_ENTRY.has(pathname)) {
     return signedIn ? NextResponse.redirect(new URL("/profiles", request.url)) : NextResponse.next();
   }

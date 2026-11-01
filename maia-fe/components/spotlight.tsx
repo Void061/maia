@@ -17,7 +17,8 @@ export default function Spotlight({ heading, lead, more }: { heading: string; le
             <span className="absolute inset-x-0 bottom-0 p-4 sm:p-6">
               <span className="block font-display text-2xl font-extrabold text-white sm:text-4xl">{lead.name}</span>
               <span className="mt-1 block text-sm font-medium text-muted sm:text-base">{meta(lead)}</span>
-              <span className="mt-2 line-clamp-2 hidden max-w-lg text-base text-label/90 sm:block">{lead.overview}</span>
+              {/* sm:line-clamp-3 also shows it: a plain sm:block would undo the clamp (it needs display: -webkit-box). */}
+              <span className="mt-2 hidden max-w-lg text-base text-label/90 sm:line-clamp-3">{lead.overview}</span>
             </span>
           </span>
         </Link>
