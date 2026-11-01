@@ -24,13 +24,14 @@ const CONFIG = {
 
   // Paths after the address. Placeholders: {lang} {id} {slug} {number} {title_id} {episode_id}.
   paths: {
-    movies: '{lang}/movies',
-    tvshows: '{lang}/tv-shows',
-    archive: '{lang}/archive',
-    movie: '{lang}/watch/{id}',
-    tvshow: '{lang}/titles/{id}-{slug}',
+    title: '/{lang}/titles{id-}-{slug}',
+    movies: '/{lang}/movies',
+    tvshows: '/{lang}/tv-shows',
+    archive: '/{lang}/archive',
+    movie: '/{lang}/watch/{id}',
+    tvshow: '/{lang}/titles/{id}-{slug}',
     season: '/season-{number}',
-    episode: '{lang}/iframe/{title_id}?episode_id={episode_id}',
+    episode: '/{lang}/iframe/{title_id}?episode_id={episode_id}',
   },
 
   // Turns a title's or episode's URL into the player's: [search, replace]. null = as it is.
@@ -129,8 +130,9 @@ function externalId(rec: Json): string | null {
   const id = rec[F.id];
   if (id === undefined || id === null || id === '') return null;
   const kind = CONFIG.typeMap[String(rec[F.type])];
-  if (kind === 'MOVIE') return `movie/${id}`;
-  if (kind === 'SERIES') return `tv/${id}/${String(rec[F.slug] ?? '')}`;
+  const slug = String(rec[F.slug] ?? '');
+  if (kind === 'MOVIE') return `movie/${id}/${slug}`;
+  if (kind === 'SERIES') return `tv/${id}/${slug}`;
   return null;
 }
 
@@ -158,11 +160,8 @@ export class SdmAdapter implements ProviderAdapter {
   }
 
   async getTitle(externalId: string): Promise<ProviderTitle | null> {
-    const [kind, id, ...slug] = externalId.split('/');
-    const url =
-      kind === 'movie'
-        ? buildUrl('movie', { id })
-        : buildUrl('tvshow', { id, slug: slug.join('/') });
+    const [kind, id, ...rest] = externalId.split('/');
+    const url = buildUrl('title', { id, slug: rest.join('/') });
     let p: Json;
     try {
       p = await props(url);
