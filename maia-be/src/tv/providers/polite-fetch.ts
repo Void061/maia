@@ -62,12 +62,23 @@ export class HttpError extends Error {
   }
 }
 
+type Reader<T> = { accept: string; read: (res: Response) => Promise<T> };
+
 export function politeJson<T>(url: string, options: Options = {}): Promise<T> {
+  return polite(url, options, { accept: 'application/json', read: (res) => res.json() as Promise<T> });
+}
+
+// Same rules, for services that only answer with HTML pages.
+export function politeText(url: string, options: Options = {}): Promise<string> {
+  return polite(url, options, { accept: 'text/html', read: (res) => res.text() });
+}
+
+function polite<T>(url: string, options: Options, reader: Reader<T>): Promise<T> {
   const host = new URL(url).host;
   if (stoppedHosts.has(host)) return Promise.reject(new ServiceStoppedError(stoppedHosts.get(host)!));
-  if (options.serial === false) return request<T>(url, host, options);
+  if (options.serial === false) return request(url, host, options, reader);
   // Chain on the host's queue so requests to the same host never overlap.
-  const run = (queues.get(host) ?? Promise.resolve()).catch(() => undefined).then(() => request<T>(url, host, options));
+  const run = (queues.get(host) ?? Promise.resolve()).catch(() => undefined).then(() => request(url, host, options, reader));
   queues.set(host, run);
   return run;
 }
@@ -79,17 +90,17 @@ async function waitTurn(host: string, minGapMs: number) {
   if (at > Date.now()) await sleep(at - Date.now());
 }
 
-async function request<T>(url: string, host: string, options: Options): Promise<T> {
+async function request<T>(url: string, host: string, options: Options, reader: Reader<T>): Promise<T> {
   const { minGapMs = DEFAULT_GAP_MS, timeoutMs = 15_000, retries = 2, headers = {} } = options;
   for (let attempt = 0; ; attempt++) {
     await waitTurn(host, minGapMs);
     assertRunning(host); // switched off while this request was waiting its turn
     try {
       const res = await fetch(url, {
-        headers: { 'User-Agent': USER_AGENT, Accept: 'application/json', ...headers },
+        headers: { 'User-Agent': USER_AGENT, Accept: reader.accept, ...headers },
         signal: AbortSignal.timeout(timeoutMs),
       });
-      if (res.ok) return (await res.json()) as T;
+      if (res.ok) return await reader.read(res);
       if (res.status < 500 || attempt >= retries) throw new HttpError(res.status, url);
     } catch (err) {
       if (err instanceof HttpError || err instanceof ServiceStoppedError || attempt >= retries) throw err;

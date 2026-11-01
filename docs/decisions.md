@@ -267,3 +267,10 @@ indirizzo nel database invece di rileggere il catalogo, per non fare richieste a
 iniziale `http://192.168.1.9`. Il server non è ancora raggiungibile: l'adapter è scritto su un
 formato JSON provvisorio (docs/tv/catalog.md, "SDM") e provato solo con risposte simulate. Restano
 aperti come lo raggiungono la VPS e i dispositivi (rete di casa, `https`).
+
+**SDM letto dalle pagine del server (`data-page`)** (2026-11-01, algoritmo fornito dall'utente):
+il server di casa non ha un'API JSON a parte; i dati stanno nel JSON incorporato nelle pagine
+HTML (attributo `data-page`). L'adapter SDM ora legge quello al posto del formato provvisorio
+`/api/titles`, con percorsi, chiavi e campi in un blocco `CONFIG` modificabile. Non provato sul
+server vero (raggiungibile solo dalla sua rete): solo test con pagine simulate. Lasciati fuori
+l'etichetta Sub/Dub e i server esterni basati su TMDB.
