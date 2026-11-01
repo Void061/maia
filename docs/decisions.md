@@ -267,20 +267,17 @@ la priorità è farlo funzionare al meglio; ARTE solo se interessa quel genere (
 
 ## 2026-11-01
 
-**Replay sì, dirette no.** La guida TV Rai degli ultimi 7 giorni (13 canali) è in maia-be e alimenta
-la sezione **Replay** (al posto di "Live" nel menu). Le dirette sono state realizzate, verificate
-(HLS senza DRM) e poi tolte per scelta dell'utente, insieme ai canali finti di prova (La7, Pluto).
-Rai 4K resta fuori (solo DASH, che i browser non riproducono da soli; replica Rai 1) e Rai Radio 2
-pure (senza la diretta non serve). Dal canale RaiPlay di KoD si sono presi solo gli endpoint della
-guida, non codice.
+**Niente dirette né replay.** Dirette dei canali Rai (HLS senza DRM) e Replay della guida TV degli
+ultimi 7 giorni sono stati realizzati e verificati, poi tolti per scelta dell'utente ("non ci
+interessano"), insieme ai canali finti di prova (La7, Pluto) e alla voce "Live" del menu: MAIA TV è
+il catalogo (Home, Film, Serie, Cerca). Tabelle, lavori e migrazioni relativi sono stati rimossi
+prima di arrivare in develop. Se tornassero utili: endpoint della guida RaiPlay
+(`/guidatv.json`, `/palinsesto/app/<canale>/<gg-mm-aaaa>.json`, `/dirette/<canale>.json`), Rai 4K
+solo DASH.
 
-**Link dei replay letti al primo play**, non in anticipo: una richiesta per programma guardato
-invece di circa 700 al giorno.
-
-**Il login di RaiPlay si ignora ovunque.** Rai segna quasi tutti i video come "accesso richiesto",
-anche i film del catalogo che MAIA già riproduceva, ma il video lo serve senza controllarlo. L'utente
-ha scelto una regola unica: MAIA non usa account Rai e non guarda quel flag (prima i replay lo
-rispettavano e 4 su 5 venivano scartati).
+**Il login di RaiPlay si ignora.** Rai segna quasi tutti i video come "accesso richiesto", anche i
+film del catalogo che MAIA riproduce, ma il video lo serve senza controllarlo. L'utente ha scelto:
+MAIA non usa account Rai e non guarda quel flag.
 
 **Connettori di siti pirata rifiutati** (StreamingCommunity con altri nomi, "TSD", "C1": stesso
 codice, host video esterni come vixsrc.to, film ancora al cinema). Non si integrano, nemmeno come

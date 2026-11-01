@@ -14,7 +14,6 @@ import { MailModule } from './mail/mail.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProfilesController } from './profiles/profiles.controller.js';
 import { CatalogModule } from './tv/catalog/catalog.module.js';
-import { LiveController } from './tv/live/live.controller.js';
 import { TvController } from './tv/tv.controller.js';
 import { TvService } from './tv/tv.service.js';
 import { TvCacheWarmer } from './tv/tv.warmer.js';
@@ -30,7 +29,7 @@ import { TvCacheWarmer } from './tv/tv.warmer.js';
     AuthModule,
     CatalogModule,
   ],
-  controllers: [AppController, AccountController, ProfilesController, AdminController, AdminServicesController, TvController, LiveController],
+  controllers: [AppController, AccountController, ProfilesController, AdminController, AdminServicesController, TvController],
   providers: [AppService, AdminGuard, TvService, TvCacheWarmer, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

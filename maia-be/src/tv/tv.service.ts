@@ -4,7 +4,6 @@ import { Prisma, type TitleKind } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CatalogService } from './catalog/catalog.service.js';
 import { presentExtras } from './extras.js';
-import { LiveService } from './live/live.service.js';
 import type { GenreDto, HomeDto, PlaybackDto, TitleCardDto, TitleDetailDto, TitlePageDto } from './tv.dto.js';
 
 // A video users can watch: listed by the service right now and not DRM-protected.
@@ -95,7 +94,6 @@ export class TvService {
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
     private readonly catalog: CatalogService,
-    private readonly live: LiveService,
   ) {}
 
   private cards(where: Prisma.TitleWhereInput, take = ROW_SIZE, skip = 0, orderBy: Prisma.TitleOrderByWithRelationInput = { createdAt: 'desc' }) {
@@ -294,11 +292,6 @@ export class TvService {
       (await this.prisma.providerHealth.findMany({ where: { status: 'DOWN' }, select: { provider: true } })).map((h) => h.provider),
     );
     const best = sources.find((s) => !down.has(s.provider)) ?? sources[0];
-    if (!best) {
-      // A replay of the TV guide.
-      const live = await this.live.playback(itemId, exclude);
-      if (live) return live;
-    }
     if (!best) throw new NotFoundException({ code: 'NO_SOURCE', message: 'Questo contenuto ora non è disponibile.' });
     return { itemId, provider: best.provider, type: 'native-hls', url: best.playbackUrl, durationSec: best.durationSec };
   }

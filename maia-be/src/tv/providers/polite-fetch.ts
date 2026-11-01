@@ -72,35 +72,6 @@ export function politeJson<T>(url: string, options: Options = {}): Promise<T> {
   return run;
 }
 
-// Whether a file exists: a HEAD request without following redirects (RaiPlay
-// answers a missing file with a redirect to its 404 page). Same queue, pace
-// and switches as politeJson. Network errors count as "exists": better a
-// broken picture than dropping a good one for a hiccup.
-export function politeExists(url: string): Promise<boolean> {
-  const host = new URL(url).host;
-  if (stoppedHosts.has(host)) return Promise.reject(new ServiceStoppedError(stoppedHosts.get(host)!));
-  const check = async () => {
-    await waitTurn(host, DEFAULT_GAP_MS);
-    assertRunning(host);
-    try {
-      const res = await fetch(url, {
-        method: 'HEAD',
-        redirect: 'manual',
-        headers: { 'User-Agent': USER_AGENT },
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (res.status === 429 || res.status === 403) throw new HttpError(res.status, url);
-      return res.status >= 200 && res.status < 300;
-    } catch (err) {
-      if (err instanceof HttpError) throw err;
-      return true;
-    }
-  };
-  const run = (queues.get(host) ?? Promise.resolve()).catch(() => undefined).then(check);
-  queues.set(host, run);
-  return run;
-}
-
 // Reserves the next start slot for the host, so even overlapping requests start minGapMs apart.
 async function waitTurn(host: string, minGapMs: number) {
   const at = Math.max(Date.now(), (lastRequestAt.get(host) ?? 0) + minGapMs);

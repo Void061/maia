@@ -324,54 +324,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/tv/channels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["LiveController_channels"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/tv/replay": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["LiveController_replays"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/tv/replay/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["LiveController_replay"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/auth/register": {
         parameters: {
             query?: never;
@@ -691,44 +643,6 @@ export interface components {
         };
         PlaybackFailedDto: {
             provider: string;
-        };
-        ChannelDto: {
-            id: string;
-            name: string;
-            /** @description Channel number, as in the TV guide */
-            number: number;
-            /** @enum {string} */
-            category: "general" | "movies-series" | "culture" | "kids" | "news-sport";
-            logoUrl?: string | null;
-        };
-        ProgramDto: {
-            id: string;
-            channelId: string;
-            title: string;
-            episodeTitle?: string | null;
-            description: string;
-            /** Format: date-time */
-            start: string;
-            /** Format: date-time */
-            end: string;
-            imageUrl?: string | null;
-            /** @description Can be watched again (replay), once it has aired */
-            replay: boolean;
-        };
-        ReplayDetailDto: {
-            id: string;
-            channelId: string;
-            title: string;
-            episodeTitle?: string | null;
-            description: string;
-            /** Format: date-time */
-            start: string;
-            /** Format: date-time */
-            end: string;
-            imageUrl?: string | null;
-            /** @description Can be watched again (replay), once it has aired */
-            replay: boolean;
-            channelName: string;
         };
         RegisterDto: {
             /** @example Ivan */
@@ -1405,78 +1319,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    LiveController_channels: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChannelDto"][];
-                };
-            };
-        };
-    };
-    LiveController_replays: {
-        parameters: {
-            query: {
-                channel: string;
-                /** @description YYYY-MM-DD (Rome); today when missing */
-                date?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProgramDto"][];
-                };
-            };
-        };
-    };
-    LiveController_replay: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReplayDetailDto"];
-                };
-            };
-            /** @description PROGRAM_NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorDto"];
-                };
             };
         };
     };

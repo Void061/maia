@@ -5,7 +5,6 @@ import { CacheService } from '../../cache/cache.service.js';
 import { HttpError, ServiceStoppedError } from '../providers/polite-fetch.js';
 import { ServiceSwitches } from '../providers/service-switches.js';
 import { SECTIONS } from '../providers/raiplay/raiplay.adapter.js';
-import { LiveService } from '../live/live.service.js';
 import { CatalogService, ProviderPausedError } from './catalog.service.js';
 
 // Job queues of the catalog sync, stored in Postgres (schema "pgboss").
@@ -14,8 +13,6 @@ export const QUEUES = {
   syncTitle: 'catalog-sync-title', // read one title and merge it
   due: 'catalog-due', // hourly: titles whose turn has come, expired videos off
   news: 'catalog-news', // every 3 hours: the services' front lists
-  liveChannels: 'live-channels', // nightly: the TV channels of the guide
-  liveGuide: 'live-guide', // hourly: TV guide, today and tomorrow (+ missing past days)
 } as const;
 
 export type DiscoverJob = { provider: string; mode: 'fill' | 'refresh' };
@@ -41,7 +38,6 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly cache: CacheService,
     private readonly switches: ServiceSwitches,
-    private readonly live: LiveService,
   ) {}
 
   // The services a job needs: the catalog service itself, and TMDB for matching.
@@ -83,16 +79,12 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     await this.queue(QUEUES.syncTitle, { policy: 'stately', retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 900 });
     await this.queue(QUEUES.due, { policy: 'singleton', expireInSeconds: 1800 });
     await this.queue(QUEUES.news, { policy: 'singleton', expireInSeconds: 1800 });
-    await this.queue(QUEUES.liveChannels, { policy: 'singleton', retryLimit: 2, retryDelay: 600, expireInSeconds: 900 });
-    await this.queue(QUEUES.liveGuide, { policy: 'singleton', retryLimit: 1, retryDelay: 600, expireInSeconds: 3600 });
 
     for (const provider of Object.keys(this.catalog.adapters)) {
       await boss.schedule(QUEUES.discover, '0 3 * * *', { provider, mode: 'refresh' } satisfies DiscoverJob, { tz: TZ, key: provider });
     }
     await boss.schedule(QUEUES.due, '15 * * * *', {}, { tz: TZ });
     await boss.schedule(QUEUES.news, '0 */3 * * *', {}, { tz: TZ });
-    await boss.schedule(QUEUES.liveChannels, '40 4 * * *', {}, { tz: TZ });
-    await boss.schedule(QUEUES.liveGuide, '5 * * * *', {}, { tz: TZ });
 
     await boss.work<DiscoverJob>(QUEUES.discover, { batchSize: 1 }, ([job]) => this.onDiscover(job));
     // Several in parallel: titles wait on TMDB and the database while the service's
@@ -100,12 +92,6 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     await boss.work<SyncTitleJob>(QUEUES.syncTitle, { batchSize: 1, localConcurrency: 8 }, ([job]) => this.onSyncTitle(job));
     await boss.work(QUEUES.due, { batchSize: 1 }, () => this.onDue());
     await boss.work(QUEUES.news, { batchSize: 1 }, () => this.onNews());
-    await boss.work(QUEUES.liveChannels, { batchSize: 1 }, () => this.onLiveChannels());
-    await boss.work(QUEUES.liveGuide, { batchSize: 1 }, () => this.onLiveGuide());
-    // First start: channels and guide now, not at the next scheduled run.
-    if (!(await this.live.hasChannels())) {
-      await boss.send(QUEUES.liveChannels, {});
-    }
     this.logger.log('Catalog workers running');
   }
 
@@ -166,31 +152,6 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     for (const t of due) await this.enqueueTitles(t.provider, [t.externalId]);
     this.catalogChanged(); // expired videos were switched off
     if (due.length) this.logger.log(`${due.length} titles due for a check`);
-  }
-
-  // TV channels and guide (for the replays). They do not touch the catalog,
-  // so the cache is not dropped (the replay API reads the database directly).
-  private async onLiveChannels() {
-    if (this.switches.isStopped('raiplay')) return;
-    try {
-      const n = await this.live.syncChannels();
-      this.logger.log(`TV channels: ${n}`);
-      await this.boss!.send(QUEUES.liveGuide, {});
-    } catch (err) {
-      if (err instanceof ServiceStoppedError) return;
-      throw err;
-    }
-  }
-
-  private async onLiveGuide() {
-    if (this.switches.isStopped('raiplay')) return;
-    try {
-      const days = await this.live.syncGuide();
-      this.logger.log(`TV guide: ${days} channel-days read`);
-    } catch (err) {
-      if (err instanceof ServiceStoppedError) return;
-      throw err;
-    }
   }
 
   // Front lists change first: new films and episodes appear there.

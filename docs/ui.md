@@ -78,17 +78,16 @@ sera" con accento ambra). Token in `maia-fe/app/globals.css` (`@theme`).
 | `/account` | impostazioni: nome, email, password, profili, (admin) link al pannello, esci |
 | `/admin` | pannello admin a schede: **Account** (filtri per stato con conteggi, ricerca, azioni) e **Servizi** (interruttori dei servizi esterni) |
 | `/tv` | Home, organizzata come HBO Max: hero a carosello (8 s, si ferma col telecomando sopra), *Continua a guardare*, *Top 10 di oggi*, *In onda ora*, *Esplora* (riquadri dei generi), *Novità*, riga *In primo piano*, poi una riga per genere |
-| `/tv/replay` | Replay della guida TV Rai: giorni (Oggi, Ieri e i 6 precedenti) e canali (loghi; il nome se manca il logo) a pillole, poi la griglia dei programmi già andati in onda (immagine, ora, durata, titolo, episodio); due colonne sul telefono. Si apre nel player come un video normale |
 | `/tv/movies`, `/tv/series` | mini-Home del tipo: hero, Top dei film/serie, *Esplora per genere*, una riga per genere |
 | `/tv/movies/[genre]`, `/tv/series/[genre]` | pagina del genere: hero corto e griglia completa |
 | `/tv/genre/[genre]` | scorciatoia su film **e** serie insieme (es. "Commedie") |
 | `/tv/title/[id]` | scheda: hero con Guarda/Riprendi, poi le schede *Episodi* (con le stagioni), *Extra* (highlights, clip, anticipazioni: solo se ce ne sono, divisi in gruppi, prima quelli della stagione scelta, poi quelli generali), *Altri come questo*, *Dettagli*; nessuna indicazione delle fonti |
 | `/tv/search` | ricerca con tastiera a griglia su schermi grandi |
-| `/watch/[id]`, `/watch/replay-[id]` | player a schermo intero (titolo del catalogo o replay della guida) |
+| `/watch/[id]` | player a schermo intero |
 
 **Menu (TV, desktop, tablet):** barra in alto, trasparente sopra l'immagine e in vetro quando si
 scorre. A sinistra "maia TV" (apre il selettore delle app), al centro le voci a pillola (Home,
-Replay, Film, Serie), a destra Cerca e l'avatar (cambia profilo, impostazioni, esci).
+Film, Serie), a destra Cerca e l'avatar (cambia profilo, impostazioni, esci).
 **Telefono:** stessa barra in alto, più una barra in basso con 5 voci, come iOS. La barra in basso
 è **quasi opaca** (`bg-black/90` + sfocatura) e le voci non attive sono grigio chiaro (`muted`):
 con il vetro trasparente e il grigio scuro non si leggeva sopra le immagini chiare.
@@ -103,7 +102,7 @@ del mouse e per i lettori di schermo. Spariscono dopo 3 secondi di riproduzione 
 in pausa).
 - **In alto:** Indietro (e il titolo, sul telefono).
 - **In basso:** barra di avanzamento a tutta larghezza, poi tre gruppi: a sinistra play/pausa,
-  −10, +10, volume; al centro il titolo (per i replay: titolo, canale e giorno con l'ora); a destra
+  −10, +10, volume; al centro il titolo; a destra
   audio e sottotitoli, schermo intero.
 - **Telefono:** −10 / play-pausa / +10 al centro dello schermo, come nelle app; in basso restano
   barra, volume, sottotitoli e schermo intero.
@@ -189,10 +188,8 @@ in pausa).
   hls.js; senza né HLS nativo né MSE avvisa di usare Chrome, Edge o Safari.
 - Pagine con parametro (`/tv/title/[id]`, `/watch/[id]`, generi): `generateStaticParams` restituisce
   un solo valore segnaposto (lo richiede Cache Components); i dati li carica il browser.
-- **Replay** (`maia-fe/lib/replay.ts`: `/tv/channels`, `/tv/replay`, `/tv/replay/:id`): la guida dei
-  canali Rai degli ultimi 7 giorni sta in maia-be; il player apre un replay come un video del
-  catalogo (`/tv/playback/:id`). **Niente dirette**: tolte per scelta dell'utente, insieme ai canali
-  finti di prova (vedi [decisions.md](decisions.md)).
+- **Niente dirette né replay**: provati e tolti per scelta dell'utente, insieme ai canali finti di
+  prova (vedi [decisions.md](decisions.md)). MAIA TV è il catalogo: Home, Film, Serie, Cerca.
 - Non ancora fatti: "Continua a guardare" e Top 10 (servono `WatchProgress` e statistiche),
   preferiti (il tasto + non salva ancora).
 - Account e profili sono veri (maia-be); il profilo scelto è in `localStorage` (`lib/session.ts`).

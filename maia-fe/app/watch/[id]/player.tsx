@@ -35,9 +35,7 @@ import {
   type TitleDetail,
 } from "@/lib/tv";
 
-// A replay of the TV guide: what it is, for the header (title, "Rai 1 · ieri 21:30").
-export type ReplayInfo = { id: string; title: string; subtitle: string };
-type Props = { title?: TitleDetail; replay?: ReplayInfo };
+type Props = { title: TitleDetail };
 type Level = { index: number; height: number };
 // lock()/unlock() are missing from some DOM typings and from iPhone Safari.
 type OrientationWithLock = ScreenOrientation & {
@@ -57,7 +55,7 @@ const fmt = (s: number) => {
   return h ? `${h}:${m.toString().padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 };
 
-export default function Player({ title, replay }: Props) {
+export default function Player({ title }: Props) {
   const router = useRouter();
   const video = useRef<HTMLVideoElement>(null);
   const hls = useRef<Hls | null>(null);
@@ -69,11 +67,11 @@ export default function Player({ title, replay }: Props) {
   const params = useSearchParams();
   const extraId = params.get("extra");
   const extra = useMemo(
-    () => (extraId ? title?.extras.flatMap((g) => g.items).find((x) => x.id === extraId) ?? null : null),
+    () => (extraId ? title.extras.flatMap((g) => g.items).find((x) => x.id === extraId) ?? null : null),
     [extraId, title],
   );
-  const isSeries = title?.kind === "SERIES" && !extraId;
-  const episodes = useMemo(() => (title && isSeries ? flatEpisodes(title) : []), [title, isSeries]);
+  const isSeries = title.kind === "SERIES" && !extraId;
+  const episodes = useMemo(() => (isSeries ? flatEpisodes(title) : []), [title, isSeries]);
   const [episode, setEpisode] = useState<Episode | null>(() => {
     if (!episodes.length) return null;
     return episodes.find((e) => e.id === params.get("ep")) ?? episodes[0];
@@ -81,8 +79,8 @@ export default function Player({ title, replay }: Props) {
   const at = episode ? episodes.findIndex((e) => e.id === episode.id) : -1;
   const upNext = at >= 0 && at < episodes.length - 1 ? episodes[at + 1] : null;
   const previous = at > 0 ? episodes[at - 1] : null;
-  // What the stream is for: a movie, an episode, an extra, or a replay.
-  const playId = replay?.id ?? extraId ?? (isSeries ? episode?.id : title?.id) ?? null;
+  // What the stream is for: a movie, an episode or an extra.
+  const playId = extraId ?? (isSeries ? episode?.id : title.id) ?? null;
   const playIdRef = useRef(playId);
   useLayoutEffect(() => {
     playIdRef.current = playId;
@@ -372,7 +370,6 @@ export default function Player({ title, replay }: Props) {
   // Plays another episode: the URL follows and the stream effect loads its source.
   const playEpisode = useCallback(
     (ep: Episode) => {
-      if (!title) return;
       resume.current = null;
       setEpisode(ep);
       setPanel(null);
@@ -422,10 +419,8 @@ export default function Player({ title, replay }: Props) {
     }
   }
 
-  const heading = replay ? replay.title : title?.name;
-  const subheading = replay
-    ? replay.subtitle
-    : extra
+  const heading = title.name;
+  const subheading = extra
     ? extra.name
     : episode
       ? [episode.season < 1900 ? `S${episode.season}` : null, episodeLabel(episode), episode.name].filter(Boolean).join(" · ")
@@ -638,7 +633,7 @@ export default function Player({ title, replay }: Props) {
       {/* Up next, Netflix/Prime-style: a compact card above the controls. The bar
           under the thumbnail fills as the countdown runs out; at the end the next
           episode starts on its own. */}
-      {showUpNext && upNext && title && (
+      {showUpNext && upNext && (
         <div className="absolute bottom-28 right-3 flex items-center gap-1 sm:bottom-32 sm:right-8">
           <button
             onClick={() => playEpisode(upNext)}
@@ -689,7 +684,7 @@ export default function Player({ title, replay }: Props) {
           }}
         />
       )}
-      {panel === "episodes" && title && episode && (
+      {panel === "episodes" && episode && (
         <EpisodesPanel
           title={title}
           current={episode}

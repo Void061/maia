@@ -1,6 +1,6 @@
 # MAIA TV: catalogo e riproduzione
 
-*Stato: catalogo RaiPlay nel database con aggiornamento automatico; il frontend lo legge e riproduce i video dal dispositivo (vedi "Implementazione" e "API per il frontend"). Niente dirette; la guida TV Rai degli ultimi 7 giorni alimenta il **Replay** (vedi "Replay").*
+*Stato: catalogo RaiPlay nel database con aggiornamento automatico; il frontend lo legge e riproduce i video dal dispositivo (vedi "Implementazione" e "API per il frontend"). Niente dirette né replay: provati e tolti per scelta dell'utente (vedi decisions.md).*
 
 ## Servizi
 
@@ -289,7 +289,7 @@ SyncRun (provider, inizio/fine, trovati, messi in coda, stato, nota)
 
 Previsti, non ancora fatti: generi come tabella (`Genre`, `GenreAlias`; oggi `genres[]` testuale
 da TMDB o dal servizio), `MappingRule` (regole di numerazione decise a mano), `MenuEntry`,
-`WatchProgress`/`Favorite`. (`Channel` e `LiveProgram` per la guida del Replay ci sono: vedi "Replay".)
+`WatchProgress`/`Favorite`.
 
 ## Implementazione
 
@@ -332,8 +332,6 @@ Codice in `maia-be/src/tv/`:
 | `catalog-sync-title` | dai lavori sopra o a mano | un titolo: lettura + inserimento; una richiesta per titolo alla volta (politica `stately` con chiave), 3 tentativi con attesa crescente, 3 titoli in parallelo |
 | `catalog-due` | ogni ora al minuto 15 | mette in coda i titoli arrivati al prossimo controllo; spegne fonti ed extra scaduti |
 | `catalog-news` | ogni 3 ore | rilegge le liste in evidenza delle sezioni (dove compaiono le novità) |
-| `live-channels` | ogni notte alle 4:40 | canali della guida TV Rai e verifica dei loghi (vedi "Replay") |
-| `live-guide` | ogni ora al minuto 5 | guida di oggi e domani per ogni canale, più i giorni passati mancanti (vedi "Replay") |
 
 Al termine di `catalog-discover`, `catalog-due` e di ogni `catalog-sync-title` che ha cambiato il
 titolo (non quelli "invariati"), il worker **svuota tutta la cache di MAIA** in Redis. Le modifiche
@@ -386,8 +384,7 @@ vengono scartati come "invariati": vengono davvero reinseriti.
 `GET /tv/genres?kind=`, `GET /tv/titles?kind&genre&q&skip&take`, `GET /tv/titles/:id` (stagioni ed
 episodi disponibili, extra, simili), `GET /tv/playback/:itemId?exclude=` (film, episodio o extra:
 la fonte migliore, prima i servizi OK e con meno errori), `GET /tv/playback/:itemId/stream?provider=`
-(link diretto per hls.js, vedi riproduzione), `POST /tv/playback/:itemId/failed`, `GET /tv/channels`,
-`GET /tv/replay?channel&date`, `GET /tv/replay/:id` (vedi "Replay"; il play passa da `/tv/playback`).
+(link diretto per hls.js, vedi riproduzione), `POST /tv/playback/:itemId/failed`.
 Un titolo è visibile solo se ha almeno un video disponibile e senza DRM.
 
 **Immagini di episodi ed extra.** Ogni puntata e ogni clip ha la sua immagine su RaiPlay
@@ -427,31 +424,6 @@ cambia qualcosa la svuota tutta.
 Ancora da fare: pannello admin per la
 coda di revisione e per le regole di numerazione, pannello stato, riabbinamento periodico dei
 titoli *review*/*new* (TMDB può aggiungerli in seguito).
-
-## Replay (guida TV Rai degli ultimi 7 giorni)
-
-Ciò che è andato in onda sui canali Rai nell'ultima settimana, da rivedere. **Niente dirette**:
-sono state provate e poi tolte per scelta dell'utente.
-
-- **Canali** (`Channel`, `live-channels` ogni notte): quelli della guida di RaiPlay (`/guidatv.json`)
-  che vanno in onda tutti i giorni, cioè che hanno una pagina in `/dirette.json`. Restano fuori
-  RaiPlay 2/3 e Sport 1-3 (esistono solo durante gli eventi), Rai 4K (replica Rai 1 in UHD) e
-  Rai Radio 2. Oggi sono 13. I loghi si verificano con una richiesta HEAD: alcuni elencati non
-  esistono (Italiana) o sono scritti male (Rai Sport), e al loro posto si mostra il nome.
-- **Guida** (`LiveProgram`, `live-guide` ogni ora): per ogni canale oggi e domani
-  (`/palinsesto/app/<canale>/<gg-mm-aaaa>.json`; i palinsesti cambiano), più i giorni passati che
-  mancano (primo avvio, o giorni con il worker spento). Orari di Roma convertiti con l'ora legale
-  (`romeTime`). Si tengono 8 giorni. Richieste: circa 28 all'ora, 126 al primo avvio.
-- **Replay**: un programma è rivedibile se Rai indica un video (`has_video` e la sua pagina) e
-  l'orario di fine è passato. Il link **non si legge in anticipo**: al primo play il server legge
-  la pagina del programma (una richiesta), salva il relinker e da lì in poi lo riusa. Se il video ha
-  il DRM o non c'è più, il programma diventa non riproducibile e sparisce dall'elenco.
-- **Login di RaiPlay ignorato, come nel catalogo**: le app di Rai chiedono di accedere per quasi
-  tutti i video (anche i film del catalogo, es. *Piedone a Hong Kong*), ma il video lo serve Rai
-  senza controlli. MAIA non usa account Rai e non guarda quel flag, né qui né nel catalogo
-  (decisione dell'utente, vedi decisions.md).
-- Il lavoro della guida **non svuota la cache del catalogo**: le API del Replay leggono direttamente
-  dal database.
 
 ## RaiPlay
 
