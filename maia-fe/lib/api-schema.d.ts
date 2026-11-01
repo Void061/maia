@@ -222,6 +222,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["AdminServicesController_syncNow"];
+        delete: operations["AdminServicesController_cancelSyncNow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/services/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AdminServicesController_activityLog"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -588,6 +604,13 @@ export interface components {
             lastCheckAt?: string | null;
             /** @description A full pass is queued or running */
             running: boolean;
+            /**
+             * @description The full pass: waiting = queued, not started yet; null = none
+             * @enum {string|null}
+             */
+            passState?: "waiting" | "running" | "retry" | null;
+            /** @description A catalog worker is running: without one a queued pass does not start */
+            workerOnline: boolean;
         };
         AdminServiceDto: {
             id: string;
@@ -622,6 +645,66 @@ export interface components {
             at: string;
             /** @enum {number|null} */
             everyHours?: 1 | 2 | 3 | 4 | 6 | 8 | 12 | null;
+        };
+        WorkerStateDto: {
+            /** @description A catalog worker is running (heartbeat within 90 s) */
+            online: boolean;
+            startedAt?: string | null;
+            /** @description Last heartbeat */
+            seenAt?: string | null;
+        };
+        PassStateDto: {
+            /**
+             * @description waiting = queued, no worker took it yet
+             * @enum {string}
+             */
+            state: "waiting" | "running" | "retry";
+            /** @description Queued at (waiting, retry) or started at (running) */
+            since: string;
+        };
+        ActiveTitleDto: {
+            externalId: string;
+            /** @description null for a title not read before */
+            name?: string | null;
+            startedAt?: string | null;
+        };
+        SourceLiveDto: {
+            id: string;
+            name: string;
+            /** @description The full pass waiting or running, if any */
+            pass?: components["schemas"]["PassStateDto"] | null;
+            /** @description Titles waiting in the queue */
+            queued: number;
+            /** @description Titles waiting to try again after an error */
+            retrying: number;
+            /** @description Titles left halfway by a worker that stopped; retried when a worker runs again */
+            stalled: number;
+            /** @description Titles being read right now */
+            active: components["schemas"]["ActiveTitleDto"][];
+        };
+        ActivityEventDto: {
+            id: number;
+            source: string;
+            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check */
+            kind: string;
+            externalId?: string | null;
+            name?: string | null;
+            /** @description Full passes: titles listed by the service */
+            found?: number | null;
+            /** @description Passes and checks: titles queued */
+            queued?: number | null;
+            /** @description Error, who pressed, or the kind of pass (fill / refresh) */
+            message?: string | null;
+            at: string;
+        };
+        ActivityLogDto: {
+            worker: components["schemas"]["WorkerStateDto"];
+            /** @description Every catalog source, in panel order */
+            sources: components["schemas"]["SourceLiveDto"][];
+            /** @description Newest first */
+            events: components["schemas"]["ActivityEventDto"][];
+            /** @description Older events exist (ask again with before = last id) */
+            more: boolean;
         };
         BaseUrlDto: {
             /**
@@ -1266,6 +1349,97 @@ export interface operations {
             };
             /** @description SERVICE_OFF | ALREADY_RUNNING */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_cancelSyncNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description NOT_QUEUED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_activityLog: {
+        parameters: {
+            query?: {
+                /** @description One catalog source; all of them when absent */
+                source?: string;
+                /** @description created / updated (gone from the service included) / unchanged titles, errors, or all (passes included) */
+                filter?: "all" | "created" | "updated" | "unchanged" | "errors";
+                /** @description Last event id of the previous page */
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityLogDto"];
+                };
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

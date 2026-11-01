@@ -14,6 +14,7 @@ import Logo from "@/components/logo";
 import { Notice } from "@/components/ui";
 import { useMe } from "@/lib/account";
 import { api, type components } from "@/lib/api";
+import LogPanel from "./log-panel";
 import ServicesPanel, { type Service } from "./services-panel";
 
 type AdminAccount = components["schemas"]["AdminAccountDto"];
@@ -53,18 +54,21 @@ const date = (iso: string) =>
 const hueOf = (s: string) =>
   [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 
-type Tab = "accounts" | "services";
+type Tab = "accounts" | "services" | "log";
+const TABS: Tab[] = ["accounts", "services", "log"];
 
 // Admin panel, one tab per area: accounts (by status, search, the actions each
-// status allows) and the outside services (on/off switches).
+// status allows), the outside services (on/off switches, updates) and the
+// catalog log (what the worker is doing and did).
 export default function AdminPanel() {
   const router = useRouter();
   const { data: me } = useMe();
   // The open tab is in the URL, so a reload (or a bookmark) opens the same one.
   const params = useSearchParams();
-  const tab: Tab = params.get("tab") === "services" ? "services" : "accounts";
+  const asked = params.get("tab") as Tab | null;
+  const tab: Tab = asked && TABS.includes(asked) ? asked : "accounts";
   const setTab = (t: Tab) =>
-    router.replace(t === "services" ? "/admin?tab=services" : "/admin", {
+    router.replace(t === "accounts" ? "/admin" : `/admin?tab=${t}`, {
       scroll: false,
     });
   const [filter, setFilter] = useState<Status | "ALL">("PENDING_APPROVAL");
@@ -138,6 +142,7 @@ export default function AdminPanel() {
                     badge: counts?.PENDING_APPROVAL ?? 0,
                   },
                   { key: "services", label: "Servizi", badge: servicesAlert },
+                  { key: "log", label: "Log", badge: 0 },
                 ] as const
               ).map((t) => (
                 <button
@@ -159,6 +164,8 @@ export default function AdminPanel() {
 
             {tab === "services" ? (
               <ServicesPanel enabled={isAdmin} />
+            ) : tab === "log" ? (
+              <LogPanel enabled={isAdmin} />
             ) : (
               <>
                 <div className="rail -mx-4 mt-6 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0">

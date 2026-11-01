@@ -306,6 +306,7 @@ ProviderTitle (provider + externalId unici; kind, name, year, titleId, verdict A
 MatchReview (providerTitleId, candidati TMDB con punteggio, stato PENDING|ACCEPTED|REJECTED)
 ProviderHealth (provider, status OK|DEGRADED|DOWN, failStreak, retryAfter, lastSuccessAt, lastError)
 SyncRun (provider, inizio/fine, trovati, messi in coda, stato, nota)
+CatalogEvent (provider, tipo, externalId?, nome?, trovati?, in coda?, messaggio?, ora): attività del worker, 7 giorni
 ```
 
 Previsti, non ancora fatti: generi come tabella (`Genre`, `GenreAlias`; oggi `genres[]` testuale
@@ -326,6 +327,7 @@ Codice in `maia-be/src/tv/`:
 | `matching/episodes.ts`                  | colloca un episodio nella struttura TMDB: per **data di messa in onda** (±1 giorno, stagione speciali esclusa), poi stagione + numero (anche "Stagione 2026" = edizione andata in onda nel 2026) |
 | `matching/tmdb.client.ts`               | ricerca, candidati, metadati in italiano, episodi per stagione                                                                                                                                   |
 | `catalog/catalog.service.ts`            | inserimento nel catalogo, fonti, extra, spegnimenti, ritmo, stato del servizio                                                                                                                   |
+| `catalog/catalog.activity.ts`           | log del worker (`catalog_events`), segnale di vita e stato della coda per la scheda Log                                                                                                        |
 | `catalog/catalog.worker.ts`             | code e lavori pg-boss                                                                                                                                                                            |
 | `catalog/worker.main.ts`                | worker in un processo a sé (sviluppo locale)                                                                                                                                                     |
 | `probe.ts`                              | misura su un campione, senza scrivere nel database                                                                                                                                               |
@@ -369,12 +371,40 @@ sotto ogni fonte di catalogo; impostazioni in `provider_health`, programmazioni 
   3, 4, 6, 8 o 12 ore nelle ore in mezzo, oppure solo la passata giornaliera. Passando ad
   automatico il pannello propone le 3:00 con controlli ogni 3 ore.
 - In entrambi i casi i video scaduti si spengono ogni ora.
-- Il pannello mostra l'ultima passata (quando, esito, titoli trovati), l'ultimo controllo e se una
-  passata è in corso; "Aggiorna ora" non parte se il servizio è spento o se una passata è già in
+- Il pannello mostra l'ultima passata (quando, esito, titoli trovati), l'ultimo controllo e lo stato
+  della passata con un'etichetta corta: **In coda** (non ancora partita; sotto dice se il worker è
+  spento e quindi non partirà), **In corso** o **Da riprovare**. Una passata in coda o da riprovare
+  si toglie con **"Togli dalla coda"** (`DELETE /admin/services/:id/sync-now`); una già partita si
+  ferma con l'interruttore del servizio; "Aggiorna ora" non parte se il servizio è spento o se una passata è già in
   corso.
 - **Passate interrotte**: c'è un solo worker per volta, quindi quando parte chiude le passate rimaste
   "in corso" dal processo precedente (riavvio, deploy). Altrimenti pg-boss le rilancerebbe da sole
   dopo ore, anche in modalità manuale.
+
+**Log del catalogo** (pannello `/admin`, scheda **Log**, `/admin?tab=log`; un solo registro per
+tutte le fonti; `catalog/catalog.activity.ts`, tabella `catalog_events`, API
+`GET /admin/services/activity?filter=&source=&before=`):
+
+- In alto **cosa succede adesso**. Prima se il **worker è acceso**: scrive un segnale di vita ogni
+  30 secondi (tabella `catalog_worker`, una riga); senza segnale da 90 secondi, o dopo uno
+  spegnimento pulito, risulta spento e niente viene letto. Poi, per ogni fonte che ha qualcosa in
+  corso: la **passata completa** (in corso da quando, in coda e non ancora partita, da riprovare),
+  i titoli **in coda**, **da riprovare** dopo un errore, **rimasti a metà** e quelli **in lettura
+  adesso** (con il nome, se il titolo era già noto). "Aggiorna ora" mette solo in coda: senza
+  worker acceso non parte. I lavori rimasti "attivi" oltre il loro tempo massimo (15 minuti) sono
+  rimasti a metà da un worker fermato: pg-boss li fa riprovare solo quando un worker riparte.
+- Sotto **l'elenco**, dal più recente: ogni titolo letto con l'esito (**Nuovo**, **Modificato**,
+  **Invariato**, **Tolto dal servizio**, **Errore** con il messaggio), "Aggiorna ora" premuto o
+  passata tolta dalla coda (e da chi), inizio e fine di ogni passata completa (titoli trovati e
+  messi in coda; annullata se l'elenco sembrava incompleto; non riuscita o saltata perché il
+  servizio era spento) e ogni controllo delle novità. Su schermi larghi ogni riga dice la fonte.
+- **Un solo filtro**: **Tutto** (predefinito, passate comprese), **Nuovi**, **Modificati** (anche i
+  titoli tolti dal servizio), **Invariati**, **Errori**; più la scelta della fonte (Tutte le fonti,
+  RaiPlay, SDM…). 50 righe per volta con "Mostra altri"; si aggiorna da sola ogni 5 secondi.
+- Non registrati: i titoli rimandati perché il servizio è spento o in pausa automatica (lo stato
+  è già nella scheda Servizi e riproverebbero ogni pochi minuti).
+- Gli eventi restano **7 giorni**; li cancella il lavoro orario `catalog-due`. Scriverli e
+  leggerli usa solo il database; se la scrittura fallisce il lavoro continua lo stesso.
 
 Al termine di `catalog-discover`, di un `catalog-due` che ha spento qualcosa e di ogni `catalog-sync-title` che ha cambiato il
 titolo (non quelli "invariati"), il worker **svuota tutta la cache di MAIA** in Redis. Le modifiche

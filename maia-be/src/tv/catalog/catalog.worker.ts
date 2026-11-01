@@ -4,6 +4,7 @@ import { PgBoss, type Job } from 'pg-boss';
 import { CacheService } from '../../cache/cache.service.js';
 import { HttpError, ServiceStoppedError } from '../providers/polite-fetch.js';
 import { ServiceSwitches } from '../providers/service-switches.js';
+import { BEAT_MS, CatalogActivity } from './catalog.activity.js';
 import { CatalogScheduler } from './catalog.scheduler.js';
 import { CatalogService, ProviderPausedError } from './catalog.service.js';
 import { QUEUES, TZ, type CheckJob, type DiscoverJob, type SyncTitleJob } from './queues.js';
@@ -22,6 +23,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CatalogWorker.name);
   private boss: PgBoss | null = null;
   private invalidateTimer: ReturnType<typeof setTimeout> | null = null;
+  private beatTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly catalog: CatalogService,
@@ -29,6 +31,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     private readonly cache: CacheService,
     private readonly switches: ServiceSwitches,
     private readonly scheduler: CatalogScheduler,
+    private readonly activity: CatalogActivity,
   ) {}
 
   // The services a job needs: the catalog service itself, and TMDB for matching.
@@ -42,7 +45,9 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    if (this.beatTimer) clearInterval(this.beatTimer);
     await this.boss?.stop({ graceful: true, timeout: 30_000 });
+    if (this.boss) await this.activity.workerStopped();
     if (this.invalidateTimer) await this.invalidateNow();
   }
 
@@ -86,6 +91,10 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     await boss.work<SyncTitleJob>(QUEUES.syncTitle, { batchSize: 1, localConcurrency: 8 }, ([job]) => this.onSyncTitle(job));
     await boss.work(QUEUES.due, { batchSize: 1 }, () => this.onDue());
     await boss.work<CheckJob>(QUEUES.check, { batchSize: 1 }, ([job]) => this.onCheck(job));
+    // Heartbeat: the admin panel tells whether a worker is processing the queue at all.
+    const startedAt = new Date();
+    await this.activity.beat(startedAt);
+    this.beatTimer = setInterval(() => void this.activity.beat(startedAt), BEAT_MS);
     this.logger.log('Catalog workers running');
   }
 
@@ -105,15 +114,21 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   private async onDiscover(job: Job<DiscoverJob>) {
     const { provider, mode } = job.data;
     // Switched off: this pass is skipped (the next scheduled one runs as usual).
-    if (this.switches.isStopped(provider)) return this.logger.warn(`${provider} ${mode} skipped: service switched off`);
+    if (this.switches.isStopped(provider)) {
+      await this.activity.passFailed(provider, mode, 'service switched off');
+      return this.logger.warn(`${provider} ${mode} skipped: service switched off`);
+    }
     let ids: string[];
+    await this.activity.passStarted(provider, mode);
     try {
       ids = await this.catalog.discover(provider, mode);
     } catch (err) {
+      await this.activity.passFailed(provider, mode, err instanceof ServiceStoppedError ? 'service switched off' : err);
       if (err instanceof ServiceStoppedError) return this.logger.warn(`${provider} ${mode} stopped: service switched off`);
       throw err;
     }
     await this.enqueueTitles(provider, ids);
+    await this.activity.passEnded(provider, mode, ids.length);
     this.catalogChanged(); // titles no longer listed lose their sources
     this.logger.log(`${provider} ${mode}: ${ids.length} titles queued`);
     // A full pass also does what a check does: front lists and titles whose turn has come.
@@ -125,6 +140,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     if (this.stopped(provider)) return this.deferTitle(job.data);
     try {
       const outcome = await this.catalog.syncTitle(provider, externalId);
+      await this.activity.titleDone(provider, externalId, outcome);
       // An unchanged title leaves the catalog as it was: the cache stays.
       if (outcome !== 'unchanged') {
         this.catalogChanged();
@@ -133,7 +149,11 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       // Switched off halfway: the title waits, it is not a failure (no retry used up).
       if (err instanceof ServiceStoppedError) return this.deferTitle(job.data);
-      if (!(err instanceof ProviderPausedError)) this.logger.warn(`${provider}/${externalId}: ${String(err)}`);
+      // A paused service is already shown in the panel: its titles just wait.
+      if (!(err instanceof ProviderPausedError)) {
+        this.logger.warn(`${provider}/${externalId}: ${String(err)}`);
+        await this.activity.titleFailed(provider, externalId, err);
+      }
       throw err; // pg-boss retries with backoff
     }
   }
@@ -146,6 +166,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   // Hourly, database only.
   private async onDue() {
     if (await this.catalog.expireVideos()) this.catalogChanged();
+    await this.activity.prune();
   }
 
   private async onCheck(job: Job<CheckJob>) {
@@ -170,6 +191,7 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
     for (const t of await this.catalog.dueTitles(provider)) ids.add(t.externalId);
     await this.enqueueTitles(provider, [...ids]);
     await this.catalog.checked(provider);
+    await this.activity.checked(provider, ids.size);
     this.logger.log(`${provider} check: ${ids.size} titles queued`);
   }
 }

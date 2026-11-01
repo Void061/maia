@@ -24,8 +24,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="it" className={`${inter.variable} h-full`}>
-      <body className="min-h-full">
+    // suppressHydrationWarning (these two tags only, attributes only): browser
+    // extensions add attributes to <html>/<body> before React loads (e.g.
+    // ColorZilla's cz-shortcut-listen) and Next reported a hydration error.
+    <html lang="it" className={`${inter.variable} h-full`} suppressHydrationWarning>
+      <body className="min-h-full" suppressHydrationWarning>
         <Providers>
           <SpatialNav />
           {children}

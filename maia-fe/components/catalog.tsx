@@ -97,8 +97,9 @@ export function GenrePage({ slug, kind }: { slug: string; kind?: Kind }) {
           )}
         </div>
         <div className="mt-6 grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-x-6 sm:gap-y-8 lg:grid-cols-5 xl:grid-cols-7">
-          {items.map((t) => (
-            <Poster key={t.id} title={t} />
+          {/* The first rows of the grid are on screen at once: load them eagerly. */}
+          {items.map((t, i) => (
+            <Poster key={t.id} title={t} eager={i < 14} />
           ))}
         </div>
       </section>

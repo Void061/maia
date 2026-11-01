@@ -274,3 +274,29 @@ HTML (attributo `data-page`). L'adapter SDM ora legge quello al posto del format
 `/api/titles`, con percorsi, chiavi e campi in un blocco `CONFIG` modificabile. Non provato sul
 server vero (raggiungibile solo dalla sua rete): solo test con pagine simulate. Lasciati fuori
 l'etichetta Sub/Dub e i server esterni basati su TMDB.
+
+**Registro dell'attività del worker nel pannello admin** (2026-11-01, chiesto dall'utente): per
+sapere sempre cosa fa il worker, ogni titolo letto, ogni passata e ogni controllo finiscono nella
+tabella `catalog_events` e nella sezione "Attività" sotto ogni fonte, insieme alla coda letta da
+pg-boss. Prima l'esito stava solo nella console del worker e i titoli invariati non comparivano
+nemmeno lì. Scelte: gli invariati si salvano ma di base si nascondono (sono la maggior parte),
+storico di 7 giorni, nessun evento per i titoli rimandati con il servizio spento o in pausa.
+Il worker scrive anche un segnale di vita: "Aggiornamento in corso" con il worker spento lasciava
+credere che SDM si stesse aggiornando, mentre la passata era solo in coda. Per lo stesso motivo
+il riquadro di "Aggiornamento" mostra un'etichetta corta (In coda / In corso / Da riprovare) con la
+spiegazione sotto, invece di una frase lunga nel pulsante (illeggibile su telefono, segnalato
+dall'utente), e una passata non ancora partita si può togliere dalla coda.
+
+**Log del catalogo in una scheda sola** (2026-11-01, chiesto dall'utente: "nei log non si capisce
+niente, basta una tab di log unica"): le sezioni "Attività" sotto ogni fonte, con i loro filtri,
+diventano la scheda **Log** del pannello admin: un registro per tutte le fonti con un solo filtro
+per esito (Tutto, Nuovi, Modificati, Invariati, Errori) e la scelta della fonte a pillole (la select
+nativa era brutta su telefono).
+
+**Giro di controllo del frontend** (2026-11-01, desktop, tablet, TV e telefono): la trama della card
+grande di "In primo piano" usciva intera perché `sm:block` annullava `line-clamp` (ora 3 righe);
+le stagioni di una serie lunga (22) occupavano mezza pagina su telefono, ora sono una riga che
+scorre; immagini in cima caricate subito (avvisi LCP di Next). Errori di Next: l'idratazione su
+`<body>` veniva da un'estensione del browser (`suppressHydrationWarning` su `<html>` e `<body>`); il
+`redirect()` nella pagina `/` rompeva il controllo di prerender a ogni visita, ora `/` lo gestisce
+il proxy.

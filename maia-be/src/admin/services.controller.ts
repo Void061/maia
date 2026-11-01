@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -11,12 +11,14 @@ import {
   ApiPropertyOptional,
   ApiTags,
 } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 import { AuthGuard, CurrentUser, type AuthUser } from '../auth/auth.guard.js';
 import { ErrorDto } from '../auth/dto.js';
 import { CacheService } from '../cache/cache.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { CatalogScheduler } from '../tv/catalog/catalog.scheduler.js';
+import { ACTIVITY_FILTERS, CatalogActivity, type ActivityFilter } from '../tv/catalog/catalog.activity.js';
+import { CatalogScheduler, type PassState } from '../tv/catalog/catalog.scheduler.js';
 import { CHECK_HOURS, DEFAULT_SYNC } from '../tv/catalog/queues.js';
 import { baseUrl, defaultBaseUrl, normalizeBaseUrl } from '../tv/providers/base-urls.js';
 import { ServiceSwitches } from '../tv/providers/service-switches.js';
@@ -59,6 +61,14 @@ class SyncInfoDto {
   @ApiPropertyOptional({ nullable: true, type: LastRunDto }) lastRun: LastRunDto | null;
   @ApiPropertyOptional({ nullable: true, type: String }) lastCheckAt: string | null;
   @ApiProperty({ description: 'A full pass is queued or running' }) running: boolean;
+  @ApiPropertyOptional({
+    nullable: true,
+    enum: ['waiting', 'running', 'retry'],
+    description: 'The full pass: waiting = queued, not started yet; null = none',
+  })
+  passState: 'waiting' | 'running' | 'retry' | null;
+  @ApiProperty({ description: 'A catalog worker is running: without one a queued pass does not start' })
+  workerOnline: boolean;
 }
 
 class SyncSettingsDto {
@@ -91,6 +101,92 @@ class BaseUrlResultDto {
   @ApiProperty({ description: 'Saved links (videos, pictures) moved to the new address' }) moved: number;
 }
 
+class ActivityQueryDto {
+  @ApiPropertyOptional({ description: 'One catalog source; all of them when absent' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  source?: string;
+
+  @ApiPropertyOptional({
+    enum: ACTIVITY_FILTERS,
+    default: 'all',
+    description: 'created / updated (gone from the service included) / unchanged titles, errors, or all (passes included)',
+  })
+  @IsOptional()
+  @IsIn([...ACTIVITY_FILTERS])
+  filter?: ActivityFilter;
+
+  @ApiPropertyOptional({ description: 'Last event id of the previous page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  before?: number;
+
+  @ApiPropertyOptional({ default: 50, maximum: 200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
+}
+
+class ActiveTitleDto {
+  @ApiProperty() externalId: string;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'null for a title not read before' }) name: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) startedAt: string | null;
+}
+
+class ActivityEventDto {
+  @ApiProperty() id: number;
+  @ApiProperty() source: string;
+  @ApiProperty({
+    description:
+      'Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check',
+  })
+  kind: string;
+  @ApiPropertyOptional({ nullable: true, type: String }) externalId: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String }) name: string | null;
+  @ApiPropertyOptional({ nullable: true, type: Number, description: 'Full passes: titles listed by the service' }) found: number | null;
+  @ApiPropertyOptional({ nullable: true, type: Number, description: 'Passes and checks: titles queued' }) queued: number | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'Error, who pressed, or the kind of pass (fill / refresh)' })
+  message: string | null;
+  @ApiProperty() at: string;
+}
+
+class WorkerStateDto {
+  @ApiProperty({ description: 'A catalog worker is running (heartbeat within 90 s)' }) online: boolean;
+  @ApiPropertyOptional({ nullable: true, type: String }) startedAt: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'Last heartbeat' }) seenAt: string | null;
+}
+
+class PassStateDto {
+  @ApiProperty({ enum: ['waiting', 'running', 'retry'], description: 'waiting = queued, no worker took it yet' })
+  state: 'waiting' | 'running' | 'retry';
+  @ApiProperty({ description: 'Queued at (waiting, retry) or started at (running)' }) since: string;
+}
+
+class SourceLiveDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiPropertyOptional({ nullable: true, type: PassStateDto, description: 'The full pass waiting or running, if any' })
+  pass: PassStateDto | null;
+  @ApiProperty({ description: 'Titles waiting in the queue' }) queued: number;
+  @ApiProperty({ description: 'Titles waiting to try again after an error' }) retrying: number;
+  @ApiProperty({ description: 'Titles left halfway by a worker that stopped; retried when a worker runs again' })
+  stalled: number;
+  @ApiProperty({ type: [ActiveTitleDto], description: 'Titles being read right now' }) active: ActiveTitleDto[];
+}
+
+class ActivityLogDto {
+  @ApiProperty({ type: WorkerStateDto }) worker: WorkerStateDto;
+  @ApiProperty({ type: [SourceLiveDto], description: 'Every catalog source, in panel order' }) sources: SourceLiveDto[];
+  @ApiProperty({ type: [ActivityEventDto], description: 'Newest first' }) events: ActivityEventDto[];
+  @ApiProperty({ description: 'Older events exist (ask again with before = last id)' }) more: boolean;
+}
+
 class SwitchDto {
   @ApiProperty()
   @IsBoolean()
@@ -110,6 +206,7 @@ export class AdminServicesController {
     private readonly switches: ServiceSwitches,
     private readonly scheduler: CatalogScheduler,
     private readonly cache: CacheService,
+    private readonly activity: CatalogActivity,
   ) {}
 
   @Get()
@@ -124,8 +221,9 @@ export class AdminServicesController {
          GROUP BY 1`.catch(() => []),
       this.prisma.syncRun.findMany({ distinct: ['provider'], orderBy: { startedAt: 'desc' } }),
     ]);
-    const running = new Map<string, boolean>();
-    for (const s of SERVICES.filter((x) => x.catalog)) running.set(s.id, await this.scheduler.running(s.id));
+    const passes = new Map<string, PassState | null>();
+    for (const s of SERVICES.filter((x) => x.catalog)) passes.set(s.id, (await this.scheduler.pass(s.id))?.state ?? null);
+    const workerOnline = await this.activity.workerOnline();
     return SERVICES.map((s) => {
       const h = health.find((x) => x.provider === s.id);
       const paused = h?.status === 'DOWN' && h.retryAfter && h.retryAfter > new Date();
@@ -143,7 +241,7 @@ export class AdminServicesController {
         queued: queued.find((q) => q.provider === s.id)?.n ?? 0,
         baseUrl: s.baseUrl ? baseUrl(s.id) : null,
         defaultBaseUrl: defaultBaseUrl(s.id),
-        sync: s.catalog ? this.syncInfo(h, runs.find((r) => r.provider === s.id), running.get(s.id) ?? false) : null,
+        sync: s.catalog ? this.syncInfo(h, runs.find((r) => r.provider === s.id), passes.get(s.id) ?? null, workerOnline) : null,
       };
     });
   }
@@ -166,7 +264,7 @@ export class AdminServicesController {
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ type: ErrorDto, description: 'SERVICE_NOT_FOUND' })
   @ApiConflictResponse({ type: ErrorDto, description: 'SERVICE_OFF | ALREADY_RUNNING' })
-  async syncNow(@Param('id') id: string) {
+  async syncNow(@CurrentUser() me: AuthUser, @Param('id') id: string) {
     if (!SERVICES.some((s) => s.id === id && s.catalog)) throw notFound();
     if (this.switches.isStopped(id)) {
       throw new ConflictException({ code: 'SERVICE_OFF', message: 'Il servizio è spento: riaccendilo prima di aggiornarlo.' });
@@ -174,6 +272,71 @@ export class AdminServicesController {
     if (!(await this.scheduler.runNow(id))) {
       throw new ConflictException({ code: 'ALREADY_RUNNING', message: 'Un aggiornamento è già in corso.' });
     }
+    const admin = await this.prisma.account.findUniqueOrThrow({ where: { id: me.accountId }, select: { email: true } });
+    await this.activity.passQueued(id, admin.email);
+  }
+
+  // Takes a queued full pass back out before it starts (e.g. pressed by mistake,
+  // or the worker is off). A running pass is stopped with the service switch.
+  @Delete(':id/sync-now')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse({ type: ErrorDto, description: 'SERVICE_NOT_FOUND' })
+  @ApiConflictResponse({ type: ErrorDto, description: 'NOT_QUEUED' })
+  async cancelSyncNow(@CurrentUser() me: AuthUser, @Param('id') id: string) {
+    if (!SERVICES.some((s) => s.id === id && s.catalog)) throw notFound();
+    if (!(await this.scheduler.cancelQueued(id))) {
+      throw new ConflictException({
+        code: 'NOT_QUEUED',
+        message: 'Nessuna passata in coda: è già partita (per fermarla spegni il servizio) o è già finita.',
+      });
+    }
+    const admin = await this.prisma.account.findUniqueOrThrow({ where: { id: me.accountId }, select: { email: true } });
+    await this.activity.passCancelled(id, admin.email);
+  }
+
+  // The catalog log: what the worker is doing now (per source) and what it did
+  // in the last week, newest first, filtered by outcome and source. Database only.
+  @Get('activity')
+  @ApiOkResponse({ type: ActivityLogDto })
+  @ApiNotFoundResponse({ type: ErrorDto, description: 'SERVICE_NOT_FOUND' })
+  async activityLog(@Query() q: ActivityQueryDto): Promise<ActivityLogDto> {
+    if (q.source && !SERVICES.some((s) => s.id === q.source && s.catalog)) throw notFound();
+    const [live, page] = await Promise.all([
+      this.activity.live(),
+      this.activity.events(q.source, q.filter ?? 'all', q.before, q.limit ?? 50),
+    ]);
+    return {
+      worker: {
+        online: live.worker.online,
+        startedAt: live.worker.startedAt?.toISOString() ?? null,
+        seenAt: live.worker.seenAt?.toISOString() ?? null,
+      },
+      sources: SERVICES.filter((s) => s.catalog).map((s) => {
+        const src = live.source(s.id);
+        return {
+          id: s.id,
+          name: s.name,
+          pass: src.pass ? { state: src.pass.state as PassStateDto['state'], since: src.pass.since.toISOString() } : null,
+          queued: src.queued,
+          retrying: src.retrying,
+          stalled: src.stalled,
+          active: src.active.map((a) => ({ externalId: a.externalId, name: a.name, startedAt: a.startedOn?.toISOString() ?? null })),
+        };
+      }),
+      events: page.events.map((e) => ({
+        id: e.id,
+        source: e.provider,
+        kind: e.kind,
+        externalId: e.externalId,
+        name: e.name,
+        found: e.found,
+        queued: e.queued,
+        message: e.message,
+        at: e.at.toISOString(),
+      })),
+      more: page.more,
+    };
   }
 
   // The address a catalog source is read from (e.g. the home server's IP).
@@ -205,7 +368,8 @@ export class AdminServicesController {
   private syncInfo(
     h: { syncMode: 'AUTO' | 'MANUAL'; syncAt: string; syncEveryHours: number | null; lastCheckAt: Date | null } | undefined,
     run: { startedAt: Date; finishedAt: Date | null; status: string; found: number | null } | undefined,
-    running: boolean,
+    pass: PassState | null,
+    workerOnline: boolean,
   ): SyncInfoDto {
     return {
       mode: h?.syncMode ?? DEFAULT_SYNC.mode,
@@ -215,7 +379,9 @@ export class AdminServicesController {
         ? { startedAt: run.startedAt.toISOString(), finishedAt: run.finishedAt?.toISOString() ?? null, status: run.status, found: run.found }
         : null,
       lastCheckAt: h?.lastCheckAt?.toISOString() ?? null,
-      running,
+      running: pass !== null,
+      passState: pass,
+      workerOnline,
     };
   }
 
