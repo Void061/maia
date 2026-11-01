@@ -1,3 +1,4 @@
+import { baseUrl } from '../base-urls.js';
 import { HttpError, politeJson, ServiceStoppedError } from '../polite-fetch.js';
 import type {
   ExtraKind,
@@ -12,7 +13,8 @@ import type {
 // RaiPlay publishes plain JSON next to every page (/programmi/<slug>.json, ...).
 // The catalog is readable from abroad; only the relinker (the video link) is
 // geo-checked, so playback is resolved by the viewer's device, never here.
-const HOST = 'https://www.raiplay.it';
+// The address in use (admin panel, base-urls.ts), default https://www.raiplay.it.
+const host = () => baseUrl('raiplay');
 const RELINKER_HOST = 'mediapolisvod.rai.it';
 
 type RaiRights = { rights?: { drm?: Record<string, boolean>; geoprotection?: Record<string, boolean> } };
@@ -72,10 +74,11 @@ function extraKind(name: string): ExtraKind {
 
 export class RaiPlayAdapter implements ProviderAdapter {
   readonly id = 'raiplay' as const;
+  readonly frontSections = SECTIONS;
 
   // Slugs of the programs linked from a section index (film, serieitaliane, ...).
   async listSection(section: string): Promise<string[]> {
-    const index = await politeJson<unknown>(`${HOST}/tipologia/${section}/index.json`);
+    const index = await politeJson<unknown>(`${host()}/tipologia/${section}/index.json`);
     return [...collectLinks(index).programs];
   }
 
@@ -91,7 +94,7 @@ export class RaiPlayAdapter implements ProviderAdapter {
       seen.add(page);
       let data: unknown;
       try {
-        data = await politeJson<unknown>(HOST + page);
+        data = await politeJson<unknown>(host() + page);
       } catch (err) {
         if (err instanceof HttpError && err.slowDown) throw err; // RaiPlay says stop: stop the whole pass
         if (err instanceof ServiceStoppedError) throw err; // switched off in the admin panel
@@ -122,7 +125,7 @@ export class RaiPlayAdapter implements ProviderAdapter {
   async getTitle(slug: string): Promise<ProviderTitle | null> {
     let program: RaiProgram;
     try {
-      program = await politeJson<RaiProgram>(`${HOST}/programmi/${slug}.json`);
+      program = await politeJson<RaiProgram>(`${host()}/programmi/${slug}.json`);
     } catch (err) {
       if (err instanceof HttpError && err.status === 404) return null;
       throw err;
@@ -145,7 +148,7 @@ export class RaiPlayAdapter implements ProviderAdapter {
 
     if (isMovie) {
       const item = program.first_item_path
-        ? await politeJson<RaiItem>(HOST + toJsonPath(program.first_item_path))
+        ? await politeJson<RaiItem>(host() + toJsonPath(program.first_item_path))
         : null;
       // A film's own block holds the film itself; only clearly named ones are extras.
       const extraSets = blocks
@@ -169,7 +172,7 @@ export class RaiPlayAdapter implements ProviderAdapter {
       }
     }
     for (const set of (episodeBlock?.sets ?? []).filter((s) => !CLIP_SET.test(s.name))) {
-      const data = await politeJson<{ items?: RaiSetItem[] }>(HOST + set.path_id);
+      const data = await politeJson<{ items?: RaiSetItem[] }>(host() + set.path_id);
       seasons.push({
         number: seasonNumber(set.name),
         label: set.name,
@@ -184,7 +187,7 @@ export class RaiPlayAdapter implements ProviderAdapter {
   private async extras(sets: { block: string; set: RaiSet }[]): Promise<ProviderExtraGroup[]> {
     const groups: ProviderExtraGroup[] = [];
     for (const { block, set } of sets) {
-      const data = await politeJson<{ items?: RaiSetItem[] }>(HOST + set.path_id);
+      const data = await politeJson<{ items?: RaiSetItem[] }>(host() + set.path_id);
       const videos = (data.items ?? []).map((item) => {
         const { externalId, title, durationSec, drm, geoBlocked, expiresAt, playback, imageUrl } = toEpisode(item);
         return { externalId, title: item.name || title, durationSec, drm, geoBlocked, expiresAt, playback, imageUrl };
@@ -270,7 +273,7 @@ function rights(rm: RaiRights | undefined): { drm: boolean; geoBlocked: boolean 
 
 function imageUrl(path: string | undefined): string | null {
   if (!path) return null;
-  return path.startsWith('http') ? path : HOST + path;
+  return path.startsWith('http') ? path : host() + path;
 }
 
 function toJsonPath(path: string): string {

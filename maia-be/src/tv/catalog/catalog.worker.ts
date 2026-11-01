@@ -4,7 +4,6 @@ import { PgBoss, type Job } from 'pg-boss';
 import { CacheService } from '../../cache/cache.service.js';
 import { HttpError, ServiceStoppedError } from '../providers/polite-fetch.js';
 import { ServiceSwitches } from '../providers/service-switches.js';
-import { SECTIONS } from '../providers/raiplay/raiplay.adapter.js';
 import { CatalogScheduler } from './catalog.scheduler.js';
 import { CatalogService, ProviderPausedError } from './catalog.service.js';
 import { QUEUES, TZ, type CheckJob, type DiscoverJob, type SyncTitleJob } from './queues.js';
@@ -158,16 +157,14 @@ export class CatalogWorker implements OnModuleInit, OnModuleDestroy {
   private async check(provider: string) {
     if (this.switches.isStopped(provider)) return;
     const ids = new Set<string>();
-    if (provider === 'raiplay') {
-      const adapter = this.catalog.adapters.raiplay;
-      for (const section of SECTIONS) {
-        try {
-          for (const id of await adapter.listSection(section)) ids.add(id);
-        } catch (err) {
-          if (err instanceof HttpError && err.slowDown) throw err;
-          if (err instanceof ServiceStoppedError) return; // switched off while listing
-          this.logger.warn(`raiplay section ${section} skipped: ${String(err)}`); // e.g. a section RaiPlay removed
-        }
+    const adapter = this.catalog.adapters[provider];
+    for (const section of adapter?.listSection ? (adapter.frontSections ?? []) : []) {
+      try {
+        for (const id of await adapter.listSection!(section)) ids.add(id);
+      } catch (err) {
+        if (err instanceof HttpError && err.slowDown) throw err;
+        if (err instanceof ServiceStoppedError) return; // switched off while listing
+        this.logger.warn(`${provider} section ${section} skipped: ${String(err)}`); // e.g. a section the service removed
       }
     }
     for (const t of await this.catalog.dueTitles(provider)) ids.add(t.externalId);

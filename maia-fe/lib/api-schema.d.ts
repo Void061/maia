@@ -228,6 +228,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/services/{id}/base-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["AdminServicesController_setBaseUrl"];
+        trace?: never;
+    };
     "/admin/services/{id}": {
         parameters: {
             query?: never;
@@ -592,6 +608,10 @@ export interface components {
             lastError?: string | null;
             /** @description Titles waiting in the catalog queue for this service */
             queued: number;
+            /** @description Catalog sources only: the address in use */
+            baseUrl?: string | null;
+            /** @description Catalog sources only: the default address */
+            defaultBaseUrl?: string | null;
             /** @description Catalog sources only */
             sync?: components["schemas"]["SyncInfoDto"] | null;
         };
@@ -602,6 +622,18 @@ export interface components {
             at: string;
             /** @enum {number|null} */
             everyHours?: 1 | 2 | 3 | 4 | 6 | 8 | 12 | null;
+        };
+        BaseUrlDto: {
+            /**
+             * @description null = back to the default
+             * @example http://192.168.1.9
+             */
+            baseUrl?: string | null;
+        };
+        BaseUrlResultDto: {
+            baseUrl: string;
+            /** @description Saved links (videos, pictures) moved to the new address */
+            moved: number;
         };
         SwitchDto: {
             enabled: boolean;
@@ -1234,6 +1266,58 @@ export interface operations {
             };
             /** @description SERVICE_OFF | ALREADY_RUNNING */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_setBaseUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BaseUrlDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BaseUrlResultDto"];
+                };
+            };
+            /** @description INVALID_BASE_URL */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

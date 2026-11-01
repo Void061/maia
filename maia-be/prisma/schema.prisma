@@ -331,6 +331,9 @@ model ProviderHealth {
   retryAfter    DateTime?      @map("retry_after")
   lastSuccessAt DateTime?      @map("last_success_at")
   lastError     String?        @map("last_error")
+  /// Catalog sources only: the address set in the admin panel; null = the
+  /// default in services.ts.
+  baseUrl       String?        @map("base_url")
   /// Catalog sources only, MANUAL by default. AUTO: full pass every day at syncAt (Rome time,
   /// "HH:MM") and checks every syncEveryHours hours (null = none in between).
   syncMode       SyncMode  @default(MANUAL) @map("sync_mode")

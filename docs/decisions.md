@@ -271,3 +271,14 @@ scaduti resta, perché non fa richieste ai servizi.
 **Tastiera della ricerca chiusa di base** e **scheda del pannello admin nell'indirizzo** (segnalati
 dall'utente: su TV la tastiera era aperta anche senza premere la ricerca; cambiando scheda e
 ricaricando si tornava su Account).
+
+**Indirizzo delle fonti modificabile, per ogni provider** (2026-11-01, chiesto dall'utente con il
+nuovo provider SDM): l'indirizzo da cui MAIA legge ogni fonte del catalogo, RaiPlay compresa, si
+cambia dal pannello admin e vale subito in backend e worker. Predefinito nel codice
+(`services.ts`), modifica nel database. Cambiandolo, i link già salvati si spostano sul nuovo
+indirizzo nel database invece di rileggere il catalogo, per non fare richieste ai servizi.
+
+**SDM, secondo provider** (2026-11-01): server multimediale di casa dell'utente, indirizzo
+iniziale `http://192.168.1.9`. Il server non è ancora raggiungibile: l'adapter è scritto su un
+formato JSON provvisorio (docs/tv/catalog.md, "SDM") e provato solo con risposte simulate. Restano
+aperti come lo raggiungono la VPS e i dispositivi (rete di casa, `https`).

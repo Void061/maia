@@ -1,10 +1,11 @@
 # MAIA TV: catalogo e riproduzione
 
-*Stato: catalogo RaiPlay nel database con aggiornamento automatico; il frontend lo legge e riproduce i video dal dispositivo (vedi "Implementazione" e "API per il frontend"). Niente dirette né replay: provati e tolti per scelta dell'utente (vedi decisions.md).*
+*Stato: catalogo RaiPlay nel database con aggiornamento automatico; il frontend lo legge e riproduce i video dal dispositivo (vedi "Implementazione" e "API per il frontend"). Adapter SDM (server di casa) scritto ma non ancora provato: il server non è raggiungibile (vedi "SDM"). Niente dirette né replay: provati e tolti per scelta dell'utente (vedi decisions.md).*
 
 ## Servizi
 
-Solo servizi gratuiti e legali. Primo servizio: **RaiPlay**. Poi, uno alla volta, gli altri,
+Solo servizi gratuiti e legali. Primo servizio: **RaiPlay**; secondo: **SDM**, il server
+multimediale di casa dell'utente (vedi "SDM"). Poi, uno alla volta, gli altri,
 ognuno dopo aver verificato che funziona con i vincoli sotto.
 
 | Tipo di contenuto | In MAIA |
@@ -68,7 +69,7 @@ di catalogo o di metadati, presente o futuro:
 ### Interruttori dei servizi
 
 Dal pannello `/admin` (sezione Servizi) un amministratore spegne o riaccende un servizio esterno
-(oggi RaiPlay e TMDB) per fermarne l'acquisizione, per esempio se il servizio ha problemi o ci
+(oggi RaiPlay, SDM e TMDB) per fermarne l'acquisizione, per esempio se il servizio ha problemi o ci
 segnala qualcosa.
 
 - **Effetto immediato:** l'interruttore sta nel database (`provider_health.enabled`, con chi e
@@ -86,6 +87,27 @@ segnala qualcosa.
   vede nello stesso pannello.
 - **Ogni nuovo servizio** va aggiunto a `maia-be/src/tv/providers/services.ts` con i suoi host,
   altrimenti non compare nel pannello e non si può spegnere.
+
+### Indirizzo delle fonti
+
+Ogni fonte del catalogo (RaiPlay, SDM e ogni provider futuro) ha un **indirizzo modificabile**
+dal pannello `/admin` (scheda Servizi, campo "Indirizzo"): è l'inizio di ogni richiesta che MAIA
+le fa. Predefiniti in `maia-be/src/tv/providers/services.ts` (`baseUrl`): RaiPlay
+`https://www.raiplay.it`, SDM `http://192.168.1.9`.
+
+- Si salva in `provider_health.base_url` (vuoto = predefinito); backend e worker lo rileggono
+  ogni 3 secondi insieme agli interruttori (`ServiceSwitches` → `base-urls.ts`). Gli adapter lo
+  leggono a ogni richiesta (`baseUrl('<id>')`), mai fissato nel codice.
+- L'host dell'indirizzo in uso conta tra gli host del servizio: lo spegnimento ferma anche il
+  nuovo indirizzo. Gli altri host fissi (es. il relinker Rai) restano in `hosts`.
+- Accettati solo indirizzi `http`/`https` completi, senza utente, password, `?` o `#`; la barra
+  finale si toglie. Riscrivere l'indirizzo predefinito equivale a tornare al predefinito.
+- **Cambiandolo, nulla si rilegge dal servizio:** i link già salvati che iniziano con il vecchio
+  indirizzo (video delle fonti e degli extra, immagini di episodi ed extra, locandine e sfondi)
+  vengono spostati sul nuovo con un aggiornamento del database, e la cache si svuota. Per RaiPlay
+  cambia anche l'indirizzo del ritaglio delle immagini (`cropgd`). I titoli risultano "cambiati"
+  una volta, al prossimo controllo, perché i link nei dati del servizio sono diversi.
+- Ogni nuovo adapter deve usare `baseUrl()` per tutte le richieste e salvare i link assoluti.
 
 Volumi attuali (RaiPlay): un titolo = 2-5 richieste; ~20 titoli al minuto; passata notturna
 ~qualche migliaio di richieste in qualche ora.
@@ -165,14 +187,17 @@ Stessa interfaccia per ogni servizio; il catalogo lo legge il backend (RaiPlay l
 anche dall'estero), il link del video no:
 
 ```ts
-interface ProviderAdapter {
-  id: 'raiplay' | 'la7' | ...;
-  listCatalog(): AsyncIterable<ProviderTitleDto>;      // indici per categoria
-  getTitle(externalId: string): Promise<ProviderTitleDto>; // stagioni, episodi, scadenze
-  listNew(): Promise<ProviderTitleDto[]>;               // "ultimi arrivi"
-  playback(externalId: string): PlaybackRecipe;         // cosa dare al player (es. relinker)
+interface ProviderAdapter {               // maia-be/src/tv/providers/provider.types.ts
+  id: 'raiplay' | 'sdm';
+  discover?(): Promise<string[]>;         // tutto il catalogo (passata completa)
+  getTitle(externalId): Promise<ProviderTitle | null>; // stagioni, episodi, extra, scadenze
+  frontSections?: string[];               // liste in evidenza lette dal controllo
+  listSection?(section): Promise<string[]>;
+  resolveStream?(recipeUrl): Promise<string | null>; // riserva hls.js (RaiPlay)
 }
 ```
+
+Ogni richiesta parte dall'indirizzo della fonte (vedi "Indirizzo delle fonti").
 
 Endpoint RaiPlay utili (visti anche nell'add-on Kodi KoD, GPL: si riprendono solo le idee, non
 il codice): `/tipologia/<categoria>/index.json`, `/programmi/<slug>.json` con
@@ -293,6 +318,8 @@ Codice in `maia-be/src/tv/`:
 | File | Cosa fa |
 |---|---|
 | `providers/raiplay/raiplay.adapter.ts` | legge RaiPlay: esplorazione completa (`discover`), sezioni, titolo con stagioni, episodi, extra, immagini, DRM, scadenze |
+| `providers/sdm/sdm.adapter.ts` | legge SDM (server di casa): catalogo completo e titolo, formato provvisorio (vedi "SDM") |
+| `providers/services.ts`, `base-urls.ts` | elenco dei servizi con host e indirizzo predefinito; indirizzo in uso di ogni fonte |
 | `providers/polite-fetch.ts` | una richiesta alla volta per host con pausa minima (1 s per i servizi, 250 ms per l'API di TMDB), timeout, tentativi con attesa lunga; vedi "Rispetto dei servizi" |
 | `matching/score.ts`, `subject.ts` | punteggio e verdetto dell'abbinamento a TMDB |
 | `matching/episodes.ts` | colloca un episodio nella struttura TMDB: per **data di messa in onda** (±1 giorno, stagione speciali esclusa), poi stagione + numero (anche "Stagione 2026" = edizione andata in onda nel 2026) |
@@ -493,6 +520,42 @@ italiane, 229 programmi), ma rimandano a pagine di genere (`/genere/…`), racco
 blocchi caricati a parte. Seguendole dalle 10 sezioni on demand si arriva a **6753 programmi**
 (1250 pagine, circa 5 minuti e mezzo).
 
+## SDM
+
+Server multimediale dell'utente, in casa (indirizzo predefinito `http://192.168.1.9`,
+modificabile dal pannello). Film e serie con file propri: niente DRM né blocco geografico.
+**Non ancora provato**: il server non è raggiungibile da MAIA. L'adapter
+(`providers/sdm/sdm.adapter.ts`) è scritto su un formato **provvisorio**, da allineare a quello
+vero quando il server sarà raggiungibile:
+
+| Richiesta | Risposta |
+|---|---|
+| `GET <indirizzo>/api/titles` | `{ "items": [{ "id": "…" }] }`: tutto il catalogo |
+| `GET <indirizzo>/api/titles/<id>` | il titolo, `404` se non c'è più |
+
+Titolo: `id`, `kind` (`movie`/`series`), `name`, `year`, `genres`, `description`, `poster`,
+`backdrop`; film: `video` `{ url, durationSec, expiresAt }`; serie: `seasons`
+`[{ number, name, episodes: [{ id, number, name, airDate, image, url, durationSec }] }]`;
+`extras` `[{ id, name, kind: highlights|clips|previews|extras, season, videos: [{ id, name, image, url }] }]`.
+I link possono essere relativi all'indirizzo: MAIA li salva assoluti.
+
+- Stesse regole degli altri servizi (`polite-fetch`, 1 richiesta al secondo; un titolo = 1
+  richiesta). Aggiornamento **manuale** di base, come ogni fonte: nessuna richiesta finché non si
+  preme "Aggiorna ora". Nessuna lista in evidenza: il controllo rilegge solo i titoli arrivati al
+  loro turno.
+- Riproduzione: `<video src>` sul dispositivo, che va bene sia per HLS sia per file `mp4`.
+- Abbinamento a TMDB come per RaiPlay.
+
+**Da risolvere prima che funzioni davvero:**
+- **Il backend gira sulla VPS**, che non vede la rete di casa: per leggere il catalogo serve un
+  indirizzo raggiungibile da lì (da scegliere; l'indirizzo modificabile serve anche a questo).
+- **Il dispositivo deve raggiungere i video.** Da casa `192.168.1.9` è raggiungibile, fuori casa
+  no. In più MAIA è servita in `https`: Chrome non carica video e immagini `http` da una pagina
+  `https` (contenuto misto) e chiede il permesso per gli indirizzi della rete locale. Servirà con
+  ogni probabilità un indirizzo `https` per il server.
+- Oggi c'è un solo indirizzo per fonte, usato sia dal server sia dal dispositivo; se i due
+  dovranno essere diversi (es. server tramite tunnel, dispositivo in rete locale) andrà diviso.
+
 ## Ordine di sviluppo previsto
 
 1. ~~Prototipo di misura RaiPlay~~ (fatto: 90% abbinati da soli).
@@ -504,4 +567,5 @@ blocchi caricati a parte. Seguendole dalle 10 sezioni on demand si arriva a **67
    "Drammatico", "approfondimento"): tabella `GenreAlias`.
 5. Pannello admin: coda di revisione, regole di numerazione, stato dei servizi.
 6. Continua a guardare, preferiti, Top 10.
-7. Altri servizi, uno alla volta, dopo la verifica del vincolo geografico.
+7. Altri servizi, uno alla volta, dopo la verifica del vincolo geografico. In corso: SDM (server
+   di casa), in attesa che il server sia raggiungibile.

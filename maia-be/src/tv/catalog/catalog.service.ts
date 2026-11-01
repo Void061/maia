@@ -10,6 +10,7 @@ import { TmdbClient, type TmdbMeta } from '../matching/tmdb.client.js';
 import { HttpError, ServiceStoppedError } from '../providers/polite-fetch.js';
 import type { ProviderAdapter, ProviderEpisode, ProviderTitle } from '../providers/provider.types.js';
 import { RaiPlayAdapter } from '../providers/raiplay/raiplay.adapter.js';
+import { SdmAdapter } from '../providers/sdm/sdm.adapter.js';
 
 const TMDB_IMAGES = 'https://image.tmdb.org/t/p';
 const DAY = 86_400_000;
@@ -33,7 +34,7 @@ export type SyncOutcome = 'created' | 'updated' | 'unchanged' | 'missing';
 export class CatalogService {
   private readonly logger = new Logger(CatalogService.name);
   private readonly tmdb: TmdbClient | null;
-  readonly adapters: Record<string, ProviderAdapter & { discover?: () => Promise<string[]> }>;
+  readonly adapters: Record<string, ProviderAdapter>;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -42,7 +43,7 @@ export class CatalogService {
     const key = config.get<string>('TMDB_API_KEY');
     this.tmdb = key ? new TmdbClient(key) : null;
     if (!key) this.logger.warn('TMDB_API_KEY missing: titles are not matched to TMDB');
-    this.adapters = { raiplay: new RaiPlayAdapter() };
+    this.adapters = { raiplay: new RaiPlayAdapter(), sdm: new SdmAdapter() };
   }
 
   private adapter(provider: string) {
