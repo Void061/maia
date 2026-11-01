@@ -169,7 +169,8 @@ export default function AdminPanel() {
               <LogPanel enabled={isAdmin} />
             ) : (
               <>
-                <div className="rail -mx-4 mt-6 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:px-0">
+                {/* They wrap on phones too, like the Log filters: a sideways row looked cut off at the edge. */}
+                <div className="mt-6 flex flex-wrap gap-2">
                   {FILTERS.map((f) => {
                     const n = f.key === "ALL" ? total : counts?.[f.key];
                     return (
