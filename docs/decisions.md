@@ -310,3 +310,15 @@ schermo.
 **Backend in locale con `npm run start:debug`** (2026-11-01, chiesto dall'utente): in sviluppo il
 backend si avvia sempre con il debugger aperto (porta 9229), così VS Code ci si aggancia
 ("MAIA: aggancia il backend già avviato") senza fermarlo e riavviarlo.
+
+**SDM deve funzionare da ovunque; con l'indirizzo attuale non è possibile** (2026-11-02, requisito
+dell'utente dopo le prove da ngrok): SDM va riprodotto anche fuori dalla rete di casa. L'indirizzo
+SDM oggi punta a un sito di streaming pubblico, non al server di casa, e le prove (docs/tv/catalog.md,
+"SDM", "Stato al 2026-11-02") mostrano che il link della playlist vale solo per la rete che l'ha
+chiesto e che il browser non può ricavarlo da solo (niente CORS su pagina del player ed embed).
+L'unica strada tecnica sarebbe far passare playlist, chiave e segmenti dal backend: **esclusa**,
+perché ridistribuirebbe i video di un sito senza licenza aggirando il suo controllo di rete e non è
+compatibile con `polite-fetch` e con "niente imitazioni dei servizi". Il requisito vale per il
+server di casa `192.168.1.9`, scopo originale di SDM: renderlo raggiungibile da ovunque resta il
+prossimo passo. Corretto anche docs/dev.md: `GET /tv/playback/:itemId/stream` ricava solo il link,
+il video lo scarica sempre il dispositivo.

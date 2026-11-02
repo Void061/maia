@@ -1,6 +1,6 @@
 # MAIA TV: catalogo e riproduzione
 
-_Stato: catalogo RaiPlay nel database con aggiornamento automatico; il frontend lo legge e riproduce i video dal dispositivo (vedi "Implementazione" e "API per il frontend"). Adapter SDM (server di casa) scritto ma non ancora provato: il server non è raggiungibile (vedi "SDM"). Niente dirette né replay: provati e tolti per scelta dell'utente (vedi decisions.md)._
+_Stato: catalogo RaiPlay nel database con aggiornamento automatico; il frontend lo legge e riproduce i video dal dispositivo (vedi "Implementazione" e "API per il frontend"). Adapter SDM: oggi l'indirizzo punta a un sito di streaming pubblico e non al server di casa; il video parte solo da dispositivi sulla rete del backend (vedi "SDM", "Stato al 2026-11-02"). Niente dirette né replay: provati e tolti per scelta dell'utente (vedi decisions.md)._
 
 ## Servizi
 
@@ -128,6 +128,8 @@ riprodurlo.
   cache). Il video continua a passare dal dispositivo; il server legge solo il link. Dall'estero
   (VPS) funziona per i contenuti senza blocco geografico; per quelli bloccati Rai risponde con il
   suo video "non disponibile" e l'API dà `NO_SOURCE`.
+- SDM usa sempre la riserva: il backend ricava il link della playlist (vedi "SDM"). Con
+  l'indirizzo attuale il link vale solo per la rete del backend.
 - Altri servizi: hls.js quando il flusso ha CORS aperto, altrimenti HLS nativo come sopra.
 - Il link del flusso **non si salva**: si ottiene al momento del play.
 - Limiti: **Firefox** non ha HLS nativo: lì si usa solo la riserva sopra (partono i contenuti
@@ -193,7 +195,7 @@ interface ProviderAdapter {
   getTitle(externalId): Promise<ProviderTitle | null>; // stagioni, episodi, extra, scadenze
   frontSections?: string[]; // liste in evidenza lette dal controllo
   listSection?(section): Promise<string[]>;
-  resolveStream?(recipeUrl): Promise<string | null>; // riserva hls.js (RaiPlay)
+  resolveStream?(recipeUrl): Promise<string | null>; // riserva hls.js (RaiPlay, SDM)
 }
 ```
 
@@ -607,6 +609,39 @@ dal server: le prende TMDB con l'abbinamento.
 - Oggi c'è un solo indirizzo per fonte, usato sia dal server sia dal dispositivo; se i due
   dovranno essere diversi (es. server tramite tunnel, dispositivo in rete locale) andrà diviso.
 
+### Stato al 2026-11-02
+
+**Requisito (chiesto dall'utente): SDM deve funzionare da ovunque**, non solo dalla rete di casa.
+Oggi non è soddisfatto.
+
+L'indirizzo SDM nel pannello oggi **non è il server di casa**: punta a un sito di streaming
+pubblico (`streamingcommunityz.foo`; gli indirizzi cambiano spesso, per esempio `.day` e `.biz`
+non rispondevano più o davano 404, e con `www.` il nome non esiste). Il video non sta su quel
+sito: la pagina del player (`/it/iframe/{id}?episode_id=…`) rimanda a un embed su `vixcloud.cc`,
+che contiene il link della playlist; i segmenti, cifrati AES-128, stanno su un altro host.
+La riproduzione usa sempre la riserva hls.js: `resolveStream` legge la pagina iframe e poi
+l'embed, e restituisce il link della playlist.
+
+Verificato il 2026-11-02 (prove una richiesta alla volta):
+
+- **Il link vale solo per la rete che l'ha chiesto.** Da casa (rete del backend) playlist,
+  chiave e segmenti rispondono `200`, il segmento decifrato è un MPEG-TS valido. Gli stessi link,
+  aperti da un telefono coi dati mobili, rispondono "403 Forbidden"; riaperti subito dopo da casa,
+  ancora `200` e stesso segmento byte per byte. Da ngrok il player quindi riceve il link, hls.js si
+  ferma, segnala `/failed`, non trova altre fonti e mostra "non disponibile".
+- **Il dispositivo non può ricavare il link da solo.** Né la pagina iframe né l'embed mandano
+  `access-control-allow-origin` (provato con User-Agent di Chrome, `Accept: text/html` e
+  l'`Origin` di MAIA): il browser non può leggerle. Senza lo User-Agent di un browser l'embed
+  risponde `410`.
+
+Conseguenza: con questo indirizzo il video parte solo da dispositivi che escono su internet dalla
+stessa rete del backend (in locale la rete di casa; in produzione quella della VPS, quindi
+nessun utente). Far funzionare SDM da ovunque richiederebbe che il backend scarichi e ritrasmetta
+playlist, chiave e segmenti con il proprio token: è escluso (ridistribuirebbe i video di un sito
+senza licenza aggirando il suo controllo di rete, e non è compatibile con `polite-fetch` né con
+"niente imitazioni dei servizi"). Il requisito resta valido per lo scopo originale di SDM, il
+server di casa `192.168.1.9`, con i punti "Da risolvere" sopra.
+
 ## Ordine di sviluppo previsto
 
 1. ~~Prototipo di misura RaiPlay~~ (fatto: 90% abbinati da soli).
@@ -619,4 +654,4 @@ dal server: le prende TMDB con l'abbinamento.
 5. Pannello admin: coda di revisione, regole di numerazione, stato dei servizi.
 6. Continua a guardare, preferiti, Top 10.
 7. Altri servizi, uno alla volta, dopo la verifica del vincolo geografico. In corso: SDM (server
-   di casa), in attesa che il server sia raggiungibile.
+   di casa), in attesa che il server sia raggiungibile da ovunque (vedi "SDM", "Stato al 2026-11-02").

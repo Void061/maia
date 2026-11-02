@@ -90,7 +90,8 @@ fisse 3000 e 3001), per esempio quello avviato con `Start-Process`.
 
 Dove mettere i breakpoint per il **link video al play**: `maia-be/src/tv/tv.controller.ts`,
 `GET /tv/playback/:itemId` (sceglie la fonte e restituisce il link) e
-`GET /tv/playback/:itemId/stream` (il video passa dal backend, per le fonti che lo richiedono); il
+`GET /tv/playback/:itemId/stream` (il backend ricava il link diretto per hls.js; il video lo scarica
+comunque il dispositivo); il
 link che il worker ha salvato è in `sources.playback_url`.
 
 ## Variabili d'ambiente
