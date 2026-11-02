@@ -28,7 +28,7 @@ const host = () => baseUrl('sdm');
 const CONFIG = {
   archive: {
     types: ['movie', 'tv'] as string[],
-    firstYear: 2024,
+    firstYear: 2026,
     pageSize: 60,
     maxPages: 20,
     params: {
@@ -89,7 +89,7 @@ const CONFIG = {
     epNumber: 'number',
     epName: 'name',
     epImages: 'images',
-    epImageUrl: 'original_url',
+    epImageUrl: 'filename',
     epId: 'id',
     seNumber: 'number',
     seTitleId: 'title_id',
@@ -437,6 +437,12 @@ export class SdmAdapter implements ProviderAdapter {
     }
     const rec = p[K.title] as Json | undefined;
     if (!rec) return null;
+
+    const titleImages = Array.isArray(rec.images) ? (rec.images as Json[]) : [];
+
+    const posterUrl = sdmImage(
+      titleImages.find((img) => img.type === 'poster')?.filename,
+    );
     const base = {
       provider: 'sdm' as const,
       externalId,
@@ -446,7 +452,7 @@ export class SdmAdapter implements ProviderAdapter {
         .map((g) => String(g[F.genreName] ?? ''))
         .filter(Boolean),
       description: String(rec[F.plot] ?? ''),
-      posterUrl: null,
+      posterUrl,
       backdropUrl: null,
       extras: [],
     };
@@ -480,6 +486,16 @@ export class SdmAdapter implements ProviderAdapter {
   }
 }
 
+function absolute(link: string): string {
+  if (/^https?:\/\//i.test(link)) return link;
+  return `${host()}${link.startsWith('/') ? '' : '/'}${link}`;
+}
+
+function sdmImage(filename: unknown): string | null {
+  if (typeof filename !== 'string' || !filename) return null;
+  return `https://cdn.streamingcommunityz.day/images/${filename}`;
+}
+
 function episode(
   ep: Json,
   season: number | null,
@@ -487,13 +503,14 @@ function episode(
 ): ProviderEpisode {
   const images = ep[F.epImages] as Json[] | undefined;
   const image = images?.[0]?.[F.epImageUrl];
+
   return {
     externalId: String(ep[F.epId]),
     season,
     episode: toNumber(ep[F.epNumber]),
     title: String(ep[F.epName] ?? '').trim(),
     airDate: null,
-    imageUrl: typeof image === 'string' && image ? absolute(image) : null,
+    imageUrl: sdmImage(image),
     ...video(
       buildUrl('episode', {
         title_id: titleId,
@@ -533,11 +550,6 @@ function toNumber(value: unknown): number | null {
     !Number.isFinite(n)
     ? null
     : n;
-}
-
-function absolute(link: string): string {
-  if (/^https?:\/\//i.test(link)) return link;
-  return `${host()}${link.startsWith('/') ? '' : '/'}${link}`;
 }
 
 const NAMED: Record<string, string> = {
