@@ -59,7 +59,7 @@ function TitleDetail({ title }: { title: Detail }) {
   return (
     <div className="bg-canvas">
       <section className="relative min-h-[82vh] overflow-hidden">
-        <Art src={title.backdropUrl ?? title.posterUrl} seed={title.id} priority />
+        <Art src={title.backdropUrl ?? title.posterUrl} seed={title.id} eager />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/40" />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/30 to-transparent" />
 
@@ -109,13 +109,14 @@ function TitleDetail({ title }: { title: Detail }) {
         </div>
 
         {(tab === "episodi" || (tab === "extra" && isSeries)) && title.seasonList.length > 1 && (
-          <div className="mt-6 flex flex-wrap gap-2">
+          // One row that scrolls sideways: long series (20+ seasons) used to fill the screen before the episodes.
+          <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 py-2 [scrollbar-width:none] sm:mx-0 sm:px-0">
             {title.seasonList.map((s) => (
               <button
                 key={s.number}
                 onClick={() => setSeason(s.number)}
                 aria-pressed={season === s.number}
-                className="focusable pill-focus h-11 rounded-full px-5 text-base font-medium text-muted aria-pressed:bg-white/15 aria-pressed:text-label"
+                className="focusable pill-focus h-11 shrink-0 rounded-full px-5 text-base font-medium text-muted aria-pressed:bg-white/15 aria-pressed:text-label"
               >
                 {seasonName(s.number)}
               </button>
@@ -125,10 +126,12 @@ function TitleDetail({ title }: { title: Detail }) {
 
         {tab === "episodi" && (
           <div className="rail -mx-4 mt-4 flex gap-5 overflow-x-auto px-4 pb-6 pt-4 sm:mx-0 sm:px-0">
-            {episodes.map((ep) => (
+            {episodes.map((ep, i) => (
               <Link key={ep.id} href={`/watch/${title.id}?ep=${ep.id}`} className="group block w-64 shrink-0 outline-none sm:w-80">
                 <span className="focusable lift relative block aspect-video overflow-hidden rounded-xl bg-surface group-focus-visible:scale-[1.06] group-focus-visible:shadow-[0_0_0_2px_white,0_30px_60px_-15px_black]">
-                  <Art src={title.backdropUrl} seed={ep.id} />
+                  {/* The first ones are on screen; without a picture of its own an episode reuses the
+                      hero's (already loaded, so eager costs nothing and Next stops flagging it as LCP). */}
+                  <Art src={ep.imageUrl ?? title.backdropUrl} seed={ep.id} eager={i < 4 || !ep.imageUrl} />
                   <span className="absolute inset-0 grid place-items-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 [&>svg]:size-8">
                     <PlayIcon />
                   </span>
@@ -152,14 +155,14 @@ function TitleDetail({ title }: { title: Detail }) {
                   {g.items.map((x) => (
                     <Link key={x.id} href={`/watch/${title.id}?extra=${x.id}`} className="group block w-56 shrink-0 outline-none sm:w-64">
                       <span className="focusable lift relative block aspect-video overflow-hidden rounded-xl bg-surface group-focus-visible:scale-[1.06] group-focus-visible:shadow-[0_0_0_2px_white,0_30px_60px_-15px_black]">
-                        <Art src={title.backdropUrl} seed={x.id} />
+                        <Art src={x.imageUrl ?? title.backdropUrl} seed={x.id} />
                         {x.minutes && (
                           <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-xs font-semibold text-white">
                             {x.minutes} min
                           </span>
                         )}
                       </span>
-                      <span className="mt-2 line-clamp-2 block text-sm font-semibold text-label">{x.name}</span>
+                      <span className="mt-2 line-clamp-2 text-sm font-semibold text-label">{x.name}</span>
                     </Link>
                   ))}
                 </div>

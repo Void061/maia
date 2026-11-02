@@ -1,4 +1,5 @@
-import { HttpError, politeJson } from '../polite-fetch.js';
+import { baseUrl } from '../base-urls.js';
+import { HttpError, politeJson, ServiceStoppedError } from '../polite-fetch.js';
 import type {
   ExtraKind,
   ProviderAdapter,
@@ -12,7 +13,9 @@ import type {
 // RaiPlay publishes plain JSON next to every page (/programmi/<slug>.json, ...).
 // The catalog is readable from abroad; only the relinker (the video link) is
 // geo-checked, so playback is resolved by the viewer's device, never here.
-const HOST = 'https://www.raiplay.it';
+// The address in use (admin panel, base-urls.ts), default https://www.raiplay.it.
+const host = () => baseUrl('raiplay');
+const RELINKER_HOST = 'mediapolisvod.rai.it';
 
 type RaiRights = { rights?: { drm?: Record<string, boolean>; geoprotection?: Record<string, boolean> } };
 type RaiAvailabilities = { expiration_date_iso?: string } | null;
@@ -45,6 +48,7 @@ type RaiSetItem = {
   duration?: string;
   video_url?: string;
   forma?: string;
+  images?: { landscape?: string };
   rights_management?: RaiRights;
   availabilities?: RaiAvailabilities;
 };
@@ -70,10 +74,11 @@ function extraKind(name: string): ExtraKind {
 
 export class RaiPlayAdapter implements ProviderAdapter {
   readonly id = 'raiplay' as const;
+  readonly frontSections = SECTIONS;
 
   // Slugs of the programs linked from a section index (film, serieitaliane, ...).
   async listSection(section: string): Promise<string[]> {
-    const index = await politeJson<unknown>(`${HOST}/tipologia/${section}/index.json`);
+    const index = await politeJson<unknown>(`${host()}/tipologia/${section}/index.json`);
     return [...collectLinks(index).programs];
   }
 
@@ -89,8 +94,10 @@ export class RaiPlayAdapter implements ProviderAdapter {
       seen.add(page);
       let data: unknown;
       try {
-        data = await politeJson<unknown>(HOST + page);
-      } catch {
+        data = await politeJson<unknown>(host() + page);
+      } catch (err) {
+        if (err instanceof HttpError && err.slowDown) throw err; // RaiPlay says stop: stop the whole pass
+        if (err instanceof ServiceStoppedError) throw err; // switched off in the admin panel
         continue; // a broken listing page must not stop the discovery
       }
       const links = collectLinks(data);
@@ -101,10 +108,24 @@ export class RaiPlayAdapter implements ProviderAdapter {
     return [...programs];
   }
 
+  // The relinker as JSON (output=62) instead of a redirect. Some playlists
+  // (one muxed rendition, no CODECS) are rejected by Chrome's native HLS but
+  // play with hls.js, which needs the final URL: the relinker has no CORS, so
+  // the browser cannot read it. Videos without geoprotection resolve from
+  // anywhere; geo-blocked ones get Rai's "not available" clip from abroad.
+  async resolveStream(relinkerUrl: string): Promise<string | null> {
+    const url = new URL(relinkerUrl);
+    if (url.hostname !== RELINKER_HOST) return null;
+    url.searchParams.set('output', '62');
+    const res = await politeJson<{ video?: string[] }>(url.toString(), { serial: false, retries: 1, timeoutMs: 8000 });
+    const stream = res.video?.[0];
+    return stream && !stream.includes('video_no_available') ? stream : null;
+  }
+
   async getTitle(slug: string): Promise<ProviderTitle | null> {
     let program: RaiProgram;
     try {
-      program = await politeJson<RaiProgram>(`${HOST}/programmi/${slug}.json`);
+      program = await politeJson<RaiProgram>(`${host()}/programmi/${slug}.json`);
     } catch (err) {
       if (err instanceof HttpError && err.status === 404) return null;
       throw err;
@@ -127,7 +148,7 @@ export class RaiPlayAdapter implements ProviderAdapter {
 
     if (isMovie) {
       const item = program.first_item_path
-        ? await politeJson<RaiItem>(HOST + toJsonPath(program.first_item_path))
+        ? await politeJson<RaiItem>(host() + toJsonPath(program.first_item_path))
         : null;
       // A film's own block holds the film itself; only clearly named ones are extras.
       const extraSets = blocks
@@ -151,7 +172,7 @@ export class RaiPlayAdapter implements ProviderAdapter {
       }
     }
     for (const set of (episodeBlock?.sets ?? []).filter((s) => !CLIP_SET.test(s.name))) {
-      const data = await politeJson<{ items?: RaiSetItem[] }>(HOST + set.path_id);
+      const data = await politeJson<{ items?: RaiSetItem[] }>(host() + set.path_id);
       seasons.push({
         number: seasonNumber(set.name),
         label: set.name,
@@ -166,10 +187,10 @@ export class RaiPlayAdapter implements ProviderAdapter {
   private async extras(sets: { block: string; set: RaiSet }[]): Promise<ProviderExtraGroup[]> {
     const groups: ProviderExtraGroup[] = [];
     for (const { block, set } of sets) {
-      const data = await politeJson<{ items?: RaiSetItem[] }>(HOST + set.path_id);
+      const data = await politeJson<{ items?: RaiSetItem[] }>(host() + set.path_id);
       const videos = (data.items ?? []).map((item) => {
-        const { externalId, title, durationSec, drm, geoBlocked, expiresAt, playback } = toEpisode(item);
-        return { externalId, title: item.name || title, durationSec, drm, geoBlocked, expiresAt, playback };
+        const { externalId, title, durationSec, drm, geoBlocked, expiresAt, playback, imageUrl } = toEpisode(item);
+        return { externalId, title: item.name || title, durationSec, drm, geoBlocked, expiresAt, playback, imageUrl };
       });
       if (!videos.length) continue;
       const label = block === set.name || EPISODE_BLOCK.test(block) ? set.name : `${block} · ${set.name}`;
@@ -233,7 +254,9 @@ function toEpisode(item: RaiSetItem): ProviderEpisode {
     season: toInt(item.season),
     episode: toInt(item.episode),
     title: item.episode_title || item.toptitle || item.name,
-    airDate: parseItalianDate(item.name),
+    // The date may be only in the episode title ("Da Grande" / "Puntata del 19/09/2021").
+    airDate: parseItalianDate(item.name) ?? parseItalianDate(item.episode_title ?? '') ?? parseItalianDate(item.toptitle ?? ''),
+    imageUrl: imageUrl(item.images?.landscape),
     durationSec: parseDuration(item.duration),
     ...rights(item.rights_management),
     expiresAt: item.availabilities?.expiration_date_iso ?? null,
@@ -250,7 +273,7 @@ function rights(rm: RaiRights | undefined): { drm: boolean; geoBlocked: boolean 
 
 function imageUrl(path: string | undefined): string | null {
   if (!path) return null;
-  return path.startsWith('http') ? path : HOST + path;
+  return path.startsWith('http') ? path : host() + path;
 }
 
 function toJsonPath(path: string): string {
@@ -272,5 +295,10 @@ export function parseDuration(value: string | undefined): number | null {
 // Daily shows name episodes by date: "Puntata del 12/03/2026" -> "2026-03-12".
 export function parseItalianDate(text: string): string | null {
   const m = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
-  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null;
+  if (!m) return null;
+  const [day, month, year] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  // RaiPlay sometimes writes placeholders ("Puntata del 00/00/1992"): only real dates count.
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date.toISOString().slice(0, 10);
 }

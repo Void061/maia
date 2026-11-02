@@ -1,6 +1,34 @@
 // JSON fetching that is gentle with the services: one request at a time per
 // host with a minimum gap, a timeout, and a couple of retries on network or
 // 5xx errors. Catalog syncs make thousands of requests; this keeps us unbanned.
+//
+// Rule for every provider (docs/tv/catalog.md, "Rispetto dei servizi"): all
+// requests to an outside service go through here, one at a time, at most one
+// per second unless the service publishes a higher limit for its API.
+
+// Default gap between two requests to the same host.
+const DEFAULT_GAP_MS = 1000;
+
+// Hosts of the services an admin has switched off (ServiceSwitches keeps this
+// in sync with the database). Checked right before every request, also the
+// ones already queued or retrying: switching a service off stops it at once.
+let stoppedHosts = new Map<string, string>(); // host -> service id
+
+export function setStoppedHosts(hosts: Map<string, string>) {
+  stoppedHosts = hosts;
+}
+
+// The service was switched off in the admin panel: not an error of the service.
+export class ServiceStoppedError extends Error {
+  constructor(readonly service: string) {
+    super(`${service} switched off by an admin`);
+  }
+}
+
+const assertRunning = (host: string) => {
+  const service = stoppedHosts.get(host);
+  if (service) throw new ServiceStoppedError(service);
+};
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
@@ -10,8 +38,8 @@ type Options = {
   timeoutMs?: number;
   retries?: number;
   headers?: Record<string, string>;
-  // false for APIs built for volume (TMDB allows ~50 requests/s): requests
-  // overlap, only their start times are spaced by minGapMs.
+  // false only for a one-off request made for a viewer (not catalog work):
+  // it does not wait behind a long catalog sync on the same host.
   serial?: boolean;
 };
 
@@ -27,13 +55,30 @@ export class HttpError extends Error {
   ) {
     super(`HTTP ${status} for ${url}`);
   }
+
+  // The service is telling us to slow down or has blocked us: stop, do not retry.
+  get slowDown() {
+    return this.status === 429 || this.status === 403;
+  }
 }
 
+type Reader<T> = { accept: string; read: (res: Response) => Promise<T> };
+
 export function politeJson<T>(url: string, options: Options = {}): Promise<T> {
+  return polite(url, options, { accept: 'application/json', read: (res) => res.json() as Promise<T> });
+}
+
+// Same rules, for services that only answer with HTML pages.
+export function politeText(url: string, options: Options = {}): Promise<string> {
+  return polite(url, options, { accept: 'text/html', read: (res) => res.text() });
+}
+
+function polite<T>(url: string, options: Options, reader: Reader<T>): Promise<T> {
   const host = new URL(url).host;
-  if (options.serial === false) return request<T>(url, host, options);
+  if (stoppedHosts.has(host)) return Promise.reject(new ServiceStoppedError(stoppedHosts.get(host)!));
+  if (options.serial === false) return request(url, host, options, reader);
   // Chain on the host's queue so requests to the same host never overlap.
-  const run = (queues.get(host) ?? Promise.resolve()).catch(() => undefined).then(() => request<T>(url, host, options));
+  const run = (queues.get(host) ?? Promise.resolve()).catch(() => undefined).then(() => request(url, host, options, reader));
   queues.set(host, run);
   return run;
 }
@@ -45,20 +90,21 @@ async function waitTurn(host: string, minGapMs: number) {
   if (at > Date.now()) await sleep(at - Date.now());
 }
 
-async function request<T>(url: string, host: string, options: Options): Promise<T> {
-  const { minGapMs = 250, timeoutMs = 15_000, retries = 2, headers = {} } = options;
+async function request<T>(url: string, host: string, options: Options, reader: Reader<T>): Promise<T> {
+  const { minGapMs = DEFAULT_GAP_MS, timeoutMs = 15_000, retries = 2, headers = {} } = options;
   for (let attempt = 0; ; attempt++) {
     await waitTurn(host, minGapMs);
+    assertRunning(host); // switched off while this request was waiting its turn
     try {
       const res = await fetch(url, {
-        headers: { 'User-Agent': USER_AGENT, Accept: 'application/json', ...headers },
+        headers: { 'User-Agent': USER_AGENT, Accept: reader.accept, ...headers },
         signal: AbortSignal.timeout(timeoutMs),
       });
-      if (res.ok) return (await res.json()) as T;
+      if (res.ok) return await reader.read(res);
       if (res.status < 500 || attempt >= retries) throw new HttpError(res.status, url);
     } catch (err) {
-      if (err instanceof HttpError || attempt >= retries) throw err;
+      if (err instanceof HttpError || err instanceof ServiceStoppedError || attempt >= retries) throw err;
     }
-    await sleep(1000 * (attempt + 1));
+    await sleep(5000 * (attempt + 1)); // a struggling service gets time to recover
   }
 }

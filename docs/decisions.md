@@ -5,13 +5,8 @@ cancella: si aggiunge una nuova voce che la sostituisce e si segna quella vecchi
 
 ## 2026-10-29
 
-**Nome: MAIA** (*My Assistant In the Apartment*). Nome femminile "da assistente", pensato per
-un hub della casa e non solo per lo streaming. Le sezioni si chiamano *MAIA + nome* (es. MAIA TV).
-
-**Solo servizi gratuiti e legali; niente aggiramento del DRM.** I contenuti protetti da DRM non
-si riproducono nel player di MAIA. I contenuti non protetti di servizi senza API ufficiale
-(RaiPlay, Pluto TV) si usano per uso personale, accettando che i sistemi interni dei servizi
-possano cambiare e rompere l'adapter.
+**Nome: MAIA** (_My Assistant In the Apartment_). Nome femminile "da assistente", pensato per
+un hub della casa e non solo per lo streaming. Le sezioni si chiamano _MAIA + nome_ (es. MAIA TV).
 
 **Player proprio per ogni servizio**: MAIA ricava il link del flusso (HLS/DASH) dal servizio e lo
 riproduce nel proprio player, con qualità, sottotitoli, lingue e velocità.
@@ -21,7 +16,7 @@ indipendenti (come Yuma), non un workspace npm condiviso.
 
 **Tipi del frontend generati dall'OpenAPI del backend** (`@nestjs/swagger` + `openapi-typescript`)
 invece di un pacchetto condiviso: il backend resta l'unica fonte di verità e le app restano
-indipendenti. *Non ancora installato.*
+indipendenti. _Non ancora installato._
 
 **Catalogo unico salvato nel database**, aggiornato periodicamente dagli adapter dei servizi;
 il frontend non interroga mai direttamente i servizi. Vedi [tv/catalog.md](tv/catalog.md).
@@ -58,8 +53,8 @@ desktop, tablet e telefono. Vedi [ui.md](ui.md).
 
 **Documentazione in `docs/`** nella radice del monorepo, aggiornata a ogni modifica.
 
-**Stile grafico: Apple TV / HBO Max** *(sostituisce lo stile "salotto la sera" con accento ambra
-e barra laterale)*. Nero vero, grigi di sistema Apple, bianco come colore interattivo, materiale
+**Stile grafico: Apple TV / HBO Max** _(sostituisce lo stile "salotto la sera" con accento ambra
+e barra laterale)_. Nero vero, grigi di sistema Apple, bianco come colore interattivo, materiale
 vetro, menu in alto a pillola, selezione stile tvOS, font Inter. Motivo: lo stile precedente non
 piaceva; questi riferimenti sono familiari per un'app di streaming sulla TV. Vedi [ui.md](ui.md).
 
@@ -90,7 +85,7 @@ compilare (npm 11 blocca gli script di installazione).
 per usare un provider (Resend, Brevo...).
 
 **Approvazione da terminale** (`npm run account:approve`) finché non c'è il pannello admin.
-*(Superata dal pannello admin, sotto: il comando resta solo per creare il primo amministratore.)*
+_(Superata dal pannello admin, sotto: il comando resta solo per creare il primo amministratore.)_
 
 **Guida iniziale obbligatoria** se l'account non ha profili: ne serve almeno uno per usare l'app.
 
@@ -133,9 +128,7 @@ mentre il catalogo si legge da ovunque. Il browser dà il relinker a `<video src
 senza CORS) e Rai vede l'IP italiano dell'utente. Tolto il proxy video nel backend previsto prima.
 Limite accettato: su Firefox i contenuti Rai non partono.
 
-**Primo servizio RaiPlay, Pluto TV rimandato.** Pluto assegna il paese dall'IP (da un IP
-tedesco dà il catalogo tedesco) e le sue API accettano solo `pluto.tv`: senza IP italiano non
-si può.
+**Primo servizio: RaiPlay.**
 
 **Aggiornamento del catalogo a due livelli** (dati grezzi per servizio + catalogo MAIA),
 alberatura = unione delle fonti, TMDB come ossatura, coda di revisione nel pannello admin,
@@ -165,3 +158,155 @@ maia-be; i dati finti restano solo per le dirette (`lib/live-demo.ts`). Le pagin
 hanno un solo parametro segnaposto in `generateStaticParams` (Cache Components ne vuole almeno uno)
 e caricano i dati nel browser, perché il catalogo cambia di continuo. Il player non usa hls.js per
 il catalogo: il link va in `<video src>` (vedi riproduzione sul dispositivo).
+
+**Cache delle API in Redis** (chiesto dall'utente: la navigazione era lenta, la home impiegava
+~1,5-2 s). Chiavi `MAIA_APP_<chiave dell'elemento>`; ogni lavoro del catalogo che cambia i dati
+svuota tutta la cache di MAIA; un valore che va in errore 3 volte (`CACHE_MAX_FAILS`) si cancella e
+si ricalcola. Redis è solo un acceleratore: senza, l'app funziona come prima. Cambia la decisione
+precedente "niente Redis": quella riguardava la coda dei lavori, che resta su pg-boss/Postgres.
+
+**Immagini RaiPlay ritagliate dal loro servizio `cropgd`.** Le locandine originali pesano 0,5-1 MB
+(1536×2048) e la home ne carica quasi 200; ritagliate a 384×512 pesano ~45 KB.
+
+**Il player si ferma quando si esce.** Con Cache Components Next nasconde le pagine visitate invece
+di smontarle, e il video nascosto continuava a suonare (segnalato dopo schermo intero + rotazione e
+uscita). Ora si mette in pausa, esce dallo schermo intero e riprende dallo stesso punto al ritorno.
+
+**Riserva hls.js per i flussi che l'HLS nativo rifiuta.** "Le staffette della memoria" risultava
+"non disponibile": la fonte c'era, ma Chrome non legge la sua playlist (una sola qualità senza
+`CODECS`), mentre hls.js sì. Il relinker non ha CORS, quindi il link diretto lo legge il backend
+(una richiesta, il video passa comunque dal dispositivo). Corregge la decisione "niente hls.js per
+il catalogo": resta l'HLS nativo come prima scelta, hls.js è la riserva.
+
+**Riscaldamento della cache dopo ogni svuotamento** (idea dell'utente: un "mini bot" che dopo il
+job fa un giro di MAIA). Fatto dentro il backend chiamando direttamente `TvService` invece che con
+richieste HTTP: niente sessione da gestire e chiavi identiche a quelle delle API per costruzione.
+
+**Immagini vere degli episodi** (chiesto dall'utente: le miniature erano tutte lo sfondo del
+titolo). Si prende l'immagine che RaiPlay dà a ogni puntata e clip, non quella di TMDB: è del video
+che si riproduce e c'è anche per le puntate che TMDB non ha. Per caricarle sui dati esistenti sono
+stati rimessi in coda una volta tutti i titoli con puntate o extra (2737).
+
+**Comando `npm run catalog -- resync <servizio> [--episodes]`.** Rilegge subito tutti i titoli già
+presenti. Serve quando cambia il nostro codice del catalogo (non RaiPlay): il ritmo adattivo
+aggiornerebbe i titoli fermi solo dopo settimane. La regola è anche in `CLAUDE.md`, così viene
+ricordata a ogni modifica di questo tipo e al deploy.
+
+**Rispetto dei servizi come regola per ogni provider** (chiesto dall'utente: non dare fastidio ai
+servizi, rischio di blocchi e denunce). RaiPlay passa da una richiesta ogni 250 ms a una al secondo
+(~20 titoli al minuto invece di ~40), TMDB da richieste sovrapposte ogni 40 ms a una alla volta
+ogni 250 ms; 429/403 fermano subito il servizio per 6 ore; attese più lunghe tra i tentativi;
+operazioni massicce solo con conferma. Il primo riempimento e i `resync` durano circa il doppio:
+accettato, girano di notte o una volta sola.
+
+**Nessun Referer verso i servizi, per tutti i provider** (chiesto dall'utente: video e copertine non
+devono rivelare l'app da cui arrivano). `Referrer-Policy: no-referrer` su tutto il frontend, in due
+punti (header e meta). Limite noto: l'`Origin` delle richieste hls.js non si può togliere. Escluso
+esplicitamente fingersi il servizio o copiarne i token.
+
+**Condizioni d'uso di RaiPlay: verificate per quanto possibile, si va avanti.** Il testo ufficiale
+delle condizioni non è stato trovato (non indicizzato; rai.it e raiplay.it bloccano gli strumenti
+AI, che non si aggirano). La privacy policy dei prodotti multimediali Rai non parla dell'uso da app
+di terzi. Le guide trovate vietano solo lo **scaricamento** con strumenti non ufficiali; nessuna
+fonte conferma un divieto di embedding. La giurisprudenza della Corte di Giustizia UE (link ed
+embed di contenuti liberamente accessibili non violano il diritto d'autore, salvo aggiramento di
+misure tecniche contro l'embedding) va nella direzione di MAIA. Decisione dell'utente: si continua,
+restando privati (uso di casa, niente soldi né diffusione) e con le regole di "Rispetto dei
+servizi" (docs/tv/catalog.md). Punto da tenere d'occhio: la riserva hls.js, dove il server legge
+il link del video, è la parte più vicina a un aggiramento; si toglie se emergesse un dubbio. Se
+MAIA uscisse dalla cerchia di casa: leggere il testo ufficiale e sentire un legale.
+
+**Generi uniti per identificativo e cache con versione.** La navigazione dava errori di React
+(chiavi duplicate) perché RaiPlay scrive lo stesso genere con e senza maiuscola: ora le varianti
+con lo stesso slug sono un genere solo, fatto in lettura senza `resync`. Cambiando la forma dei
+generi in cache è emerso che il codice nuovo avrebbe letto valori scritti dal vecchio: le chiavi
+hanno ora una versione (`MAIA_APP_v2:`) da alzare a ogni cambio di forma. Regola aggiunta in
+`CLAUDE.md`: niente errori o avvisi in console prima di un commit del frontend.
+
+**Programmi che non seguono lo schema delle serie** (segnalato dall'utente su "Da Grande": su
+RaiPlay due serate e molte clip, in MAIA "2 stagioni" con una puntata ciascuna e 22 clip ammucchiate
+negli extra). La data della puntata si legge anche dal titolo dell'episodio, così le puntate si
+collocano nella stessa stagione; le clip si mostrano raggruppate per puntata e con nomi ripuliti, in
+lettura. Misurato: 21 programmi divisi come "Da Grande" e 82 con puntate provvisorie senza data.
+
+**Interruttori dei servizi nel pannello admin** (chiesto dall'utente: poter fermare subito
+l'acquisizione da un servizio che dà problemi). Il blocco è in `polite-fetch`, prima di ogni
+richiesta, così vale anche per quelle già partite; i processi rileggono gli interruttori ogni 3
+secondi. I titoli in coda non si perdono: si rimandano e ripartono alla riaccensione. Anche TMDB ha
+il suo interruttore (spegnerlo ferma gli abbinamenti, quindi rimanda tutti i titoli).
+
+**Il login di RaiPlay si ignora.** Rai segna quasi tutti i video come "accesso richiesto", anche i
+film del catalogo che MAIA riproduce, ma il video lo serve senza controllarlo. L'utente ha scelto:
+MAIA non usa account Rai e non guarda quel flag.
+
+**Orari di aggiornamento scelti dal pannello, per fonte** (chiesto dall'utente: poter scegliere
+"ogni giorno alle 3" o aggiornare solo quando serve). Automatico: passata completa giornaliera
+all'ora scelta più controlli ogni N ore (divisori di 24, così cadono sempre alle stesse ore);
+manuale: solo con "Aggiorna ora". Le novità ogni 3 ore e i titoli da ricontrollare, prima fissi,
+sono diventati il "controllo" di ogni fonte; resta fisso solo lo spegnimento orario dei video
+scaduti, che non fa richieste. Il worker chiude all'avvio le passate rimaste a metà: una passata
+interrotta dai riavvii di questa notte stava per ripartire da sola dopo che l'utente aveva scelto
+la modalità manuale.
+
+**Aggiornamenti in manuale di base** (chiesto dall'utente): i lavori del catalogo non partono più da
+soli; una fonte si aggiorna con "Aggiorna ora" finché nel pannello non si sceglie l'automatico
+(passata ogni notte all'ora voluta, controlli ripetuti ogni N ore). Lo spegnimento orario dei video
+scaduti resta, perché non fa richieste ai servizi.
+
+**Tastiera della ricerca chiusa di base** e **scheda del pannello admin nell'indirizzo** (segnalati
+dall'utente: su TV la tastiera era aperta anche senza premere la ricerca; cambiando scheda e
+ricaricando si tornava su Account).
+
+**Indirizzo delle fonti modificabile, per ogni provider** (2026-11-01, chiesto dall'utente con il
+nuovo provider SDM): l'indirizzo da cui MAIA legge ogni fonte del catalogo, RaiPlay compresa, si
+cambia dal pannello admin e vale subito in backend e worker. Predefinito nel codice
+(`services.ts`), modifica nel database. Cambiandolo, i link già salvati si spostano sul nuovo
+indirizzo nel database invece di rileggere il catalogo, per non fare richieste ai servizi.
+
+**SDM, secondo provider** (2026-11-01): server multimediale di casa dell'utente, indirizzo
+iniziale `http://192.168.1.9`. Il server non è ancora raggiungibile: l'adapter è scritto su un
+formato JSON provvisorio (docs/tv/catalog.md, "SDM") e provato solo con risposte simulate. Restano
+aperti come lo raggiungono la VPS e i dispositivi (rete di casa, `https`).
+
+**SDM letto dalle pagine del server (`data-page`)** (2026-11-01, algoritmo fornito dall'utente):
+il server di casa non ha un'API JSON a parte; i dati stanno nel JSON incorporato nelle pagine
+HTML (attributo `data-page`). L'adapter SDM ora legge quello al posto del formato provvisorio
+`/api/titles`, con percorsi, chiavi e campi in un blocco `CONFIG` modificabile. Non provato sul
+server vero (raggiungibile solo dalla sua rete): solo test con pagine simulate. Lasciati fuori
+l'etichetta Sub/Dub e i server esterni basati su TMDB.
+
+**Registro dell'attività del worker nel pannello admin** (2026-11-01, chiesto dall'utente): per
+sapere sempre cosa fa il worker, ogni titolo letto, ogni passata e ogni controllo finiscono nella
+tabella `catalog_events` e nella sezione "Attività" sotto ogni fonte, insieme alla coda letta da
+pg-boss. Prima l'esito stava solo nella console del worker e i titoli invariati non comparivano
+nemmeno lì. Scelte: gli invariati si salvano ma di base si nascondono (sono la maggior parte),
+storico di 7 giorni, nessun evento per i titoli rimandati con il servizio spento o in pausa.
+Il worker scrive anche un segnale di vita: "Aggiornamento in corso" con il worker spento lasciava
+credere che SDM si stesse aggiornando, mentre la passata era solo in coda. Per lo stesso motivo
+il riquadro di "Aggiornamento" mostra un'etichetta corta (In coda / In corso / Da riprovare) con la
+spiegazione sotto, invece di una frase lunga nel pulsante (illeggibile su telefono, segnalato
+dall'utente), e una passata non ancora partita si può togliere dalla coda.
+
+**Log del catalogo in una scheda sola** (2026-11-01, chiesto dall'utente: "nei log non si capisce
+niente, basta una tab di log unica"): le sezioni "Attività" sotto ogni fonte, con i loro filtri,
+diventano la scheda **Log** del pannello admin: un registro per tutte le fonti con un solo filtro
+per esito (Tutto, Nuovi, Modificati, Invariati, Errori) e la scelta della fonte a pillole (la select
+nativa era brutta su telefono).
+
+**Giro di controllo del frontend** (2026-11-01, desktop, tablet, TV e telefono): la trama della card
+grande di "In primo piano" usciva intera perché `sm:block` annullava `line-clamp` (ora 3 righe);
+le stagioni di una serie lunga (22) occupavano mezza pagina su telefono, ora sono una riga che
+scorre; immagini in cima caricate subito (avvisi LCP di Next). Errori di Next: l'idratazione su
+`<body>` veniva da un'estensione del browser (`suppressHydrationWarning` su `<html>` e `<body>`); il
+`redirect()` nella pagina `/` rompeva il controllo di prerender a ogni visita, ora `/` lo gestisce
+il proxy.
+
+**Pausa del worker dal pannello** (2026-11-01, chiesto dall'utente): il worker si mette in pausa e
+riprende dalla scheda Log, senza fermare il processo (in produzione gira dentro il backend). In
+pausa non prende lavori nuovi e la coda resta intatta, così alla ripresa continua dallo stesso punto;
+i titoli già in lettura finiscono. Nel Log su telefono i filtri vanno a capo invece di uscire dallo
+schermo.
+
+**Backend in locale con `npm run start:debug`** (2026-11-01, chiesto dall'utente): in sviluppo il
+backend si avvia sempre con il debugger aperto (porta 9229), così VS Code ci si aggancia
+("MAIA: aggancia il backend già avviato") senza fermarlo e riavviarlo.

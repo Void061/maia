@@ -23,7 +23,7 @@
     "account:approve": "node scripts/approve-account.mjs",
     "db:migrate": "prisma migrate dev && prisma generate",
     "catalog": "node scripts/catalog.mjs",
-    "catalog:worker": "tsc -p tsconfig.build.json --outDir .worker --incremental false && node .worker/tv/catalog/worker.main.js",
+    "catalog:worker": "tsc -p tsconfig.build.json --outDir .worker --incremental false && node --enable-source-maps --inspect=127.0.0.1:9230 .worker/tv/catalog/worker.main.js",
     "catalog:probe": "tsc -p tsconfig.build.json --outDir .probe/dist --incremental false && node .probe/dist/tv/probe.js"
   },
   "dependencies": {
@@ -40,6 +40,7 @@
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^18.0.9",
+    "ioredis": "^6.0.0",
     "nodemailer": "^10.3.1",
     "pg": "^8.23.1",
     "pg-boss": "^12.38.0",

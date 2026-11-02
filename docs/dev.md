@@ -11,8 +11,8 @@
 Sviluppo di tutti i giorni: database in Docker, app in locale con ricaricamento automatico.
 
 ```bash
-docker compose up -d postgres mailpit   # Postgres su :5433, Mailpit su :8025 (web) e :1025 (SMTP)
-cd maia-be && npm run start:dev         # http://localhost:3000 (Swagger su /docs)
+docker compose up -d postgres redis mailpit   # Postgres :5433, Redis :6379, Mailpit :8025 (web) e :1025 (SMTP)
+cd maia-be && npm run start:debug       # http://localhost:3000 (Swagger su /docs), debugger su :9229
 cd maia-fe && npm run dev               # http://localhost:3001
 ```
 
@@ -23,6 +23,11 @@ email vere (dopo aver riavviato il backend: le variabili si leggono all'avvio).
 **Primo account:** registrati dall'app, apri il link di conferma in Mailpit, poi da `maia-be/`:
 `npm run account:approve -- tua@email.it --admin`. Da lì in poi gli altri account si approvano
 dal pannello `/admin`.
+
+**Cache:** le risposte delle API restano in Redis finché un lavoro del catalogo non le svuota.
+Per vederle: `docker compose exec redis redis-cli --scan --pattern 'MAIA_APP_*'`; per svuotarle a
+mano: `docker compose exec redis redis-cli --scan --pattern 'MAIA_APP_*' | xargs docker compose exec -T redis redis-cli unlink`
+(o semplicemente `docker compose restart redis`: non ha volume).
 
 **Database:** dopo una modifica a `prisma/schema.prisma`, `npm run db:migrate` (crea la migrazione
 e rigenera il client Prisma).
@@ -37,8 +42,14 @@ li tiene fuori dal server web). Da maia-be, con `TMDB_API_KEY` in `.env`:
 npm run catalog:worker                       # i worker (lasciarlo acceso, come processo separato)
 npm run catalog -- fill raiplay              # primo riempimento: tutto RaiPlay (qualche ora)
 npm run catalog -- sync raiplay marefuori    # solo i titoli indicati, subito
+npm run catalog -- resync raiplay            # rilegge tutti i titoli già presenti (vedi sotto)
 npm run catalog -- status                    # titoli, abbinamenti, episodi, fonti, coda
 ```
+
+**Dopo una modifica a cosa salva il catalogo** (adapter o inserimento) va lanciato
+`npm run catalog -- resync raiplay` (o `--episodes`), altrimenti i titoli già presenti si
+aggiornano solo al loro prossimo controllo, anche dopo un mese. Quando serve e quando no:
+[tv/catalog.md](tv/catalog.md), "Rileggere tutto il catalogo".
 
 Log del worker avviato come processo separato: `%TEMP%\maia-logs\catalog-worker.log`.
 
@@ -53,11 +64,40 @@ Spegnere: `docker compose down` (con `-v` cancella anche i dati del database).
 Le porte 3000 e 3001 sono le stesse per i container e per le app in locale: non si possono usare
 le due modalità insieme.
 
+## Debug con VS Code
+
+Aprire la cartella `maia` in VS Code, pannello **Esegui e debug**, e scegliere una configurazione di
+`.vscode/launch.json`. I breakpoint si mettono direttamente nei file `.ts`.
+
+| Configurazione | Cosa avvia |
+| --- | --- |
+| **MAIA: aggancia il backend già avviato (9229)** | niente: si collega al backend avviato con `npm run start:debug` (il modo normale di avviarlo in locale) e si ricollega da solo dopo ogni ricaricamento |
+| **MAIA: aggancia il worker già avviato (9230)** | niente: si collega al worker avviato con `npm run catalog:worker`, che apre sempre il debugger sulla porta 9230 |
+| MAIA: backend (debug) | `npm run start:dev` in `maia-be` (porta 3000) |
+| MAIA: worker del catalogo (debug) | `npm run catalog:worker`: riprende subito quello che è in coda |
+| MAIA: test del backend, file aperto (debug) | i test vitest del file aperto |
+| MAIA: frontend, lato server (debug) | `npm run dev` in `maia-fe` (porta 3001) |
+| MAIA: frontend nel browser (debug) | Chrome su http://localhost:3001 con il debugger sul codice del frontend |
+| MAIA: backend + frontend (debug) | le due insieme |
+
+Il modo normale: il backend gira in background con `npm run start:debug` (ricarica come
+`start:dev` e apre il debugger sulla porta 9229) e da VS Code si sceglie **"MAIA: aggancia il
+backend già avviato (9229)"**: niente si riavvia e i breakpoint valgono subito.
+
+Le altre configurazioni aprono un terminale di VS Code e collegano il debugger a tutti i processi
+Node che partono da lì. **Prima va fermato lo stesso server se gira già in background** (porte
+fisse 3000 e 3001), per esempio quello avviato con `Start-Process`.
+
+Dove mettere i breakpoint per il **link video al play**: `maia-be/src/tv/tv.controller.ts`,
+`GET /tv/playback/:itemId` (sceglie la fonte e restituisce il link) e
+`GET /tv/playback/:itemId/stream` (il video passa dal backend, per le fonti che lo richiedono); il
+link che il worker ha salvato è in `sources.playback_url`.
+
 ## Variabili d'ambiente
 
 | File | Contenuto |
 |---|---|
-| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo), `CATALOG_WORKERS` (`false` = lavori del catalogo fuori dal server web) |
+| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo), `CATALOG_WORKERS` (`false` = lavori del catalogo fuori dal server web), `REDIS_URL` (cache; vuota = niente cache), `CACHE_TTL_SECONDS`, `CACHE_MAX_FAILS` |
 | `maia-fe/.env.local` | `API_URL=http://localhost:3000` (dove il gateway `/api` trova maia-be) |
 
 Sono ignorati da git; i modelli sono i rispettivi `.env.example`.

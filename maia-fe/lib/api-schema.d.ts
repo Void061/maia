@@ -180,6 +180,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AdminServicesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/services/{id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["AdminServicesController_setSync"];
+        trace?: never;
+    };
+    "/admin/services/{id}/sync-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AdminServicesController_syncNow"];
+        delete: operations["AdminServicesController_cancelSyncNow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/services/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AdminServicesController_activityLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/services/worker/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AdminServicesController_pauseWorker"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/services/worker/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AdminServicesController_resumeWorker"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/services/{id}/base-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["AdminServicesController_setBaseUrl"];
+        trace?: never;
+    };
+    "/admin/services/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AdminServicesController_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tv/home": {
         parameters: {
             query?: never;
@@ -252,6 +380,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["TvController_playback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tv/playback/{itemId}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TvController_stream"];
         put?: never;
         post?: never;
         delete?: never;
@@ -474,6 +618,146 @@ export interface components {
             /** @enum {string} */
             role: "USER" | "ADMIN";
         };
+        LastRunDto: {
+            startedAt: string;
+            finishedAt?: string | null;
+            /** @description running | done | aborted | failed */
+            status: string;
+            found?: number | null;
+        };
+        SyncInfoDto: {
+            /** @enum {string} */
+            mode: "AUTO" | "MANUAL";
+            /** @description Daily full pass, Rome time HH:MM */
+            at: string;
+            /** @description Checks every N hours; null = only the daily pass */
+            everyHours?: number | null;
+            lastRun?: components["schemas"]["LastRunDto"] | null;
+            lastCheckAt?: string | null;
+            /** @description A full pass is queued or running */
+            running: boolean;
+            /**
+             * @description The full pass: waiting = queued, not started yet; null = none
+             * @enum {string|null}
+             */
+            passState?: "waiting" | "running" | "retry" | null;
+            /** @description A catalog worker is running: without one a queued pass does not start */
+            workerOnline: boolean;
+        };
+        AdminServiceDto: {
+            id: string;
+            name: string;
+            /** @description What MAIA uses the service for */
+            role: string;
+            /** @description Admin switch: false = no request at all to the service */
+            enabled: boolean;
+            switchedAt?: string | null;
+            switchedBy?: string | null;
+            /**
+             * @description Automatic pause after errors, independent of the switch
+             * @enum {string}
+             */
+            status: "OK" | "DOWN";
+            pausedUntil?: string | null;
+            lastSuccessAt?: string | null;
+            lastError?: string | null;
+            /** @description Titles waiting in the catalog queue for this service */
+            queued: number;
+            /** @description Catalog sources only: the address in use */
+            baseUrl?: string | null;
+            /** @description Catalog sources only: the default address */
+            defaultBaseUrl?: string | null;
+            /** @description Catalog sources only */
+            sync?: components["schemas"]["SyncInfoDto"] | null;
+        };
+        SyncSettingsDto: {
+            /** @enum {string} */
+            mode: "AUTO" | "MANUAL";
+            /** @example 03:00 */
+            at: string;
+            /** @enum {number|null} */
+            everyHours?: 1 | 2 | 3 | 4 | 6 | 8 | 12 | null;
+        };
+        WorkerStateDto: {
+            /** @description A catalog worker is running (heartbeat within 90 s) */
+            online: boolean;
+            /** @description Paused from the panel: no new job is taken, the queue waits */
+            paused: boolean;
+            /** @description Last pause or resume */
+            changedAt?: string | null;
+            changedBy?: string | null;
+            startedAt?: string | null;
+            /** @description Last heartbeat */
+            seenAt?: string | null;
+        };
+        PassStateDto: {
+            /**
+             * @description waiting = queued, no worker took it yet
+             * @enum {string}
+             */
+            state: "waiting" | "running" | "retry";
+            /** @description Queued at (waiting, retry) or started at (running) */
+            since: string;
+        };
+        ActiveTitleDto: {
+            externalId: string;
+            /** @description null for a title not read before */
+            name?: string | null;
+            startedAt?: string | null;
+        };
+        SourceLiveDto: {
+            id: string;
+            name: string;
+            /** @description The full pass waiting or running, if any */
+            pass?: components["schemas"]["PassStateDto"] | null;
+            /** @description Titles waiting in the queue */
+            queued: number;
+            /** @description Titles waiting to try again after an error */
+            retrying: number;
+            /** @description Titles left halfway by a worker that stopped; retried when a worker runs again */
+            stalled: number;
+            /** @description Titles being read right now */
+            active: components["schemas"]["ActiveTitleDto"][];
+        };
+        ActivityEventDto: {
+            id: number;
+            source: string;
+            /** @description Titles: created | updated | unchanged | missing | failed. Passes: pass-queued | pass-cancelled | pass-start | pass-done | pass-aborted | pass-failed | check. Worker (source "worker"): worker-paused | worker-resumed */
+            kind: string;
+            externalId?: string | null;
+            name?: string | null;
+            /** @description Full passes: titles listed by the service */
+            found?: number | null;
+            /** @description Passes and checks: titles queued */
+            queued?: number | null;
+            /** @description Error, who pressed, or the kind of pass (fill / refresh) */
+            message?: string | null;
+            at: string;
+        };
+        ActivityLogDto: {
+            worker: components["schemas"]["WorkerStateDto"];
+            /** @description Every catalog source, in panel order */
+            sources: components["schemas"]["SourceLiveDto"][];
+            /** @description Newest first */
+            events: components["schemas"]["ActivityEventDto"][];
+            /** @description Older events exist (ask again with before = last id) */
+            more: boolean;
+        };
+        BaseUrlDto: {
+            /**
+             * @description null = back to the default
+             * @example http://192.168.1.9
+             */
+            baseUrl?: string | null;
+        };
+        BaseUrlResultDto: {
+            baseUrl: string;
+            /** @description Saved links (videos, pictures) moved to the new address */
+            moved: number;
+        };
+        SwitchDto: {
+            enabled: boolean;
+        };
         TitleCardDto: {
             id: string;
             /** @enum {string} */
@@ -517,6 +801,8 @@ export interface components {
             /** Format: date */
             airDate?: string | null;
             minutes?: number | null;
+            /** @description The episode's own picture; null = use the title's backdrop */
+            imageUrl?: string | null;
         };
         SeasonDto: {
             number: number;
@@ -526,6 +812,8 @@ export interface components {
             id: string;
             name: string;
             minutes?: number | null;
+            /** @description The clip's own picture; null = use the title's backdrop */
+            imageUrl?: string | null;
         };
         ExtraGroupDto: {
             id: string;
@@ -559,10 +847,10 @@ export interface components {
             itemId: string;
             provider: string;
             /**
-             * @description native-hls: give url to <video src>, the device resolves it
+             * @description native-hls: give url to <video src>, the device resolves it; hls: direct playlist URL for hls.js, expires in minutes
              * @enum {string}
              */
-            type: "native-hls";
+            type: "native-hls" | "hls";
             url: string;
             durationSec?: number | null;
         };
@@ -991,6 +1279,359 @@ export interface operations {
             };
         };
     };
+    AdminServicesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminServiceDto"][];
+                };
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_setSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncSettingsDto"];
+            };
+        };
+        responses: {
+            /** @description Schedules updated at once */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_syncNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_OFF | ALREADY_RUNNING */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_cancelSyncNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description NOT_QUEUED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_activityLog: {
+        parameters: {
+            query?: {
+                /** @description One catalog source; all of them when absent */
+                source?: string;
+                /** @description created / updated (gone from the service included) / unchanged titles, errors, or all (passes included) */
+                filter?: "all" | "created" | "updated" | "unchanged" | "errors";
+                /** @description Last event id of the previous page */
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityLogDto"];
+                };
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_pauseWorker: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_resumeWorker: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_setBaseUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BaseUrlDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BaseUrlResultDto"];
+                };
+            };
+            /** @description INVALID_BASE_URL */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwitchDto"];
+            };
+        };
+        responses: {
+            /** @description Applied at once in this process, within seconds everywhere */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
     TvController_home: {
         parameters: {
             query?: never;
@@ -1093,6 +1734,39 @@ export interface operations {
             query?: {
                 /** @description Providers to skip, comma separated (after a failure) */
                 exclude?: string;
+            };
+            header?: never;
+            path: {
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaybackDto"];
+                };
+            };
+            /** @description NO_SOURCE */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    TvController_stream: {
+        parameters: {
+            query: {
+                /** @description Provider whose source the device could not play natively */
+                provider: string;
             };
             header?: never;
             path: {

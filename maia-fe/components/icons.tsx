@@ -16,9 +16,6 @@ const base = {
 export const HomeIcon = () => (
   <svg {...base}><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z" /></svg>
 );
-export const LiveIcon = () => (
-  <svg {...base}><rect x="3" y="6" width="18" height="13" rx="2" /><path d="m8 2.5 4 3.5 4-3.5" /></svg>
-);
 export const FilmIcon = () => (
   <svg {...base}><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 3v18M16 3v18M4 8h4M4 16h4M16 8h4M16 16h4" /></svg>
 );

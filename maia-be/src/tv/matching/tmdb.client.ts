@@ -50,9 +50,9 @@ export class TmdbClient {
     for (const [k, v] of Object.entries(params)) if (v !== undefined) url.searchParams.set(k, String(v));
     const isToken = this.key.startsWith('eyJ');
     if (!isToken) url.searchParams.set('api_key', this.key);
+    // TMDB is an official API (~50 requests/s allowed): 4 per second is far below.
     return politeJson<T>(url.toString(), {
-      minGapMs: 40,
-      serial: false,
+      minGapMs: 250,
       headers: isToken ? { Authorization: `Bearer ${this.key}` } : {},
     });
   }
