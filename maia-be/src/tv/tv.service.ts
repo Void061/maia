@@ -397,8 +397,6 @@ export class TvService {
   // just failed on this device (not cached: that depends on the device).
   playback(itemId: string, exclude: string[] = []): Promise<PlaybackDto> {
     if (exclude.length) return this.loadPlayback(itemId, exclude);
-    //TODO REMOVE
-    return this.loadPlayback(itemId, []);
     return this.cache.wrap(KEY.playback(itemId), () =>
       this.loadPlayback(itemId, []),
     );
