@@ -26,6 +26,18 @@ type VideoUrl = [label: string, url: string];
 const host = () => baseUrl('sdm');
 
 const CONFIG = {
+  archive: {
+    types: ['movie', 'tv'] as string[],
+    firstYear: 2024,
+    pageSize: 60,
+    maxPages: 20,
+    params: {
+      page: 'page',
+      type: 'type',
+      genre: 'genre[]',
+      year: 'year',
+    },
+  },
   // Replaces the {lang} placeholder in the paths.
   lang: 'it',
 
@@ -219,9 +231,191 @@ export class SdmAdapter implements ProviderAdapter {
     return videoUrls[0]?.[1] ?? null;
   }
 
-  // The whole catalog: the archive page's titles.
+  async getArchiveFilters(): Promise<Json> {
+    const p = await props(buildUrl('archive'));
+
+    return {
+      genres: p.genres,
+      countries: p.countries,
+      sortBy: p.sortBy,
+      totalCount: p.totalCount,
+      browseMoreApiRoute: p.browseMoreApiRoute,
+    };
+  }
+
   async discover(): Promise<string[]> {
-    return ids(flatten((await props(buildUrl('archive')))[K.titles]));
+    const { archive } = CONFIG;
+    const discovered = new Set<string>();
+    const currentYear = new Date().getFullYear();
+
+    // Recupera i generi disponibili nell'archivio.
+    const archiveProps = await props(buildUrl('archive'));
+
+    const genres = (archiveProps.genres ?? []) as {
+      id: number;
+      name: string;
+      type: string;
+      hidden: number;
+    }[];
+
+    /**
+     * Recupera una partizione completa.
+     *
+     * Se supera il limite massimo di pagine, restituisce null.
+     * In caso di dati incompleti o pagine ripetute, genera un errore.
+     */
+    const scanPartition = async (
+      filters: Record<string, string>,
+      label: string,
+    ): Promise<Set<string> | null> => {
+      const url = new URL(buildUrl('archive'));
+
+      for (const [key, value] of Object.entries(filters)) {
+        url.searchParams.set(key, value);
+      }
+
+      const firstPage = await props(url.toString());
+      const totalCount = Number(firstPage.totalCount ?? 0);
+
+      if (totalCount === 0) {
+        return new Set<string>();
+      }
+
+      const totalPages = Math.ceil(totalCount / archive.pageSize);
+
+      if (totalPages > archive.maxPages) {
+        console.log(
+          `[SDM] Partition too large: ${label} (${totalCount} titles)`,
+        );
+
+        return null;
+      }
+
+      const result = new Set<string>();
+      let received = 0;
+      let previousPageSignature = '';
+
+      for (let page = 1; page <= totalPages; page++) {
+        const pageProps =
+          page === 1
+            ? firstPage
+            : await (async () => {
+                url.searchParams.set(archive.params.page, String(page));
+
+                return props(url.toString());
+              })();
+
+        const records = flatten(pageProps[K.titles]);
+
+        if (records.length === 0) {
+          throw new Error(`[SDM] Empty page ${page}/${totalPages}: ${label}`);
+        }
+
+        const pageSignature = records
+          .map((record) => String(record[F.id] ?? ''))
+          .join(',');
+
+        if (pageSignature === previousPageSignature) {
+          throw new Error(`[SDM] Repeated page ${page}: ${label}`);
+        }
+
+        previousPageSignature = pageSignature;
+        received += records.length;
+
+        ids(records).forEach((id) => result.add(id));
+      }
+
+      // Verifica che il numero di record scaricati corrisponda
+      // al totale dichiarato dal server.
+      if (received !== totalCount) {
+        throw new Error(
+          `[SDM] Incomplete partition: ${label}. ` +
+            `Expected ${totalCount}, received ${received}`,
+        );
+      }
+
+      console.log(`[SDM] ${label}: ${result.size}/${totalCount} titles`);
+
+      return result;
+    };
+
+    // Scansione principale: tipo + anno.
+    for (const type of archive.types) {
+      for (let year = archive.firstYear; year <= currentYear; year++) {
+        const filters = {
+          [archive.params.type]: type,
+          [archive.params.year]: String(year),
+        };
+
+        const label = `${type} ${year}`;
+
+        let partition = await scanPartition(filters, label);
+
+        // Se la partizione è troppo grande, la dividiamo per genere.
+        if (partition === null) {
+          const applicableGenres = genres.filter(
+            (genre) =>
+              genre.hidden === 0 &&
+              (genre.type === type || genre.type === 'all'),
+          );
+
+          partition = new Set<string>();
+
+          for (const genre of applicableGenres) {
+            const genreFilters = {
+              ...filters,
+              [archive.params.genre]: String(genre.id),
+            };
+
+            const genreLabel = `${type} ${year} / ${genre.name}`;
+
+            const genrePartition = await scanPartition(
+              genreFilters,
+              genreLabel,
+            );
+
+            if (genrePartition === null) {
+              throw new Error(
+                `[SDM] Genre partition still exceeds page limit: ` +
+                  `${genreLabel}`,
+              );
+            }
+
+            genrePartition.forEach((id) => partition!.add(id));
+          }
+
+          // Controllo di completezza:
+          // se i generi non coprono tutti i titoli dell'anno,
+          // non restituiamo un catalogo incompleto.
+          const yearCheck = await props(
+            (() => {
+              const checkUrl = new URL(buildUrl('archive'));
+
+              for (const [key, value] of Object.entries(filters)) {
+                checkUrl.searchParams.set(key, value);
+              }
+
+              return checkUrl.toString();
+            })(),
+          );
+
+          const expectedCount = Number(yearCheck.totalCount ?? 0);
+
+          if (partition.size !== expectedCount) {
+            throw new Error(
+              `[SDM] Genre coverage incomplete for ${label}. ` +
+                `Expected ${expectedCount}, found ${partition.size}`,
+            );
+          }
+        }
+
+        partition.forEach((id) => discovered.add(id));
+      }
+    }
+
+    console.log(`[SDM] Discovery completed: ${discovered.size} unique titles`);
+
+    return [...discovered];
   }
 
   async listSection(section: string): Promise<string[]> {
