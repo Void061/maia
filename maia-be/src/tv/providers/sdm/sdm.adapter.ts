@@ -28,7 +28,7 @@ const host = () => baseUrl('sdm');
 const CONFIG = {
   archive: {
     types: ['movie', 'tv'] as string[],
-    firstYear: 2026,
+    firstYear: 2000,
     pageSize: 60,
     maxPages: 20,
     params: {
