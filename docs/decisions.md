@@ -354,5 +354,5 @@ Cambiare l'indirizzo della fonte sposta ancora solo i link dei video. La migrazi
 `source` vuoto restano link interi e passano così come sono. Niente resync: la migrazione parte
 da sola all'avvio del container. Su richiesta dell'utente tolto il CDN di un sito esterno scritto
 nell'adapter SDM: le sue immagini ora sono percorsi (`CONFIG.paths.image`) sull'indirizzo delle
-immagini di SDM, e la migrazione `20261103220000_drop_full_image_links` cancella le immagini
-rimaste salvate come link intero (205 titoli e 1101 episodi in locale).
+immagini di SDM, e la migrazione `20261103220000_sdm_image_paths` toglie l'host dai link
+interi già salvati e tiene il percorso (sorgente `sdm`).
