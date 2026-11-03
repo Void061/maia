@@ -440,7 +440,7 @@ export class SdmAdapter implements ProviderAdapter {
 
     const titleImages = Array.isArray(rec.images) ? (rec.images as Json[]) : [];
 
-    const posterUrl = sdmImage(
+    const posterPath = sdmImage(
       titleImages.find((img) => img.type === 'poster')?.filename,
     );
     const base = {
@@ -452,8 +452,8 @@ export class SdmAdapter implements ProviderAdapter {
         .map((g) => String(g[F.genreName] ?? ''))
         .filter(Boolean),
       description: String(rec[F.plot] ?? ''),
-      posterUrl,
-      backdropUrl: null,
+      posterPath,
+      backdropPath: null,
       extras: [],
     };
     if (kind === 'movie')
@@ -510,7 +510,7 @@ function episode(
     episode: toNumber(ep[F.epNumber]),
     title: String(ep[F.epName] ?? '').trim(),
     airDate: null,
-    imageUrl: sdmImage(image),
+    imagePath: sdmImage(image),
     ...video(
       buildUrl('episode', {
         title_id: titleId,

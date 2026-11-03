@@ -140,8 +140,8 @@ export class RaiPlayAdapter implements ProviderAdapter {
       genres: (info.genres ?? []).map((g) => g.name),
       description: info.description ?? '',
       // "portrait" is often empty; the versions with the title logo are the posters.
-      posterUrl: imageUrl(info.images?.portrait_logo || info.images?.portrait || info.images?.portrait43),
-      backdropUrl: imageUrl(info.images?.landscape),
+      posterPath: imagePath(info.images?.portrait_logo || info.images?.portrait || info.images?.portrait43),
+      backdropPath: imagePath(info.images?.landscape),
     };
 
     const blocks = program.blocks ?? [];
@@ -189,8 +189,8 @@ export class RaiPlayAdapter implements ProviderAdapter {
     for (const { block, set } of sets) {
       const data = await politeJson<{ items?: RaiSetItem[] }>(host() + set.path_id);
       const videos = (data.items ?? []).map((item) => {
-        const { externalId, title, durationSec, drm, geoBlocked, expiresAt, playback, imageUrl } = toEpisode(item);
-        return { externalId, title: item.name || title, durationSec, drm, geoBlocked, expiresAt, playback, imageUrl };
+        const { externalId, title, durationSec, drm, geoBlocked, expiresAt, playback, imagePath } = toEpisode(item);
+        return { externalId, title: item.name || title, durationSec, drm, geoBlocked, expiresAt, playback, imagePath };
       });
       if (!videos.length) continue;
       const label = block === set.name || EPISODE_BLOCK.test(block) ? set.name : `${block} · ${set.name}`;
@@ -256,7 +256,7 @@ function toEpisode(item: RaiSetItem): ProviderEpisode {
     title: item.episode_title || item.toptitle || item.name,
     // The date may be only in the episode title ("Da Grande" / "Puntata del 19/09/2021").
     airDate: parseItalianDate(item.name) ?? parseItalianDate(item.episode_title ?? '') ?? parseItalianDate(item.toptitle ?? ''),
-    imageUrl: imageUrl(item.images?.landscape),
+    imagePath: imagePath(item.images?.landscape),
     durationSec: parseDuration(item.duration),
     ...rights(item.rights_management),
     expiresAt: item.availabilities?.expiration_date_iso ?? null,
@@ -271,9 +271,10 @@ function rights(rm: RaiRights | undefined): { drm: boolean; geoBlocked: boolean 
   };
 }
 
-function imageUrl(path: string | undefined): string | null {
+// Only the path is kept: the address comes from the admin panel (assets.ts).
+function imagePath(path: string | undefined): string | null {
   if (!path) return null;
-  return path.startsWith('http') ? path : host() + path;
+  return path.startsWith(`${host()}/`) ? path.slice(host().length) : path;
 }
 
 function toJsonPath(path: string): string {

@@ -20,7 +20,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { ACTIVITY_FILTERS, CatalogActivity, type ActivityFilter } from '../tv/catalog/catalog.activity.js';
 import { CatalogScheduler, type PassState } from '../tv/catalog/catalog.scheduler.js';
 import { CHECK_HOURS, DEFAULT_SYNC } from '../tv/catalog/queues.js';
-import { baseUrl, defaultBaseUrl, normalizeBaseUrl } from '../tv/providers/base-urls.js';
+import { assetsUrl, baseUrl, defaultAssetsUrl, defaultBaseUrl, hasAssets, normalizeBaseUrl } from '../tv/providers/base-urls.js';
 import { ServiceSwitches } from '../tv/providers/service-switches.js';
 import { SERVICES } from '../tv/providers/services.js';
 import { AdminGuard } from './admin.guard.js';
@@ -42,6 +42,10 @@ class AdminServiceDto {
   baseUrl: string | null;
   @ApiPropertyOptional({ nullable: true, type: String, description: 'Catalog sources only: the default address' })
   defaultBaseUrl: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'Where its pictures are read from (in use); null = no pictures' })
+  assetsUrl: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'The pictures address used when none is set' })
+  defaultAssetsUrl: string | null;
   @ApiPropertyOptional({ nullable: true, type: () => SyncInfoDto, description: 'Catalog sources only' })
   sync: SyncInfoDto | null;
 }
@@ -98,7 +102,19 @@ class BaseUrlDto {
 
 class BaseUrlResultDto {
   @ApiProperty() baseUrl: string;
-  @ApiProperty({ description: 'Saved links (videos, pictures) moved to the new address' }) moved: number;
+  @ApiProperty({ description: 'Saved video links moved to the new address' }) moved: number;
+}
+
+class AssetsUrlDto {
+  @ApiPropertyOptional({ nullable: true, type: String, example: 'https://image.tmdb.org/t/p', description: 'null = back to the default' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  assetsUrl: string | null;
+}
+
+class AssetsUrlResultDto {
+  @ApiProperty() assetsUrl: string;
 }
 
 class ActivityQueryDto {
@@ -244,6 +260,8 @@ export class AdminServicesController {
         queued: queued.find((q) => q.provider === s.id)?.n ?? 0,
         baseUrl: s.baseUrl ? baseUrl(s.id) : null,
         defaultBaseUrl: defaultBaseUrl(s.id),
+        assetsUrl: hasAssets(s.id) ? assetsUrl(s.id) : null,
+        defaultAssetsUrl: hasAssets(s.id) ? (defaultAssetsUrl(s.id) ?? baseUrl(s.id)) : null,
         sync: s.catalog ? this.syncInfo(h, runs.find((r) => r.provider === s.id), passes.get(s.id) ?? null, workerOnline) : null,
       };
     });
@@ -386,8 +404,33 @@ export class AdminServicesController {
     }
     const admin = await this.prisma.account.findUniqueOrThrow({ where: { id: me.accountId }, select: { email: true } });
     const moved = await this.switches.setBaseUrl(id, url, admin.email);
-    await this.cache.invalidateAll(); // the API builds some links from the address (RaiPlay's image crops)
+    await this.cache.invalidateAll(); // the API builds the pictures' links from the address
     return { baseUrl: baseUrl(id), moved };
+  }
+
+  // Where a service's pictures are read from. The database keeps only their
+  // path, so every picture moves at once; the cache is dropped.
+  @Patch(':id/assets-url')
+  @ApiOkResponse({ type: AssetsUrlResultDto })
+  @ApiNotFoundResponse({ type: ErrorDto, description: 'SERVICE_NOT_FOUND' })
+  @ApiBadRequestResponse({ type: ErrorDto, description: 'INVALID_ASSETS_URL' })
+  async setAssetsUrl(@CurrentUser() me: AuthUser, @Param('id') id: string, @Body() dto: AssetsUrlDto): Promise<AssetsUrlResultDto> {
+    if (!SERVICES.some((s) => s.id === id) || !hasAssets(id)) throw notFound();
+    let url: string | null = null;
+    if (dto.assetsUrl) {
+      url = normalizeBaseUrl(dto.assetsUrl);
+      if (!url) {
+        throw new BadRequestException({
+          code: 'INVALID_ASSETS_URL',
+          message: 'Indirizzo non valido: scrivilo completo, per esempio https://image.tmdb.org/t/p.',
+        });
+      }
+      if (url === (defaultAssetsUrl(id) ?? baseUrl(id))) url = null;
+    }
+    const admin = await this.prisma.account.findUniqueOrThrow({ where: { id: me.accountId }, select: { email: true } });
+    await this.switches.setAssetsUrl(id, url, admin.email);
+    await this.cache.invalidateAll();
+    return { assetsUrl: assetsUrl(id) };
   }
 
   private syncInfo(

@@ -4,8 +4,18 @@
 // source of the catalog, with its own update schedule (admin panel).
 // `baseUrl`: the default address of a catalog source, changeable from the admin
 // panel (base-urls.ts); its host counts as one of the service's hosts. Every
-// catalog source has one. `hosts` lists the other, fixed hosts.
-export type OutsideService = { id: string; name: string; role: string; hosts: string[]; baseUrl?: string; catalog?: boolean };
+// catalog source has one. `hosts` lists the other, fixed hosts. `assetsUrl`:
+// where its pictures are read from (the database keeps only their path,
+// assets.ts), changeable from the admin panel too; without it, `baseUrl`.
+export type OutsideService = {
+  id: string;
+  name: string;
+  role: string;
+  hosts: string[];
+  baseUrl?: string;
+  assetsUrl?: string;
+  catalog?: boolean;
+};
 
 export const SERVICES: OutsideService[] = [
   {
@@ -29,5 +39,6 @@ export const SERVICES: OutsideService[] = [
     name: 'TMDB',
     role: 'Schede, locandine e numerazione degli episodi',
     hosts: ['api.themoviedb.org'],
+    assetsUrl: 'https://image.tmdb.org/t/p',
   },
 ];
