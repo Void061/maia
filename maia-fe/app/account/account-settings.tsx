@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Avatar from "@/components/avatar";
@@ -8,11 +8,17 @@ import { BackIcon } from "@/components/icons";
 import Logo from "@/components/logo";
 import { Button, Field, Notice } from "@/components/ui";
 import { ME, useLogout, useMe } from "@/lib/account";
-import { api } from "@/lib/api";
+import { api, type components } from "@/lib/api";
 
 const PASSWORD_MIN = 8;
+const SESSIONS = ["me", "sessions"];
+// Used this recently, a device counts as in use.
+const IN_USE_MS = 10 * 60_000;
 
-// Account settings: name, email (read-only for now), password, profiles, sign out.
+type Session = components["schemas"]["SessionDto"];
+
+// Account settings: name, email (read-only for now), password, profiles,
+// connected devices, sign out.
 export default function AccountSettings() {
   const router = useRouter();
   const { data: me } = useMe();
@@ -65,6 +71,10 @@ export default function AccountSettings() {
               </Button>
             </Section>
 
+            <Section title="Dispositivi connessi">
+              <Sessions />
+            </Section>
+
             {me.role === "ADMIN" && (
               <Section title="Amministrazione">
                 <p className="text-muted">Approva i nuovi account, sospendili o rendili amministratori.</p>
@@ -90,6 +100,67 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2 className="mb-5 font-display text-xl font-bold">{title}</h2>
       {children}
     </section>
+  );
+}
+
+const lastUsed = (s: Session) => {
+  const at = new Date(s.lastUsedAt);
+  if (Date.now() - at.getTime() < IN_USE_MS) return "In uso ora";
+  const when = at.toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return `Ultimo uso ${when}`;
+};
+
+// Every device signed in to this account; any other one can be disconnected
+// from here. A disconnected device goes back to the login at its next request.
+function Sessions() {
+  const qc = useQueryClient();
+  const list = useQuery({ queryKey: SESSIONS, queryFn: () => api<Session[]>("/me/sessions") });
+  const close = useMutation({
+    mutationFn: (id: string | null) => api(id ? `/me/sessions/${id}` : "/me/sessions", { method: "DELETE" }),
+    onSettled: () => qc.invalidateQueries({ queryKey: SESSIONS }),
+  });
+  const sessions = list.data ?? [];
+  const others = sessions.filter((s) => !s.current).length;
+
+  if (list.isPending) {
+    return (
+      <p className="text-muted" role="status">
+        Caricamento…
+      </p>
+    );
+  }
+  if (list.isError) return <Notice>{list.error.message}</Notice>;
+  return (
+    <>
+      <ul className="grid gap-3">
+        {sessions.map((s) => (
+          <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-raised px-4 py-3">
+            <span className="min-w-0">
+              <span className="block font-medium">
+                {s.device}
+                {s.current && <span className="ml-2 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold">Questo dispositivo</span>}
+              </span>
+              <span className="block text-sm text-muted">{lastUsed(s)}</span>
+            </span>
+            {!s.current && (
+              <Button variant="secondary" onClick={() => close.mutate(s.id)} disabled={close.isPending}>
+                Disconnetti
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {others > 1 && (
+        <Button variant="danger" onClick={() => close.mutate(null)} disabled={close.isPending} className="mt-5">
+          Disconnetti tutti gli altri
+        </Button>
+      )}
+      {close.error && (
+        <div className="mt-4">
+          <Notice>{close.error.message}</Notice>
+        </div>
+      )}
+    </>
   );
 }
 

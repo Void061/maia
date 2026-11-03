@@ -52,6 +52,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AccountController_listSessions"];
+        put?: never;
+        post?: never;
+        delete: operations["AccountController_closeOtherSessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["AccountController_closeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/profiles": {
         parameters: {
             query?: never;
@@ -595,6 +627,18 @@ export interface components {
             code: "INVALID_CREDENTIALS" | "EMAIL_NOT_VERIFIED" | "PENDING_APPROVAL" | "SUSPENDED" | "EMAIL_TAKEN" | "TOKEN_INVALID" | "UNAUTHENTICATED";
             message: string;
         };
+        SessionDto: {
+            id: string;
+            /** @description A readable guess from the user agent */
+            device: string;
+            /** @enum {string} */
+            kind: "tv" | "phone" | "tablet" | "computer" | "other";
+            /** @description Signed in on */
+            createdAt: string;
+            lastUsedAt: string;
+            /** @description The device making this request */
+            current: boolean;
+        };
         CreateProfileDto: {
             /** @example Ivan */
             name: string;
@@ -1004,6 +1048,79 @@ export interface operations {
             };
             /** @description WRONG_PASSWORD */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AccountController_listSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionDto"][];
+                };
+            };
+        };
+    };
+    AccountController_closeOtherSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AccountController_closeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CURRENT_SESSION: to leave this device, log out */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SESSION_NOT_FOUND */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

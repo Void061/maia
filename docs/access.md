@@ -66,6 +66,14 @@ npm run account:approve -- persona@esempio.it          # → ACTIVE (senza panne
 - Login → due cookie `httpOnly`, `SameSite=Lax` (`Secure` automaticamente quando `APP_URL` è `https://`):
   - `maia_at`: access token JWT, 15 minuti (`sub` = account, `sid` = sessione);
   - `maia_rt`: refresh token casuale, 30 giorni, salvato come hash nella tabella `sessions`.
+- **Dispositivi connessi** (pagina Account): l'elenco delle sessioni aperte, con un nome ricavato dallo
+  user agent (`auth/device.ts`, una stima) e l'ultimo uso. Ogni altro dispositivo si può disconnettere,
+  uno alla volta o tutti insieme; per questo dispositivo si usa "Esci da MAIA".
+- Il controllo di accesso guarda anche la sessione, non solo la firma del token
+  (`auth/session-check.ts`), altrimenti un dispositivo disconnesso andrebbe avanti fino a 15 minuti. Una
+  sessione confermata non viene richiesta per 15 secondi; chiusa dall'app vale subito, chiusa in altri modi
+  (cambio password, sospensione) entro quei 15 secondi. Il dispositivo disconnesso torna al login alla
+  richiesta successiva, o al controllo di `/me` di ogni minuto se è fermo.
 - `POST /auth/refresh` ruota il refresh token (il vecchio smette di valere) e rinnova l'access.
   Il frontend lo chiama da solo alla prima risposta 401 e ripete la richiesta (`maia-fe/lib/api.ts`).
 - I cookie sono di prima parte: il browser parla solo con maia-fe, che inoltra `/api/*` a maia-be
@@ -175,6 +183,9 @@ Documentazione interattiva su `http://localhost:3000/docs` (JSON su `/docs-json`
 | POST | `/auth/login` | `{email, password}` → cookie |
 | POST | `/auth/refresh` | cookie → nuovi cookie |
 | POST | `/auth/logout` | chiude la sessione |
+| GET | `/me/sessions` | dispositivi connessi |
+| DELETE | `/me/sessions/:id` | disconnette un altro dispositivo |
+| DELETE | `/me/sessions` | disconnette tutti gli altri |
 | POST | `/auth/forgot-password` | `{email}` |
 | POST | `/auth/reset-password` | `{token, password}` |
 | GET / PATCH | `/me` | account + profili / `{name}` |
