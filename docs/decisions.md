@@ -384,3 +384,8 @@ TV si prova con `maia-tv/test/tv-walk.cjs` su tutte le schermate. Dettagli in do
 **Player navigabile col telecomando, volume solo della TV** (segnalato dall'utente: i pulsanti non si
 raggiungevano e Su e Giù cambiavano il volume interno, non quello vero). Su TV le frecce vanno ai
 comandi come su Netflix; il controllo del volume non c'è più, resta sugli altri dispositivi.
+
+**Movimento da app di streaming nella WebView** (richiesta dell'utente: animazioni e morbidezza). Tutto
+il movimento è `transform`, gestito dalla scheda grafica: righe e pagina scivolano, un unico riquadro
+di selezione sopra la pagina si sposta sulla card. Sostituisce lo spostamento istantaneo deciso poco
+prima. Dettagli in docs/tv-app.md.
