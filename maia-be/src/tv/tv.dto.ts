@@ -13,6 +13,8 @@ export class TitleCardDto {
   @ApiProperty() overview: string;
   @ApiPropertyOptional({ nullable: true, type: String }) posterUrl: string | null;
   @ApiPropertyOptional({ nullable: true, type: String }) backdropUrl: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'The backdrop at card size' })
+  thumbUrl: string | null;
   @ApiPropertyOptional({ nullable: true, type: Number, description: 'Movies: length' }) minutes: number | null;
   @ApiPropertyOptional({ nullable: true, type: Number, description: 'Series: seasons with something to watch' })
   seasons: number | null;

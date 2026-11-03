@@ -30,11 +30,12 @@ export default function Hero({
   }, [slide, paused, items.length]);
 
   if (!current) {
-    return <section aria-busy className={`animate-pulse bg-surface ${short ? "h-[62vh] min-h-[26rem]" : "h-[78vh] min-h-[30rem] sm:h-[86vh]"}`} />;
+    return <section data-hero aria-busy className={`animate-pulse bg-surface ${short ? "h-[62vh] min-h-[26rem]" : "h-[78vh] min-h-[30rem] sm:h-[86vh]"}`} />;
   }
 
   return (
     <section
+      data-hero
       className={`relative overflow-hidden ${short ? "h-[62vh] min-h-[26rem]" : "h-[78vh] min-h-[30rem] sm:h-[86vh]"}`}
       onFocusCapture={() => setPaused(true)}
       onBlurCapture={() => setPaused(false)}

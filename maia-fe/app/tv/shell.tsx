@@ -226,14 +226,14 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
   return (
     <Layer title={profile?.name ?? "Profilo"} onClose={onClose}>
       <div className="grid gap-1">
-        <Link href="/profiles" className={item}>
+        <Link href="/profiles" onClick={onClose} className={item}>
           Cambia profilo
         </Link>
-        <Link href="/account" className={item}>
+        <Link href="/account" onClick={onClose} className={item}>
           Impostazioni account
         </Link>
         {me?.role === "ADMIN" && (
-          <Link href="/admin" className={item}>
+          <Link href="/admin" onClick={onClose} className={item}>
             Amministrazione
           </Link>
         )}
