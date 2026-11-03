@@ -1,21 +1,26 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { isTv } from "@/lib/tv-device";
+import { moveFocus, startTvMotion, withoutSlides } from "@/lib/tv-motion";
 
 // Remote-control navigation: arrow keys move focus to the nearest focusable
 // element in that direction, Enter activates it (native for links/buttons),
 // Backspace/Escape go back. Mouse and touch keep working as usual.
-// On a TV (html.tv, globals.css) the page jumps straight to the new position:
-// a smooth scroll on every key is what a slow TV stick cannot keep up with.
+// On a TV the movement is in lib/tv-motion.ts; every page starts with the focus
+// on its first item, or back where it was.
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input, select, [tabindex]:not([tabindex="-1"])';
+const NOT_SKIPPED = ':not([tabindex="-1"])';
+const FOCUSABLE = `a[href]${NOT_SKIPPED}, button:not([disabled])${NOT_SKIPPED}, input${NOT_SKIPPED}, select${NOT_SKIPPED}, [tabindex]${NOT_SKIPPED}`;
 
 type Dir = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
 
 // Holding a key on a TV: one move every this many ms, the rest are dropped.
-const REPEAT_MS = 120;
+const REPEAT_MS = 140;
+// How long a page may take to show something to focus (its data is on the way).
+const SETTLE_TRIES = 25;
+const SETTLE_MS = 200;
 // The page is laid out at this width on a TV, whatever the device reports: the
 // TV layout in globals.css is built on 1280x720.
 const TV_WIDTH = 1280;
@@ -31,27 +36,12 @@ function openLayer() {
   return Array.from(document.querySelectorAll("[data-focus-trap]")).find((el) => el.getClientRects().length > 0);
 }
 
-// Where the page goes for a focus move up or down on a TV: rows and grid cards
-// line up under the menu, so what is on screen is always whole.
-function placeOnTv(next: HTMLElement, across: boolean) {
-  next.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
-  if (across) return;
-  if (next.closest("header, [data-hero]")) {
-    window.scrollTo({ top: 0, behavior: "instant" });
-    return;
-  }
-  // Results with their own scroller (search): the row goes to its top.
-  if (next.closest(".tv-grid-search")) {
-    next.scrollIntoView({ block: "start", inline: "nearest", behavior: "instant" });
-    return;
-  }
-  const line = next.closest<HTMLElement>("[data-row], .tv-grid > *, [data-block]");
-  if (!line) {
-    next.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
-    return;
-  }
-  const menu = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
-  window.scrollBy({ top: line.getBoundingClientRect().top - menu, behavior: "instant" });
+const shown = (el: Element | null | undefined): el is HTMLElement => !!el?.isConnected && el.getClientRects().length > 0;
+
+// The first thing to land on in a page: the remote never starts from nothing.
+function firstOfPage() {
+  const main = Array.from(document.querySelectorAll("main")).find(shown);
+  return main ? candidates(main).find(shown) : undefined;
 }
 
 function nearest(from: DOMRect, dir: Dir, els: HTMLElement[], self: Element | null) {
@@ -86,6 +76,32 @@ function nearest(from: DOMRect, dir: Dir, els: HTMLElement[], self: Element | nu
 
 export default function SpatialNav() {
   const router = useRouter();
+  const pathname = usePathname();
+  // Where the focus was on each page, for coming back to it.
+  const left = useRef(new Map<string, HTMLElement>());
+
+  // A TV page always opens with the focus on something: where it was, or its first item.
+  useEffect(() => {
+    if (!isTv()) return;
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const settle = () => {
+      const active = document.activeElement;
+      if (shown(document.querySelector("[data-own-keys]")) || openLayer()) return;
+      const saved = left.current.get(pathname);
+      const here = shown(saved) ? saved : shown(active) && active !== document.body && active.closest("main") ? (active as HTMLElement) : firstOfPage();
+      if (!here) {
+        if (++tries < SETTLE_TRIES) timer = setTimeout(settle, SETTLE_MS);
+        return;
+      }
+      withoutSlides(() => {
+        moveFocus(here, false);
+        here.focus({ preventScroll: true });
+      });
+    };
+    timer = setTimeout(settle, 60);
+    return () => clearTimeout(timer);
+  }, [pathname]);
 
   useEffect(() => {
     const tv = isTv();
@@ -100,6 +116,7 @@ export default function SpatialNav() {
       fitScreen();
       head.observe(document.head, { subtree: true, childList: true, attributes: true, attributeFilter: ["content"] });
     }
+    const stopMotion = tv ? startTvMotion() : undefined;
     let lastMove = 0;
 
     function onKey(e: KeyboardEvent) {
@@ -123,17 +140,15 @@ export default function SpatialNav() {
       if (typing && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
       if (active?.closest("[data-own-keys]")) return; // e.g. the video player
 
-      if (tv && e.repeat && e.timeStamp - lastMove < REPEAT_MS) {
-        e.preventDefault();
-        return;
-      }
+      // On a TV the arrows are all ours: at the end of a page the browser would
+      // scroll by itself, and the page would no longer line up.
+      if (tv) e.preventDefault();
+      if (tv && e.repeat && e.timeStamp - lastMove < REPEAT_MS) return;
 
       const root = openLayer() ?? document.body;
       if (!active || active === document.body || !root.contains(active) || !active.matches(FOCUSABLE)) {
         e.preventDefault();
-        candidates(root)
-          .find((el) => el.getClientRects().length > 0)
-          ?.focus();
+        candidates(root).find(shown)?.focus();
         return;
       }
       // Left and right stay in the row: only its cards are measured, and the
@@ -156,15 +171,18 @@ export default function SpatialNav() {
       if (next) {
         e.preventDefault();
         lastMove = e.timeStamp;
+        if (tv) moveFocus(next, across);
         next.focus({ preventScroll: true });
-        if (tv) placeOnTv(next, across);
-        else next.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        // Saved now: by the time the page has changed, the focus is gone.
+        left.current.set(location.pathname, next);
+        if (!tv) next.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
       }
     }
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
       head.disconnect();
+      stopMotion?.();
     };
   }, [router]);
 

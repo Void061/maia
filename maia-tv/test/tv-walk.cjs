@@ -29,7 +29,7 @@ const report = { fail: 0 };
       const c = el.getBoundingClientRect();
       if (c.bottom <= bar + 1 || c.top >= H - 1 || c.right <= 1 || c.left >= W - 1) continue; // off screen
       // Clipped by its rail?
-      const rail = el.closest('.rail');
+      const rail = el.closest('.rail-clip');
       if (rail) {
         const q = rail.getBoundingClientRect();
         if (c.right <= q.left + 1 || c.left >= q.right - 1) continue; // scrolled out of the rail
@@ -72,7 +72,14 @@ const report = { fail: 0 };
       body: a === document.body,
       cut,
       path: location.pathname + location.search,
-      scrollY: Math.round(scrollY),
+      scrollY: Math.round(new DOMMatrixReadOnly(getComputedStyle(document.querySelector('[data-tv-page]') ?? document.body).transform).m42 - scrollY),
+      ring: (() => {
+        const g = document.getElementById('tv-ring');
+        if (!g || g.style.opacity === '0') return 'off';
+        const t = a?.querySelector?.('.lift') ?? a;
+        const c = t.getBoundingClientRect(), q = g.getBoundingClientRect();
+        return Math.abs(q.left + 4 - c.left) < 2 && Math.abs(q.top + 4 - c.top) < 2 && Math.abs(q.width - 8 - c.width) < 2 ? 'ok' : `fuori:${Math.round(q.left)},${Math.round(q.top)}/${Math.round(c.left)},${Math.round(c.top)}`;
+      })(),
     };
   });
 
@@ -81,8 +88,9 @@ const report = { fail: 0 };
     let last = await state();
     for (const k of keys) {
       await p.keyboard.press(k);
-      await p.waitForTimeout(110);
+      await p.waitForTimeout(280);
       const s = await state();
+      if (s.ring.startsWith('fuori')) s.cut.push(`anello ${s.ring}`);
       if (s.name !== last.name || s.scrollY !== last.scrollY || s.path !== last.path) moves++;
       if (!s.visible && !s.body) lost++;
       if (s.cut.length) { cutPresses++; sample = sample || `${k}@${s.row || s.name}: ${s.cut.slice(0, 4).join(' ')}`; }
@@ -105,6 +113,20 @@ const report = { fail: 0 };
   console.log('schermo logico', first.W, 'x', first.H, '| tv', await p.evaluate(() => document.documentElement.classList.contains('tv')));
   await p.screenshot({ path: path.join(out, 'walk-home.png') });
 
+  const firstFocus = await state();
+  const noise = await p.evaluate(() => {
+    const seen = [];
+    const sel = 'a[href]:not([tabindex="-1"]), button:not([disabled]):not([tabindex="-1"]), input:not([tabindex="-1"]), select:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
+    for (const el of document.querySelectorAll(sel)) {
+      if (!el.getClientRects().length) continue;
+      const n = (el.getAttribute('aria-label') || el.textContent || '').trim();
+      if (/cambia app|Vedi tutto|preferiti/i.test(n) || el.getAttribute('role') === 'tab') seen.push(n.slice(0, 20));
+    }
+    return seen;
+  });
+  const startOk = /Guarda/.test(firstFocus.name) && noise.length === 0;
+  if (!startOk) report.fail++;
+  console.log(`${startOk ? 'OK  ' : 'KO  '} Avvio: focus su "${firstFocus.name}", elementi inutili raggiungibili ${noise.length} ${noise.slice(0, 4)}`);
   await walk('Home giù', down(14), { shot: 'home-row' });
   await walk('Home destra', right(25), { shot: 'home-right' });
   await walk('Home sinistra', left(25));
@@ -217,7 +239,7 @@ const report = { fail: 0 };
   const seen = new Set();
   for (const k of [...down(6), ...right(3), ...up(3), ...down(4)]) {
     await p.keyboard.press(k);
-    await p.waitForTimeout(110);
+    await p.waitForTimeout(260);
     seen.add((await state()).name);
   }
   const adminMoved = seen.size;
