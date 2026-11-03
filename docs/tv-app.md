@@ -13,33 +13,37 @@ L'interfaccia resta la web app (`maia-fe`): ogni modifica al sito arriva subito 
   `MediaFastForward`, `MediaRewind` (`app/watch/[id]/player.tsx`).
 - **PC spento o rete diversa:** schermata "MAIA non è raggiungibile" con *Riprova* e
   *Cambia indirizzo*.
-- **Dimensioni:** la WebView del Fire Stick mostra MAIA a circa 960×540 px CSS (densità 2):
-  testo e schede grandi, adatti alla distanza della TV.
 - **Logo:** sorgenti in `maia-tv/art/`. `tile.svg` è l'immagine 16:9 usata sia come icona sia come
   banner: Fire TV mostra l'icona e centrava quella quadrata nel riquadro rettangolare.
   `render.cjs` la trasforma in PNG.
 
-## Velocità sul Fire Stick
+## Layout e navigazione su TV
 
-L'app si fa riconoscere con `MaiaTV/1.0` nello user agent; `components/spatial-nav.tsx` mette
-allora la classe `tv` su `<html>` (vale anche per i browser delle TV). In modalità TV:
+L'app si fa riconoscere con `MaiaTV/1.0` nello user agent; `components/spatial-nav.tsx` (con
+`lib/tv-device.ts`) mette allora la classe `tv` su `<html>` e fissa la pagina a 1280 px di larghezza:
+vale anche per i browser delle TV. Next riscrive il tag `viewport`, quindi un observer lo rimette.
 
-- il focus si sposta all'istante, senza scorrimento animato; tenendo premuto un tasto, una mossa
-  ogni 120 ms;
-- sinistra e destra restano nella riga e si fermano alla sua fine;
-- da una riga Su va alla riga sopra: il menu, fisso in alto, si raggiunge solo dalla prima;
-- niente sfocature, niente ingrandimento della card selezionata (solo un bordo bianco), righe fuori
-  schermo non disegnate (`content-visibility`). Le card orizzontali usano `thumbUrl`, non lo sfondo
-  da 1280 px.
+Regole in `app/globals.css` (`html.tv`), come su Netflix e Max:
 
-Misure sul PC con CPU rallentata 6 volte, 960x540 a densità 2, stessi tasti: lavoro del browser
-da circa 3400 a circa 1400 ms, fotogrammi sopra 50 ms da 65 a 4. Resta un blocco una tantum di
-300-450 ms lasciando il banner in alto, causa non ancora chiarita: limitare la misura alle righe
-vicine (`closeRows`) non lo ha tolto. Nessuna misura è stata fatta su un Fire Stick vero.
+- **Niente tagliato:** ogni riga contiene un numero intero di card (7 locandine o 4 riquadri),
+  due righe riempiono lo spazio sotto il menu, la riga selezionata si aggancia sotto il menu.
+- **Ricerca:** tastiera fissa a sinistra, risultati che scorrono a destra tre righe alla volta. Il
+  campo è di sola lettura, così non si apre anche la tastiera del dispositivo.
+- **Telecomando:** il focus si sposta all'istante; tenendo premuto, una mossa ogni 120 ms; sinistra
+  e destra restano nella riga; Su va alla riga sopra e raggiunge il menu solo dalla prima.
+- **Leggerezza:** niente sfocature e niente ingrandimento della card selezionata (solo un bordo
+  bianco); righe fuori schermo non disegnate (`content-visibility`); `thumbUrl` per le card.
+
+Un livello (`data-focus-trap`) conta solo se visibile: Next tiene nascoste nel DOM le pagine
+visitate, e un menu rimasto aperto lì bloccava tutti i tasti della pagina (pannello admin).
+
+**Prova:** `maia-tv/test/tv-walk.cjs` percorre home, Film, Serie, genere, scheda, ricerca e admin con
+tasti veri e dopo ogni pressione controlla card tagliate, focus perso, elementi a cavallo del menu e
+schermo vuoto. Va lanciato dopo ogni modifica alla TV, guardando anche gli screenshot: il
+controllo automatico da solo non ha visto tutti i difetti.
 
 Attenzione al minificatore CSS: `transform: none` accanto a `scale: none` diventa
-`transform: scale(1)` e perde `scale`; `backdrop-filter` accanto alla versione `-webkit-` veniva
-perso. Dopo una modifica a queste regole controllare il CSS compilato.
+`transform: scale(1)` e perde `scale`. Dopo una modifica a queste regole controllare il CSS compilato.
 
 ## Costruire e installare
 

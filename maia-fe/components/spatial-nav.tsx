@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { isTv } from "@/lib/tv-device";
 
 // Remote-control navigation: arrow keys move focus to the nearest focusable
 // element in that direction, Enter activates it (native for links/buttons),
@@ -9,30 +10,48 @@ import { useEffect } from "react";
 // On a TV (html.tv, globals.css) the page jumps straight to the new position:
 // a smooth scroll on every key is what a slow TV stick cannot keep up with.
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE = 'a[href], button:not([disabled]), input, select, [tabindex]:not([tabindex="-1"])';
 
 type Dir = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
 
 // Holding a key on a TV: one move every this many ms, the rest are dropped.
 const REPEAT_MS = 120;
-const ROWS_AROUND = 2;
-const TV_BROWSER = /MaiaTV|AFT[A-Z]|SmartTV|Tizen|Web0S/;
+// The page is laid out at this width on a TV, whatever the device reports: the
+// TV layout in globals.css is built on 1280x720.
+const TV_WIDTH = 1280;
 
 function candidates(root: Element): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE));
 }
 
-// On a TV the rows off screen are not rendered (content-visibility, globals.css)
-// and measuring one forces it: moving up or down looks only at the rows around
-// the focus, or the first move would render the whole page at once.
-function closeRows(els: HTMLElement[], active: Element) {
-  const rows = Array.from(document.querySelectorAll("main section"));
-  const at = rows.indexOf(active.closest("section") as Element);
-  const close = new Set(rows.slice(Math.max(at - ROWS_AROUND, 0), Math.max(at, 0) + ROWS_AROUND + 1));
-  return els.filter((el) => {
-    const row = el.closest("section");
-    return !row || close.has(row);
-  });
+// The open modal layer (e.g. the app switcher), which traps focus inside itself.
+// Only a visible one: Next keeps visited pages hidden in the DOM, and a layer
+// left open there would swallow every key of the page on screen.
+function openLayer() {
+  return Array.from(document.querySelectorAll("[data-focus-trap]")).find((el) => el.getClientRects().length > 0);
+}
+
+// Where the page goes for a focus move up or down on a TV: rows and grid cards
+// line up under the menu, so what is on screen is always whole.
+function placeOnTv(next: HTMLElement, across: boolean) {
+  next.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+  if (across) return;
+  if (next.closest("header, [data-hero]")) {
+    window.scrollTo({ top: 0, behavior: "instant" });
+    return;
+  }
+  // Results with their own scroller (search): the row goes to its top.
+  if (next.closest(".tv-grid-search")) {
+    next.scrollIntoView({ block: "start", inline: "nearest", behavior: "instant" });
+    return;
+  }
+  const line = next.closest<HTMLElement>("[data-row], .tv-grid > *, [data-block]");
+  if (!line) {
+    next.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+    return;
+  }
+  const menu = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+  window.scrollBy({ top: line.getBoundingClientRect().top - menu, behavior: "instant" });
 }
 
 function nearest(from: DOMRect, dir: Dir, els: HTMLElement[], self: Element | null) {
@@ -69,8 +88,18 @@ export default function SpatialNav() {
   const router = useRouter();
 
   useEffect(() => {
-    const tv = TV_BROWSER.test(navigator.userAgent);
+    const tv = isTv();
     document.documentElement.classList.toggle("tv", tv);
+    // Next writes its own viewport tag back, at any time: this one has to stay.
+    const fitScreen = () => {
+      const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+      if (meta && meta.content !== `width=${TV_WIDTH}`) meta.content = `width=${TV_WIDTH}`;
+    };
+    const head = new MutationObserver(fitScreen);
+    if (tv) {
+      fitScreen();
+      head.observe(document.head, { subtree: true, childList: true, attributes: true, attributeFilter: ["content"] });
+    }
     let lastMove = 0;
 
     function onKey(e: KeyboardEvent) {
@@ -78,7 +107,9 @@ export default function SpatialNav() {
       const typing = active instanceof HTMLInputElement && active.type !== "range";
 
       if ((e.key === "Backspace" && !typing) || e.key === "Escape") {
-        if (document.querySelector("[data-focus-trap]")) return; // the layer closes itself
+        // The layer closes itself. It may already be gone: the search keyboard
+        // handles the key first, and this is not a second Back.
+        if (e.defaultPrevented || openLayer()) return;
         e.preventDefault();
         // In fullscreen, Back/Esc leaves fullscreen first, like every player.
         if (document.fullscreenElement) {
@@ -97,8 +128,7 @@ export default function SpatialNav() {
         return;
       }
 
-      // A modal layer (e.g. the app switcher) traps focus inside itself.
-      const root = document.querySelector("[data-focus-trap]") ?? document.body;
+      const root = openLayer() ?? document.body;
       if (!active || active === document.body || !root.contains(active) || !active.matches(FOCUSABLE)) {
         e.preventDefault();
         candidates(root)
@@ -120,25 +150,22 @@ export default function SpatialNav() {
       const page = menu && !across ? pool.filter((el) => !menu.contains(el)) : pool;
       let next: HTMLElement | null = null;
       if (!(inMenu && dir === "ArrowUp")) {
-        next =
-          nearest(from, dir, across ? page : closeRows(page, active), active) ??
-          nearest(from, dir, page, active) ??
-          (dir === "ArrowUp" ? nearest(from, dir, pool, active) : null);
+        next = nearest(from, dir, page, active) ?? (dir === "ArrowUp" ? nearest(from, dir, pool, active) : null);
       }
       if ((rail || inMenu) && !next) e.preventDefault();
       if (next) {
         e.preventDefault();
         lastMove = e.timeStamp;
         next.focus({ preventScroll: true });
-        next.scrollIntoView(
-          tv
-            ? { block: across ? "nearest" : "center", inline: "nearest", behavior: "instant" }
-            : { block: "nearest", inline: "nearest", behavior: "smooth" },
-        );
+        if (tv) placeOnTv(next, across);
+        else next.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
       }
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      head.disconnect();
+    };
   }, [router]);
 
   return null;

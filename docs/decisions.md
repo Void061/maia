@@ -375,3 +375,8 @@ effetto scorrimento del browser, icona piccola). Su TV il focus si sposta senza 
 selezionata non si ingrandisce più: si perde un effetto per guadagnare fluidità. Corretto anche Su,
 che finiva a pressioni alterne sul menu fisso. Icona 16:9 al posto di quella quadrata. Dettagli e
 misure in docs/tv-app.md.
+
+**Layout TV su griglia fissa 1280×720** (segnalato dall'utente sulla TV: tutto gigante, immagini
+tagliate, pannello admin bloccato, due tastiere; richiesta: muoversi come su Netflix o HBO). La pagina
+su TV è sempre larga 1280 px, con righe di card intere agganciate sotto il menu. Ogni modifica alla
+TV si prova con `maia-tv/test/tv-walk.cjs` su tutte le schermate. Dettagli in docs/tv-app.md.

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Poster from "@/components/poster";
 import { useTitles } from "@/lib/tv";
+import { isTv } from "@/lib/tv-device";
 
 const KEYS = "abcdefghijklmnopqrstuvwxyz1234567890".split("");
 
@@ -25,6 +26,9 @@ export default function Search() {
   const input = useRef<HTMLInputElement>(null);
   const firstKey = useRef<HTMLButtonElement>(null);
   const focusKeys = useRef(false);
+  // On a TV the field is read-only, or the device's keyboard opens on top of this one.
+  const [tv, setTv] = useState(false);
+  useEffect(() => setTv(isTv()), []);
   useEffect(() => {
     // Opened from the remote: straight to the letters.
     if (keyboard && focusKeys.current) firstKey.current?.focus();
@@ -36,7 +40,7 @@ export default function Search() {
   };
 
   return (
-    <div className="night min-h-dvh px-4 pt-20 sm:px-10 md:pt-28 lg:px-16">
+    <div className="tv-search night min-h-dvh px-4 pt-20 sm:px-10 md:pt-28 lg:px-16">
       <h1 className="font-display text-4xl font-extrabold sm:text-5xl">Cerca</h1>
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,26rem)_1fr]">
         <div
@@ -59,6 +63,8 @@ export default function Search() {
           <input
             ref={input}
             value={q}
+            readOnly={tv}
+            inputMode={tv ? "none" : undefined}
             onChange={(e) => setQ(e.target.value)}
             onClick={() => setKeyboard(true)}
             onKeyDown={(e) => {
@@ -101,9 +107,9 @@ export default function Search() {
           </div>
           )}
         </div>
-        <div>
+        <div className="tv-results">
           <h2 className="text-muted">{query ? (found.isPending ? "Cerco…" : `${found.data?.total ?? 0} risultati`) : "Suggeriti"}</h2>
-          <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-6 pb-16 sm:grid-cols-4 sm:gap-x-6 xl:grid-cols-5">
+          <div className="tv-grid tv-grid-search mt-4 grid grid-cols-3 gap-x-3 gap-y-6 pb-16 sm:grid-cols-4 sm:gap-x-6 xl:grid-cols-5">
             {results.map((t, i) => (
               // The first two rows are on screen at once (the keyboard is closed): load them eagerly.
               <Poster key={t.id} title={t} eager={i < 10} />

@@ -85,6 +85,9 @@ class MainActivity : Activity() {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
+            // MAIA lays itself out at 1280 px (components/spatial-nav.tsx) and fills the screen.
+            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
             settings.setSupportZoom(false)
             settings.builtInZoomControls = false
             settings.displayZoomControls = false

@@ -12,7 +12,7 @@ export default function Rail({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mt-4 sm:mt-6">
+    <section data-row className="mt-4 sm:mt-6">
       <div className="flex items-baseline justify-between px-4 sm:px-10 lg:px-16">
         <h2 className="font-display text-xl font-bold sm:text-2xl">{title}</h2>
         {href && (
