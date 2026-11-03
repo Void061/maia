@@ -292,6 +292,22 @@ export interface paths {
         patch: operations["AdminServicesController_setBaseUrl"];
         trace?: never;
     };
+    "/admin/services/{id}/assets-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["AdminServicesController_setAssetsUrl"];
+        trace?: never;
+    };
     "/admin/services/{id}": {
         parameters: {
             query?: never;
@@ -667,6 +683,10 @@ export interface components {
             baseUrl?: string | null;
             /** @description Catalog sources only: the default address */
             defaultBaseUrl?: string | null;
+            /** @description Where its pictures are read from (in use); null = no pictures */
+            assetsUrl?: string | null;
+            /** @description The pictures address used when none is set */
+            defaultAssetsUrl?: string | null;
             /** @description Catalog sources only */
             sync?: components["schemas"]["SyncInfoDto"] | null;
         };
@@ -752,8 +772,18 @@ export interface components {
         };
         BaseUrlResultDto: {
             baseUrl: string;
-            /** @description Saved links (videos, pictures) moved to the new address */
+            /** @description Saved video links moved to the new address */
             moved: number;
+        };
+        AssetsUrlDto: {
+            /**
+             * @description null = back to the default
+             * @example https://image.tmdb.org/t/p
+             */
+            assetsUrl?: string | null;
+        };
+        AssetsUrlResultDto: {
+            assetsUrl: string;
         };
         SwitchDto: {
             enabled: boolean;
@@ -1562,6 +1592,58 @@ export interface operations {
                 };
             };
             /** @description INVALID_BASE_URL */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description NOT_ADMIN */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+            /** @description SERVICE_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDto"];
+                };
+            };
+        };
+    };
+    AdminServicesController_setAssetsUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetsUrlDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetsUrlResultDto"];
+                };
+            };
+            /** @description INVALID_ASSETS_URL */
             400: {
                 headers: {
                     [name: string]: unknown;

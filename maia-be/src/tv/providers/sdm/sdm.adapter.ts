@@ -53,6 +53,8 @@ const CONFIG = {
     movie: '/{lang}/watch/{id}',
     season: '/season-{number}',
     episode: '/{lang}/iframe/{title_id}?episode_id={episode_id}',
+    // On the pictures address, not the server's (assets.ts).
+    image: '/images/{filename}',
   },
 
   // Turns a title's or episode's URL into the player's: [search, replace]. null = as it is.
@@ -440,7 +442,7 @@ export class SdmAdapter implements ProviderAdapter {
 
     const titleImages = Array.isArray(rec.images) ? (rec.images as Json[]) : [];
 
-    const posterUrl = sdmImage(
+    const posterPath = sdmImage(
       titleImages.find((img) => img.type === 'poster')?.filename,
     );
     const base = {
@@ -452,8 +454,8 @@ export class SdmAdapter implements ProviderAdapter {
         .map((g) => String(g[F.genreName] ?? ''))
         .filter(Boolean),
       description: String(rec[F.plot] ?? ''),
-      posterUrl,
-      backdropUrl: null,
+      posterPath,
+      backdropPath: null,
       extras: [],
     };
     if (kind === 'movie')
@@ -491,9 +493,10 @@ function absolute(link: string): string {
   return `${host()}${link.startsWith('/') ? '' : '/'}${link}`;
 }
 
+// A picture's path on SDM's pictures address (admin panel, assets.ts).
 function sdmImage(filename: unknown): string | null {
   if (typeof filename !== 'string' || !filename) return null;
-  return `https://cdn.streamingcommunityz.day/images/${filename}`;
+  return CONFIG.paths.image.replace('{filename}', encodeURIComponent(filename));
 }
 
 function episode(
@@ -510,7 +513,7 @@ function episode(
     episode: toNumber(ep[F.epNumber]),
     title: String(ep[F.epName] ?? '').trim(),
     airDate: null,
-    imageUrl: sdmImage(image),
+    imagePath: sdmImage(image),
     ...video(
       buildUrl('episode', {
         title_id: titleId,

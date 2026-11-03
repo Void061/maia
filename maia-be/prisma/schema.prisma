@@ -145,8 +145,12 @@ model Title {
   /// Unique per kind when known: the "codice fiscale" every service hooks onto.
   tmdbId       Int?      @map("tmdb_id")
   overview     String    @default("")
-  posterUrl    String?   @map("poster_url")
-  backdropUrl  String?   @map("backdrop_url")
+  /// Pictures as a path on the service named in *Source (asset address in
+  /// the admin panel, assets.ts); Source null = the path is a full URL.
+  posterPath     String?   @map("poster_path")
+  posterSource   String?   @map("poster_source")
+  backdropPath   String?   @map("backdrop_path")
+  backdropSource String?   @map("backdrop_source")
   genres       String[]
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
@@ -182,8 +186,10 @@ model Episode {
   airDate     DateTime? @map("air_date") @db.Date
   /// Built from the service's data because TMDB does not have it (yet).
   provisional Boolean   @default(false)
-  /// The episode's own picture from the service (a frame of it), full size.
-  imageUrl    String?   @map("image_url")
+  /// The episode's own picture from the service (a frame of it), full size:
+  /// a path on imageSource (assets.ts).
+  imagePath   String?   @map("image_path")
+  imageSource String?   @map("image_source")
 
   season  Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   sources Source[]
@@ -302,8 +308,9 @@ model Extra {
   expiresAt   DateTime? @map("expires_at")
   available   Boolean   @default(true)
   lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
-  /// The clip's own picture from the service, full size.
-  imageUrl    String?   @map("image_url")
+  /// The clip's own picture from the service, full size: a path on imageSource (assets.ts).
+  imagePath   String?   @map("image_path")
+  imageSource String?   @map("image_source")
 
   group ExtraGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
@@ -334,6 +341,9 @@ model ProviderHealth {
   /// Catalog sources only: the address set in the admin panel; null = the
   /// default in services.ts.
   baseUrl       String?        @map("base_url")
+  /// Where the service's pictures are read from (admin panel); null = the
+  /// default in services.ts, or baseUrl.
+  assetsUrl     String?        @map("assets_url")
   /// Catalog sources only, MANUAL by default. AUTO: full pass every day at syncAt (Rome time,
   /// "HH:MM") and checks every syncEveryHours hours (null = none in between).
   syncMode       SyncMode  @default(MANUAL) @map("sync_mode")

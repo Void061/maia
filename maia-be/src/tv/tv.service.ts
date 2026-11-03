@@ -4,7 +4,7 @@ import { Prisma, type TitleKind } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CatalogService } from './catalog/catalog.service.js';
 import { presentExtras } from './extras.js';
-import { baseUrl } from './providers/base-urls.js';
+import { assetUrl } from './providers/assets.js';
 import type {
   GenreDto,
   HomeDto,
@@ -38,25 +38,15 @@ const CARD = {
   year: true,
   genres: true,
   overview: true,
-  posterUrl: true,
-  backdropUrl: true,
+  posterPath: true,
+  posterSource: true,
+  backdropPath: true,
+  backdropSource: true,
   sources: { where: PLAYABLE, select: { durationSec: true }, take: 1 },
   _count: { select: { seasons: true } },
 } satisfies Prisma.TitleSelect;
 
 type CardRow = Prisma.TitleGetPayload<{ select: typeof CARD }>;
-
-// RaiPlay artwork is stored at full size (a 1536x2048 poster is 0.5-1 MB);
-// its image service crops it to the size the cards need (~45 KB). At the
-// RaiPlay address in use (admin panel).
-// Episode and extra thumbnails (cards up to ~320 px wide, x2 for sharp screens).
-const THUMB = '640x360';
-const sized = (url: string | null, size: string) => {
-  const rai = `${baseUrl('raiplay')}/`;
-  return url?.startsWith(rai) && !url.startsWith(`${rai}cropgd/`)
-    ? `${rai}cropgd/${size}/${url.slice(rai.length)}`
-    : url;
-};
 
 const toCard = (t: CardRow): TitleCardDto => ({
   id: t.id,
@@ -65,8 +55,8 @@ const toCard = (t: CardRow): TitleCardDto => ({
   year: t.year,
   genres: t.genres,
   overview: t.overview,
-  posterUrl: sized(t.posterUrl, '384x512'),
-  backdropUrl: sized(t.backdropUrl, '1280x720'),
+  posterUrl: assetUrl(t.posterPath, t.posterSource, 'poster'),
+  backdropUrl: assetUrl(t.backdropPath, t.backdropSource, 'backdrop'),
   minutes:
     t.kind === 'MOVIE' && t.sources[0]?.durationSec
       ? Math.round(t.sources[0].durationSec / 60)
@@ -201,7 +191,7 @@ export class TvService {
   private async loadHome(): Promise<HomeDto> {
     const featured = await this.cards(
       {
-        backdropUrl: { not: null },
+        backdropPath: { not: null },
         tmdbId: { not: null },
         overview: { not: '' },
       },
@@ -298,7 +288,8 @@ export class TvService {
                 number: true,
                 name: true,
                 airDate: true,
-                imageUrl: true,
+                imagePath: true,
+                imageSource: true,
                 sources: {
                   where: PLAYABLE,
                   select: { durationSec: true },
@@ -322,7 +313,8 @@ export class TvService {
                 id: true,
                 name: true,
                 durationSec: true,
-                imageUrl: true,
+                imagePath: true,
+                imageSource: true,
               },
             },
           },
@@ -346,7 +338,7 @@ export class TvService {
           name: e.name,
           airDate: e.airDate ? e.airDate.toISOString().slice(0, 10) : null,
           minutes: minutes(e.sources[0]?.durationSec),
-          imageUrl: sized(e.imageUrl, THUMB),
+          imageUrl: assetUrl(e.imagePath, e.imageSource, 'thumb'),
         })),
       }));
     const similar = t.genres.length
@@ -378,7 +370,7 @@ export class TvService {
               id: x.id,
               name: x.name,
               minutes: minutes(x.durationSec),
-              imageUrl: sized(x.imageUrl, THUMB),
+              imageUrl: assetUrl(x.imagePath, x.imageSource, 'thumb'),
             })),
           })),
         t.name,

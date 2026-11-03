@@ -120,8 +120,18 @@ export default function ServicesPanel({ enabled }: { enabled: boolean }) {
                 <AddressSection
                   id={s.id}
                   name={s.name}
+                  field="baseUrl"
                   current={s.baseUrl}
                   fallback={s.defaultBaseUrl ?? null}
+                />
+              )}
+              {s.assetsUrl && (
+                <AddressSection
+                  id={s.id}
+                  name={s.name}
+                  field="assetsUrl"
+                  current={s.assetsUrl}
+                  fallback={s.defaultAssetsUrl ?? null}
                 />
               )}
               {s.sync && (
@@ -140,29 +150,46 @@ export default function ServicesPanel({ enabled }: { enabled: boolean }) {
   );
 }
 
-// The address a catalog source is read from (e.g. the home server's IP). The
-// links already saved move to the new address; nothing is re-read.
+const ADDRESS = {
+  baseUrl: {
+    label: "Indirizzo",
+    path: "base-url",
+    hint: "Cambiandolo, i video già nel catalogo passano al nuovo indirizzo.",
+  },
+  assetsUrl: {
+    label: "Indirizzo delle immagini",
+    path: "assets-url",
+    hint: "Il catalogo salva solo il percorso delle immagini: cambiandolo, passano tutte al nuovo indirizzo.",
+  },
+} as const;
+
+// An address of a service, changeable here: where a catalog source is read
+// from (e.g. the home server's IP; saved video links move to it, nothing is
+// re-read), or where its pictures are (the catalog keeps only their path).
 function AddressSection({
   id,
   name,
+  field,
   current,
   fallback,
 }: {
   id: string;
   name: string;
+  field: keyof typeof ADDRESS;
   current: string;
   fallback: string | null;
 }) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState(current);
+  const { label, path, hint } = ADDRESS[field];
   const save = useMutation({
-    mutationFn: (baseUrl: string | null) =>
-      api<{ baseUrl: string; moved: number }>(`/admin/services/${id}/base-url`, {
+    mutationFn: (url: string | null) =>
+      api<{ baseUrl?: string; assetsUrl?: string; moved?: number }>(`/admin/services/${id}/${path}`, {
         method: "PATCH",
-        body: { baseUrl },
+        body: { [field]: url },
       }),
     onSuccess: (res) => {
-      setDraft(res.baseUrl);
+      setDraft(res[field] ?? current);
       return qc.invalidateQueries({ queryKey: ["admin", "services"] });
     },
   });
@@ -171,7 +198,7 @@ function AddressSection({
   return (
     <div className="mt-4 border-t border-white/10 pt-4">
       <label className="block">
-        <span className="font-semibold">Indirizzo</span>
+        <span className="font-semibold">{label}</span>
         <input
           type="url"
           inputMode="url"
@@ -179,7 +206,7 @@ function AddressSection({
           autoComplete="off"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          aria-label={`Indirizzo di ${name}`}
+          aria-label={`${label} di ${name}`}
           className="focusable mt-2 block h-11 w-full rounded-xl bg-white/[0.08] px-3 font-mono text-base [color-scheme:dark]"
         />
       </label>
@@ -213,7 +240,7 @@ function AddressSection({
         <span className="text-sm text-faint">
           {save.data
             ? `Salvato${save.data.moved ? `: ${save.data.moved} link spostati sul nuovo indirizzo` : ""}.`
-            : "Cambiandolo, i video e le immagini già nel catalogo passano al nuovo indirizzo."}
+            : hint}
         </span>
       </div>
       {save.error && (

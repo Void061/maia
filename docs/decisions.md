@@ -340,3 +340,19 @@ chiede più il link a `GET /tv/playback/:itemId` e non passa a un'altra fonte qu
 **Tolta la basic auth dal link ngrok** (chiesto dall'utente: dava problemi, anche con la prova del
 proxy video dal telefono). `npm run remote` ora inoltra direttamente a `next dev`; resta il login
 di MAIA. Corregge la decisione del 2026-10-30.
+
+**Immagini salvate come percorso, indirizzo delle immagini nel pannello admin** (branch
+`feature/asset-paths`, chiesto dall'utente). Nel database non c'è più il link intero di locandine,
+sfondi e miniature di episodi ed extra, ma il percorso più il servizio da cui viene
+(`poster_path`/`poster_source`, `backdrop_path`/`backdrop_source`, `image_path`/`image_source`).
+maia-be costruisce il link quando risponde (`assets.ts`), con l'indirizzo delle immagini del servizio
+e la misura giusta (RaiPlay `cropgd/…`, TMDB `w500`/`w1280`/`w780`). L'indirizzo delle immagini si
+cambia dal pannello admin (scheda Servizi, `provider_health.assets_url`): predefinito in
+`services.ts` (`assetsUrl`), altrimenti l'indirizzo della fonte. Cambiarlo non tocca il database.
+Cambiare l'indirizzo della fonte sposta ancora solo i link dei video. La migrazione
+`20261103210000_asset_paths` converte i dati esistenti (TMDB e RaiPlay); i link con
+`source` vuoto restano link interi e passano così come sono. Niente resync: la migrazione parte
+da sola all'avvio del container. Su richiesta dell'utente tolto il CDN di un sito esterno scritto
+nell'adapter SDM: le sue immagini ora sono percorsi (`CONFIG.paths.image`) sull'indirizzo delle
+immagini di SDM, e la migrazione `20261103220000_sdm_image_paths` toglie l'host dai link
+interi già salvati e tiene il percorso (sorgente `sdm`).
