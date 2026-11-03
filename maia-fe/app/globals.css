@@ -101,16 +101,54 @@ body {
   transform: scale(0.97);
 }
 
-/* TV sticks (class set by components/spatial-nav.tsx): little CPU and GPU, and
-   most of a move's cost is repainting (docs/tv-app.md, measured). No blur behind
-   the menu; the focused item does not grow, a scaled card recomposes its whole
-   row at every move: it only gets a sharp white edge. Rows off screen are not
-   rendered at all. */
+/* TV (class set by components/spatial-nav.tsx), like Netflix and Max. The page
+   is 1280x720 on a fixed grid, so nothing on screen is ever cut: a row holds a
+   whole number of cards, two rows fill the space under the menu, the focused
+   row lines up under it. Sizes are even whole pixels: a 1080p screen shows them
+   at x1.5 on exact pixels, fractions blur the rounded corners.
+   Movement is only ever a transform (lib/tv-motion.ts): the GPU slides layers
+   without repainting. No blur, no shadows, no cards growing. */
+html.tv {
+  --bar: 80px;
+  --row: 320px;
+  --pad: 66px;
+  --gap: 14px;
+  --poster: 152px;
+  --poster-h: 228px;
+  --tile: 272px;
+  --tile-h: 152px;
+  --glide: 200ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
 html.tv * {
   backdrop-filter: none !important;
 }
 html.tv .glass {
   background: rgb(30 30 32 / 0.96);
+}
+html.tv .tv-none {
+  display: none;
+}
+html.tv.tv-still *,
+html.tv.tv-still #tv-ring {
+  transition: none !important;
+}
+
+/* Focus: the ring is one element above the whole page. */
+#tv-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  box-sizing: border-box;
+  border: 3px solid #ffffff;
+  pointer-events: none;
+  will-change: transform;
+  transition:
+    transform var(--glide),
+    width var(--glide),
+    height var(--glide),
+    border-radius var(--glide),
+    opacity 120ms ease-out;
 }
 html.tv .focusable,
 html.tv .group:focus-visible .lift {
@@ -122,42 +160,47 @@ html.tv .group:focus-visible .lift {
 html.tv .lift {
   scale: 1 !important;
 }
-html.tv [data-row] {
-  content-visibility: auto;
-  contain-intrinsic-size: auto var(--row);
-}
 html.tv .focusable:focus-visible,
 html.tv .lift:focus-visible,
-html.tv .group:focus-visible .lift {
-  box-shadow: 0 0 0 3px #ffffff !important;
-}
+html.tv .group:focus-visible .lift,
 html.tv .pill-focus:focus-visible {
   box-shadow: none !important;
 }
+html.tv .pill-focus {
+  transition: background-color var(--glide), color var(--glide) !important;
+}
+/* In the menu the grey pill is the focus: it slides, the tabs stay as they are. */
+html.tv header nav .pill-focus:focus-visible {
+  background: transparent;
+  color: #ffffff;
+}
+/* A card keeps its shape on black, even where its picture fades to black. */
+html.tv .lift {
+  background: #141416;
+}
+html.tv .lift::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  pointer-events: none;
+}
 
-/* TV layout, like Netflix and Max: the page is 1280x720 (spatial-nav.tsx) and
-   built on a fixed grid, so nothing on screen is ever cut. A row holds a whole
-   number of cards (7 posters or 4 tiles), two rows fill the space under the
-   menu, and the focused row lines up under it. */
-html.tv {
-  --bar: 80px;
-  --pad: 64px;
-  --gap: 16px;
-  --ring: 6px;
-  --row: calc((100vh - var(--bar)) / 2);
-  --poster: calc((100vw - 2 * var(--pad) - 6 * var(--gap)) / 7);
-  --tile: calc((100vw - 2 * var(--pad) - 3 * var(--gap)) / 4);
+/* The page and the rows slide. */
+html.tv [data-tv-page],
+html.tv .rail {
+  transition: transform var(--glide);
+  will-change: transform;
 }
-html.tv .tv-none {
-  display: none;
+html.tv header {
+  transition: background-color var(--glide);
 }
-html.tv header[class*="bg-black"] {
+html.tv[data-tv-scrolled] header {
   background: #000000;
 }
-/* Below the menu a block fills the screen, so it can reach its place. */
-html.tv [data-block] {
-  min-height: calc(100vh - var(--bar));
-  padding-bottom: 0;
+html.tv header > div {
+  padding-inline: var(--pad);
 }
 html.tv [data-row] {
   height: var(--row);
@@ -173,22 +216,33 @@ html.tv [data-row] > h2,
 html.tv [data-row] > div:first-child {
   padding-inline: var(--pad);
 }
-/* The rail is as wide as the cards plus room for the focus edge, which is
-   narrower than the gap: the card beyond the edge never shows. */
+html.tv [data-row] > .rail-clip {
+  padding-inline: 0;
+}
+html.tv .rail-clip {
+  margin-top: 8px;
+  margin-inline: var(--pad);
+  overflow: hidden;
+}
+html.tv [data-block] .rail-clip {
+  margin-inline: 0;
+}
 html.tv .rail {
   gap: var(--gap);
-  margin-inline: calc(var(--pad) - var(--ring));
-  padding: var(--ring);
-  scroll-padding-inline: var(--ring);
-}
-html.tv [data-block] .rail {
-  margin-inline: calc(-1 * var(--ring));
+  margin: 0;
+  padding: 0;
+  overflow: visible;
 }
 html.tv .rail > .tv-poster {
   width: var(--poster);
 }
 html.tv .rail > .tv-tile {
   width: var(--tile);
+  margin-right: 6px;
+}
+html.tv .tv-tile > span:first-child {
+  height: var(--tile-h);
+  aspect-ratio: auto;
 }
 html.tv .rail > .tv-lead {
   width: calc(3 * var(--poster) + 2 * var(--gap));
@@ -214,14 +268,21 @@ html.tv .tv-tile > span:not(:first-child) {
 html.tv .tv-tile > span:nth-child(2) {
   margin-top: 8px;
 }
+
+/* Below the menu a block fills the screen, so it can reach its place. */
+html.tv [data-block] {
+  min-height: calc(100vh - var(--bar));
+  padding-inline: var(--pad);
+  padding-bottom: 0;
+}
 html.tv .tv-grid {
   grid-template-columns: repeat(7, var(--poster));
   column-gap: var(--gap);
-  row-gap: calc(var(--row) - 1.5 * var(--poster));
+  row-gap: calc(var(--row) - var(--poster-h));
   padding-bottom: var(--row);
 }
-/* Search, like Netflix: the keyboard stays on the left, the page does not
-   move, the results scroll on their own, three whole rows at a time. */
+/* Search: the keyboard stays on the left, the page does not move, the results
+   scroll on their own, three whole rows at a time. */
 html.tv .tv-search {
   height: 100vh;
   min-height: 0;
@@ -248,10 +309,10 @@ html.tv .tv-grid-search {
   flex: 1;
   min-height: 0;
   margin-top: 8px;
-  padding: var(--ring);
+  padding: 6px;
   overflow-y: auto;
   scrollbar-width: none;
-  scroll-padding-top: var(--ring);
+  scroll-padding-top: 6px;
   align-content: start;
   grid-template-columns: repeat(5, 120px);
   grid-auto-rows: 180px;
@@ -261,6 +322,7 @@ html.tv .tv-grid-search {
 html.tv .tv-grid-search .font-display {
   font-size: 0.8rem;
 }
+
 /* Hero: on the home it fills the menu and one row, the first row comes right
    under it; on a title page it leaves room for the tabs only. */
 html.tv [data-hero] {
@@ -302,10 +364,6 @@ html.tv [data-hero] .mt-8 {
 html.tv [data-hero] a {
   height: 44px;
   font-size: 1rem;
-}
-html.tv [data-hero] button[aria-label="Aggiungi ai preferiti"] {
-  width: 44px;
-  height: 44px;
 }
 
 @media (prefers-reduced-motion: reduce) {

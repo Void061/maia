@@ -13,9 +13,10 @@ L'interfaccia resta la web app (`maia-fe`): ogni modifica al sito arriva subito 
   `MediaFastForward`, `MediaRewind` (`app/watch/[id]/player.tsx`).
 - **PC spento o rete diversa:** schermata "MAIA non è raggiungibile" con *Riprova* e
   *Cambia indirizzo*.
-- **Logo:** sorgenti in `maia-tv/art/`. `tile.svg` è l'immagine 16:9 usata sia come icona sia come
-  banner: Fire TV mostra l'icona e centrava quella quadrata nel riquadro rettangolare.
-  `render.cjs` la trasforma in PNG.
+- **Logo:** sorgenti in `maia-tv/art/`. `tile.svg` è l'immagine 16:9, `render.cjs` la trasforma in PNG.
+  Per le app installate a mano Fire TV ignora `android:banner` e mostra `android:icon` dell'activity:
+  lì va il PNG 16:9 in cartelle per densità (`drawable-xhdpi` 320×180 … `xxxhdpi` 640×360), non in
+  `nodpi`; l'icona dell'applicazione resta quadrata.
 
 ## Layout e navigazione su TV
 
@@ -31,8 +32,15 @@ Regole in `app/globals.css` (`html.tv`), come su Netflix e Max:
   campo è di sola lettura, così non si apre anche la tastiera del dispositivo.
 - **Telecomando:** il focus si sposta all'istante; tenendo premuto, una mossa ogni 120 ms; sinistra
   e destra restano nella riga; Su va alla riga sopra e raggiunge il menu solo dalla prima.
-- **Leggerezza:** niente sfocature e niente ingrandimento della card selezionata (solo un bordo
-  bianco); righe fuori schermo non disegnate (`content-visibility`); `thumbUrl` per le card.
+- **Movimento (`lib/tv-motion.ts`):** solo `transform`, che la scheda grafica sposta senza ridisegnare
+  la pagina. Righe e pagina scivolano invece di scorrere, e un unico riquadro di selezione sopra
+  tutto (`#tv-ring`) scivola sulla card: nessuna riga può tagliarlo. Nel menu scivola la pillola grigia.
+- **Leggerezza:** niente sfocature, niente ombre, niente ingrandimento della card; misure intere
+  e pari in pixel (a x1,5 su 1080p cadono su pixel esatti, i decimali sporcano gli angoli);
+  `thumbUrl` per le card. Niente `content-visibility`: renderizzava le righe tutte insieme al primo
+  movimento, un blocco di circa 400 ms.
+- **Focus:** ogni pagina si apre con il focus sul primo elemento utile, o dove era tornando indietro.
+  Logo (con una sola app attiva), pallini del carosello, "+" e "Vedi tutto" non si raggiungono.
 
 **Player su TV**, come Netflix (`app/watch/[id]/player.tsx`): sull'immagine sinistra e destra spostano
 il video di 10 secondi, OK mette in pausa, Giù entra nella fila dei pulsanti; lì sinistra e destra

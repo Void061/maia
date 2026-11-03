@@ -69,7 +69,7 @@ export default function Hero({
           </ButtonLink>
           <button
             aria-label="Aggiungi ai preferiti"
-            className="focusable pill-focus glass grid size-12 shrink-0 place-items-center rounded-full sm:size-14"
+            className="tv-none focusable pill-focus glass grid size-12 shrink-0 place-items-center rounded-full sm:size-14"
           >
             <PlusIcon />
           </button>
@@ -82,8 +82,9 @@ export default function Hero({
                 role="tab"
                 aria-selected={i === slide % items.length}
                 aria-label={t.name}
+                // Not for the remote: the carousel goes on its own.
+                tabIndex={-1}
                 onClick={() => setSlide(i)}
-                onFocus={() => setSlide(i)}
                 className="focusable h-2 w-2 rounded-full bg-white/35 transition-all aria-selected:w-8 aria-selected:bg-white"
               />
             ))}

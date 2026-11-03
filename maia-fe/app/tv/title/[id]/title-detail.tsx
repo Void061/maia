@@ -83,7 +83,7 @@ function TitleDetail({ title }: { title: Detail }) {
             </Link>
             <button
               aria-label="Aggiungi ai preferiti"
-              className="focusable pill-focus glass grid size-12 shrink-0 place-items-center rounded-full sm:size-14"
+              className="tv-none focusable pill-focus glass grid size-12 shrink-0 place-items-center rounded-full sm:size-14"
             >
               <PlusIcon />
             </button>
@@ -125,6 +125,7 @@ function TitleDetail({ title }: { title: Detail }) {
         )}
 
         {tab === "episodi" && (
+          <div className="rail-clip">
           <div className="rail -mx-4 mt-4 flex gap-5 overflow-x-auto px-4 pb-6 pt-4 sm:mx-0 sm:px-0">
             {episodes.map((ep, i) => (
               <Link key={ep.id} href={`/watch/${title.id}?ep=${ep.id}`} className="tv-tile group block w-64 shrink-0 outline-none sm:w-80">
@@ -142,6 +143,7 @@ function TitleDetail({ title }: { title: Detail }) {
               </Link>
             ))}
           </div>
+          </div>
         )}
 
         {tab === "extra" &&
@@ -151,6 +153,7 @@ function TitleDetail({ title }: { title: Detail }) {
                 <h3 className="text-base font-semibold text-muted">
                   {g.label.toLowerCase().startsWith(extraKind[g.kind].toLowerCase()) ? g.label : `${extraKind[g.kind]} · ${g.label}`}
                 </h3>
+                <div className="rail-clip">
                 <div className="rail -mx-4 flex gap-5 overflow-x-auto px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
                   {g.items.map((x) => (
                     <Link key={x.id} href={`/watch/${title.id}?extra=${x.id}`} className="tv-tile group block w-56 shrink-0 outline-none sm:w-64">
@@ -165,6 +168,7 @@ function TitleDetail({ title }: { title: Detail }) {
                       <span className="mt-2 line-clamp-2 text-sm font-semibold text-label">{x.name}</span>
                     </Link>
                   ))}
+                </div>
                 </div>
               </div>
             ))

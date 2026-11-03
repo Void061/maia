@@ -46,6 +46,18 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const multipleApps = apps.length > 1;
   const isActive = (href: string) => (href === "/tv" ? pathname === "/tv" : pathname.startsWith(href));
 
+  const tabsRef = useRef<HTMLElement>(null);
+  const [pill, setTabPill] = useState<{ x: number; w: number; focus: boolean } | null>(null);
+  const currentTab = () => tabsRef.current?.querySelector<HTMLElement>('[aria-current="page"]') ?? null;
+  const setPill = (el: Element | null) => {
+    if (el instanceof HTMLElement) setTabPill({ x: el.offsetLeft, w: el.offsetWidth, focus: document.activeElement === el });
+    else setTabPill(null);
+  };
+  useEffect(() => {
+    const tab = tabsRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    setTabPill(tab ? { x: tab.offsetLeft, w: tab.offsetWidth, focus: false } : null);
+  }, [pathname]);
+
   // The bar is clear over the hero and turns opaque once the page scrolls.
   // On phones both bars slide away while scrolling down and return as soon as
   // the user scrolls up (Netflix/YouTube/X). Small jitters are ignored.
@@ -74,7 +86,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       >
         <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-10 md:h-20">
           <button
-            onClick={() => multipleApps && setLayer("apps")}
+            onClick={() => setLayer("apps")}
+            // With one working app there is nothing to switch to: the remote skips it.
+            disabled={apps.filter((a) => a.enabled).length < 2}
             className="focusable flex items-center gap-2 rounded-full px-3 py-1.5"
             aria-label="MAIA TV, cambia app"
           >
@@ -83,13 +97,25 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           </button>
 
           {/* Tabs: TV, desktop, tablet. */}
-          <nav aria-label="Menu principale" className="glass hidden items-center gap-1 rounded-full p-1.5 md:flex">
+          <nav
+            ref={tabsRef}
+            aria-label="Menu principale"
+            className="glass relative hidden items-center gap-1 rounded-full p-1.5 md:flex"
+            onFocus={(e) => setPill(e.target)}
+            onBlur={() => setPill(currentTab())}
+          >
+            {/* The grey pill slides to the tab in focus, and back to the page's own. */}
+            <span
+              aria-hidden
+              className="tab-pill absolute inset-y-1.5 left-0 rounded-full bg-white/15 transition-[transform,width,opacity,background-color] duration-200 ease-out"
+              style={pill ? { width: pill.w, transform: `translateX(${pill.x}px)`, backgroundColor: pill.focus ? "rgb(255 255 255 / 0.3)" : undefined } : { opacity: 0 }}
+            />
             {nav.map(({ href, label }) => (
               <Link
                 key={href}
                 href={href}
                 aria-current={isActive(href) ? "page" : undefined}
-                className="focusable pill-focus rounded-full px-5 py-2 text-base font-medium text-muted aria-[current=page]:bg-white/15 aria-[current=page]:text-label"
+                className="focusable pill-focus relative rounded-full px-5 py-2 text-base font-medium text-muted aria-[current=page]:text-label"
               >
                 {label}
               </Link>
@@ -138,7 +164,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         ))}
       </nav>
 
-      <main className="pb-24 md:pb-0">{children}</main>
+      <main className="pb-24 md:pb-0">
+        <div data-tv-page>{children}</div>
+      </main>
 
       {layer === "apps" && <AppSwitcher onClose={() => setLayer(null)} />}
       {layer === "profile" && <ProfileMenu onClose={() => setLayer(null)} />}

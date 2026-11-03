@@ -21,7 +21,9 @@ export default function Rail({
           </Link>
         )}
       </div>
-      <div className="rail relative flex gap-4 overflow-x-auto px-4 pb-4 pt-4 sm:gap-6 sm:px-10 sm:pb-6 lg:px-16">{children}</div>
+      <div className="rail-clip">
+        <div className="rail relative flex gap-4 overflow-x-auto px-4 pb-4 pt-4 sm:gap-6 sm:px-10 sm:pb-6 lg:px-16">{children}</div>
+      </div>
     </section>
   );
 }
