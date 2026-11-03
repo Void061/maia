@@ -352,5 +352,7 @@ cambia dal pannello admin (scheda Servizi, `provider_health.assets_url`): predef
 Cambiare l'indirizzo della fonte sposta ancora solo i link dei video. La migrazione
 `20261103210000_asset_paths` converte i dati esistenti (TMDB e RaiPlay); i link con
 `source` vuoto restano link interi e passano così come sono. Niente resync: la migrazione parte
-da sola all'avvio del container. Le immagini SDM non sono state toccate: l'adapter salva ancora
-il link intero.
+da sola all'avvio del container. Su richiesta dell'utente tolto il CDN di un sito esterno scritto
+nell'adapter SDM: le sue immagini ora sono percorsi (`CONFIG.paths.image`) sull'indirizzo delle
+immagini di SDM, e la migrazione `20261103220000_drop_full_image_links` cancella le immagini
+rimaste salvate come link intero (205 titoli e 1101 episodi in locale).

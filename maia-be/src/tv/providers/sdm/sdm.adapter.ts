@@ -53,6 +53,8 @@ const CONFIG = {
     movie: '/{lang}/watch/{id}',
     season: '/season-{number}',
     episode: '/{lang}/iframe/{title_id}?episode_id={episode_id}',
+    // On the pictures address, not the server's (assets.ts).
+    image: '/images/{filename}',
   },
 
   // Turns a title's or episode's URL into the player's: [search, replace]. null = as it is.
@@ -491,9 +493,10 @@ function absolute(link: string): string {
   return `${host()}${link.startsWith('/') ? '' : '/'}${link}`;
 }
 
+// A picture's path on SDM's pictures address (admin panel, assets.ts).
 function sdmImage(filename: unknown): string | null {
   if (typeof filename !== 'string' || !filename) return null;
-  return `https://cdn.streamingcommunityz.day/images/${filename}`;
+  return CONFIG.paths.image.replace('{filename}', encodeURIComponent(filename));
 }
 
 function episode(
