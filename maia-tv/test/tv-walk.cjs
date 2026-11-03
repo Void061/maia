@@ -5,7 +5,7 @@
 const path = require('node:path');
 const jwt = require(path.join(process.env.MAIA_BE, 'node_modules', 'jsonwebtoken'));
 const { chromium } = require('C:/Users/ivanl/Desktop/Ember/node_modules/playwright-core');
-const [accountId, secret, out] = process.argv.slice(2);
+const [accountId, secret, out, movieId] = process.argv.slice(2);
 const UA = 'Mozilla/5.0 (Linux; Android 9; AFTMM) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36 MaiaTV/1.0';
 const report = { fail: 0 };
 
@@ -160,6 +160,49 @@ const report = { fail: 0 };
   const kOk = ro.readOnly && keys.grid && keys.focus === 'a' && typed === 'ab' && closed === '/tv/search';
   if (!kOk) report.fail++;
   console.log(`${kOk ? 'OK  ' : 'KO  '} Tastiera: sola lettura ${ro.readOnly}, si apre ${keys.grid} su "${keys.focus}", scritto "${typed}", Indietro chiude e resta su ${closed}`);
+
+  // The player: a movie, moved with the remote only.
+  if (movieId) {
+    await p.goto(`http://localhost:3001/watch/${movieId}`, { waitUntil: 'domcontentloaded' });
+    await p.waitForTimeout(6000);
+    const focus = () => p.evaluate(() => {
+      const a = document.activeElement;
+      const v = document.querySelector('video');
+      return { label: a?.getAttribute('aria-label') ?? (a?.hasAttribute('data-own-keys') ? 'PICTURE' : a?.tagName), own: a?.hasAttribute('data-own-keys'), t: Math.round(v?.currentTime ?? 0), dur: Math.round(v?.duration || 0), vol: v?.volume, muted: v?.muted, paused: v?.paused, layer: !!document.querySelector('[data-focus-trap]'), path: location.pathname };
+    });
+    const key = async (k, ms = 200) => { await p.keyboard.press(k); await p.waitForTimeout(ms); return focus(); };
+    const start = await focus();
+    console.log('player:', JSON.stringify(start));
+    const d = await key('ArrowDown');
+    const bar = [d.label];
+    for (let i = 0; i < 9; i++) { const f = await key('ArrowRight'); if (bar[bar.length - 1] !== f.label) bar.push(f.label); }
+    await p.screenshot({ path: path.join(out, 'walk-player.png') });
+    console.log('pulsanti:', JSON.stringify(bar));
+    const wrong = bar.filter((l) => /Volume|schermo intero|Ruota/i.test(l ?? ''));
+    let leftMoves = 0, prev = (await focus()).label;
+    for (let i = 0; i < 3; i++) { const f = await key('ArrowLeft'); if (f.label !== prev) leftMoves++; prev = f.label; }
+    const up = await key('ArrowUp');
+    const t0 = (await focus()).t;
+    const sk = await key('ArrowRight', 1200);
+    const sought = sk.t >= t0 + 8;
+    // A panel: open it, move in it, Back closes it and the remote still works.
+    await key('ArrowDown');
+    let label = (await focus()).label;
+    for (let i = 0; i < 9 && label !== 'Audio e sottotitoli'; i++) label = (await key('ArrowRight')).label;
+    const opened = await key('Enter', 500);
+    const inside = await key('ArrowDown');
+    const closed = await key('Escape', 500);
+    const again = await key('ArrowDown');
+    const hideRoot = await key('ArrowUp');
+    await p.waitForTimeout(3600);
+    const back = await key('Escape', 1500);
+    const okPlayer = start.own && /Pausa|Riproduci/.test(d.label) && bar.length >= 4 && !wrong.length && leftMoves >= 2 && up.own
+      && opened.layer && !closed.layer && closed.path.startsWith('/watch') && /./.test(again.label) && !again.own && hideRoot.own
+      && start.vol === 1 && !start.muted && !back.path.startsWith('/watch');
+    if (!okPlayer) report.fail++;
+    console.log(`${okPlayer ? 'OK  ' : 'KO  '} Player: giù ${d.label}, pulsanti ${bar.length}, vietati ${wrong.length}, sinistra ${leftMoves}, su ${up.label}, pannello aperto ${opened.layer} chiuso ${!closed.layer}, volume ${start.vol}, Indietro ${back.path}`);
+    console.log(`     seek ${sought ? 'avanza' : 'NON avanza'} (${t0} -> ${sk.t}, durata ${sk.dur})`);
+  }
 
   // Admin, the real way: profile menu → Amministrazione, then move and go back.
   await p.goto('http://localhost:3001/tv', { waitUntil: 'networkidle' });

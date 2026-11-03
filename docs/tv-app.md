@@ -34,10 +34,15 @@ Regole in `app/globals.css` (`html.tv`), come su Netflix e Max:
 - **Leggerezza:** niente sfocature e niente ingrandimento della card selezionata (solo un bordo
   bianco); righe fuori schermo non disegnate (`content-visibility`); `thumbUrl` per le card.
 
+**Player su TV**, come Netflix (`app/watch/[id]/player.tsx`): sull'immagine sinistra e destra spostano
+il video di 10 secondi, OK mette in pausa, Giù entra nella fila dei pulsanti; lì sinistra e destra
+passano da un comando all'altro e Su torna all'immagine. Niente volume né schermo intero: il volume è
+quello del telecomando sulla TV, il video resta al 100%.
+
 Un livello (`data-focus-trap`) conta solo se visibile: Next tiene nascoste nel DOM le pagine
 visitate, e un menu rimasto aperto lì bloccava tutti i tasti della pagina (pannello admin).
 
-**Prova:** `maia-tv/test/tv-walk.cjs` percorre home, Film, Serie, genere, scheda, ricerca e admin con
+**Prova:** `maia-tv/test/tv-walk.cjs` percorre home, Film, Serie, genere, scheda, ricerca, player e admin con
 tasti veri e dopo ogni pressione controlla card tagliate, focus perso, elementi a cavallo del menu e
 schermo vuoto. Va lanciato dopo ogni modifica alla TV, guardando anche gli screenshot: il
 controllo automatico da solo non ha visto tutti i difetti.

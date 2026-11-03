@@ -380,3 +380,7 @@ misure in docs/tv-app.md.
 tagliate, pannello admin bloccato, due tastiere; richiesta: muoversi come su Netflix o HBO). La pagina
 su TV è sempre larga 1280 px, con righe di card intere agganciate sotto il menu. Ogni modifica alla
 TV si prova con `maia-tv/test/tv-walk.cjs` su tutte le schermate. Dettagli in docs/tv-app.md.
+
+**Player navigabile col telecomando, volume solo della TV** (segnalato dall'utente: i pulsanti non si
+raggiungevano e Su e Giù cambiavano il volume interno, non quello vero). Su TV le frecce vanno ai
+comandi come su Netflix; il controllo del volume non c'è più, resta sugli altri dispositivi.
