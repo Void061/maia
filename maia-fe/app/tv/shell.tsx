@@ -133,6 +133,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             </Link>
             <button
               onClick={() => setLayer("profile")}
+              data-tv-ring
               className="focusable rounded-full"
               aria-label={`Profilo: ${profile?.name ?? ""}`}
             >

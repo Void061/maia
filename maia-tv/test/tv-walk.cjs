@@ -127,6 +127,17 @@ const report = { fail: 0 };
   const startOk = /Guarda/.test(firstFocus.name) && noise.length === 0;
   if (!startOk) report.fail++;
   console.log(`${startOk ? 'OK  ' : 'KO  '} Avvio: focus su "${firstFocus.name}", elementi inutili raggiungibili ${noise.length} ${noise.slice(0, 4)}`);
+  const ring = () => p.evaluate(() => document.getElementById('tv-ring').style.opacity !== '0');
+  const check = (ok, text) => { if (!ok) report.fail++; console.log(`${ok ? 'OK  ' : 'KO  '} ${text}`); };
+  check(!(await ring()), 'Nessun anello sul pulsante Guarda dopo il profilo');
+  await p.keyboard.press('ArrowDown'); await p.waitForTimeout(280);
+  check(await ring(), 'Anello sulla prima card');
+  for (let i = 0; i < 3; i++) { await p.keyboard.press('ArrowRight'); await p.waitForTimeout(280); }
+  await p.keyboard.press('ArrowUp'); await p.waitForTimeout(300);
+  const upTo = (await state()).name;
+  check(/Guarda/.test(upTo), `Su da destra torna a Guarda, non a Dettagli (${upTo})`);
+  const bg = await p.evaluate(() => { const g = (s) => { const e = [...document.querySelectorAll('[data-hero] a')].find((a) => a.textContent.includes(s)); return getComputedStyle(e).backgroundColor; }; return [g('Guarda'), g('Dettagli')]; });
+  check(bg[0] === 'rgb(255, 255, 255)' && bg[1] !== bg[0], `Solo il pulsante in focus è bianco (${bg.join(' / ')})`);
   await walk('Home giù', down(14), { shot: 'home-row' });
   await walk('Home destra', right(25), { shot: 'home-right' });
   await walk('Home sinistra', left(25));
@@ -157,6 +168,13 @@ const report = { fail: 0 };
   await p.screenshot({ path: path.join(out, 'walk-title.png') });
   await walk('Scheda giù', down(4), { shot: 'title-eps' });
   await walk('Scheda destra', right(8));
+  await p.keyboard.press('ArrowUp'); await p.waitForTimeout(280);
+  let tabFocus = await state();
+  for (let i = 0; i < 2 && tabFocus.tag !== 'BUTTON'; i++) { await p.keyboard.press('ArrowUp'); await p.waitForTimeout(280); tabFocus = await state(); }
+  while (tabFocus.name.startsWith('Stagione')) { await p.keyboard.press('ArrowUp'); await p.waitForTimeout(280); tabFocus = await state(); }
+  check(tabFocus.name === 'Episodi', `Su da destra torna alla scheda aperta (${tabFocus.name})`);
+  check(!(await ring()), 'Nessun anello sulle schede con la riga sotto');
+  await p.keyboard.press('ArrowDown'); await p.waitForTimeout(280); await p.keyboard.press('ArrowDown'); await p.waitForTimeout(280);
   await walk('Scheda su', up(6));
 
   // Search: one keyboard, MAIA's.
@@ -214,6 +232,13 @@ const report = { fail: 0 };
     const opened = await key('Enter', 500);
     const inside = await key('ArrowDown');
     const closed = await key('Escape', 500);
+    const ringAfter = await p.evaluate(() => { const g = document.getElementById('tv-ring'); return { on: g.style.opacity !== '0', w: Math.round(g.getBoundingClientRect().width) }; });
+    if (ringAfter.on) report.fail++;
+    console.log(`${ringAfter.on ? 'KO  ' : 'OK  '} Tornando dal pannello nessun anello (${JSON.stringify(ringAfter)})`);
+    const timeBar = await p.evaluate(() => ({ fill: getComputedStyle(document.querySelector('.tv-fill')).backgroundColor, h: getComputedStyle(document.querySelector('.tv-track')).height }));
+    const barOk = timeBar.fill === 'rgb(255, 255, 255)' && timeBar.h === '8px';
+    if (!barOk) report.fail++;
+    console.log(`${barOk ? 'OK  ' : 'KO  '} Barra del tempo bianca quando è in focus (${JSON.stringify(timeBar)})`);
     const again = await key('ArrowDown');
     const hideRoot = await key('ArrowUp');
     await p.waitForTimeout(3600);

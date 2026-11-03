@@ -83,7 +83,7 @@ body {
     0 24px 48px -12px rgb(0 0 0 / 0.8);
 }
 .lift:focus-visible,
-.lift:hover {
+html:not(.tv) .lift:hover {
   transform: scale(1.06);
   z-index: 1;
   box-shadow:
@@ -91,7 +91,7 @@ body {
     0 30px 60px -15px rgb(0 0 0 / 0.9);
 }
 .pill-focus:focus-visible,
-.pill-focus:hover {
+html:not(.tv) .pill-focus:hover {
   background: #ffffff;
   color: #000000;
   box-shadow: 0 16px 40px -12px rgb(0 0 0 / 0.8);
@@ -168,6 +168,38 @@ html.tv .pill-focus:focus-visible {
 }
 html.tv .pill-focus {
   transition: background-color var(--glide), color var(--glide) !important;
+}
+/* Buttons: no ring. The white one is the one in focus, as in every TV app, so
+   the main button is not white when it is not. */
+html.tv .focusable.bg-accent:not(:focus-visible),
+html.tv a.focusable.bg-white:not(:focus-visible) {
+  background: rgb(255 255 255 / 0.14);
+  color: #ffffff;
+}
+html.tv .focusable:focus-visible:not(.lift, .pill-focus, input, select, [role="tab"], [data-tv-ring]) {
+  background: #ffffff;
+  color: #000000;
+}
+/* Tabs: only their underline. */
+html.tv [role="tab"]:focus-visible {
+  border-bottom-color: #ffffff;
+  color: #ffffff;
+}
+/* Player: the time bar lights up when it is the one in focus. */
+html.tv [data-own-keys] .tv-track {
+  background: rgb(255 255 255 / 0.2);
+}
+html.tv [data-own-keys] .tv-fill,
+html.tv [data-own-keys] .tv-knob {
+  background: rgb(255 255 255 / 0.55);
+}
+html.tv [data-own-keys]:focus .tv-track {
+  height: 8px;
+  background: rgb(255 255 255 / 0.6);
+}
+html.tv [data-own-keys]:focus .tv-fill,
+html.tv [data-own-keys]:focus .tv-knob {
+  background: #ffffff;
 }
 /* In the menu the grey pill is the focus: it slides, the tabs stay as they are. */
 html.tv header nav .pill-focus:focus-visible {

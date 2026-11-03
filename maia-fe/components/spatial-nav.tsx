@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { isTv } from "@/lib/tv-device";
-import { moveFocus, startTvMotion, withoutSlides } from "@/lib/tv-motion";
+import { hideRing, moveFocus, startTvMotion, withoutSlides } from "@/lib/tv-motion";
 
 // Remote-control navigation: arrow keys move focus to the nearest focusable
 // element in that direction, Enter activates it (native for links/buttons),
@@ -42,6 +42,16 @@ const shown = (el: Element | null | undefined): el is HTMLElement => !!el?.isCon
 function firstOfPage() {
   const main = Array.from(document.querySelectorAll("main")).find(shown);
   return main ? candidates(main).find(shown) : undefined;
+}
+
+// Coming into a hero or a row of tabs from outside, the way in is always the
+// same, however far right the focus was: the first button, the tab that is open.
+function wayIn(next: HTMLElement, active: Element) {
+  const hero = next.closest("[data-hero]");
+  if (hero && !hero.contains(active)) return candidates(hero).find(shown) ?? next;
+  const tabs = next.closest('[role="tablist"]');
+  if (tabs && !tabs.contains(active)) return tabs.querySelector<HTMLElement>('[aria-selected="true"]') ?? next;
+  return next;
 }
 
 function nearest(from: DOMRect, dir: Dir, els: HTMLElement[], self: Element | null) {
@@ -83,6 +93,7 @@ export default function SpatialNav() {
   // A TV page always opens with the focus on something: where it was, or its first item.
   useEffect(() => {
     if (!isTv()) return;
+    hideRing();
     let tries = 0;
     let timer: ReturnType<typeof setTimeout>;
     const settle = () => {
@@ -169,6 +180,7 @@ export default function SpatialNav() {
       }
       if ((rail || inMenu) && !next) e.preventDefault();
       if (next) {
+        if (!across) next = wayIn(next, active);
         e.preventDefault();
         lastMove = e.timeStamp;
         if (tv) moveFocus(next, across);
