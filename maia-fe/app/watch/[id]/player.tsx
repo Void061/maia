@@ -385,6 +385,13 @@ export default function Player({ title }: Props) {
       if (onButton && k !== "k") return;
       e.preventDefault();
       toggle();
+    } else if (k === "MediaPlayPause" || (k === "MediaPlay" && !playing) || (k === "MediaPause" && playing)) {
+      // The remote's media keys (Fire TV app, maia-tv/).
+      e.preventDefault();
+      toggle();
+    } else if (k === "MediaFastForward" || k === "MediaRewind") {
+      e.preventDefault();
+      seek(k === "MediaRewind" ? -10 : 10);
     } else if (k === "f") {
       e.preventDefault();
       toggleFullscreen();

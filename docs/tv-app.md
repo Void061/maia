@@ -1,0 +1,50 @@
+# App per Fire TV (`maia-tv/`)
+
+Un "guscio": app Android che apre MAIA a schermo intero in una WebView, senza browser intorno.
+L'interfaccia resta la web app (`maia-fe`): ogni modifica al sito arriva subito sulla TV.
+
+- **Indirizzo:** `http://192.168.1.6:3001` (il PC di casa), scritto nell'APK
+  (`app/build.gradle.kts`, `-PmaiaUrl=…`). Sulla TV si cambia col tasto **Menu** (≡) del
+  telecomando; "Predefinito" torna a quello dell'APK.
+- **Telecomando:** frecce e OK vanno alla navigazione di MAIA (`components/spatial-nav.tsx`).
+  **Indietro** diventa `Escape` per la pagina: chiude tastiera/menu/pannelli, esce dallo schermo
+  intero, torna alla pagina prima; sulla prima pagina un secondo Indietro entro 2 s chiude l'app.
+  **Play/pausa, avanti, indietro veloce** arrivano al player come `MediaPlayPause`,
+  `MediaFastForward`, `MediaRewind` (`app/watch/[id]/player.tsx`).
+- **PC spento o rete diversa:** schermata "MAIA non è raggiungibile" con *Riprova* e
+  *Cambia indirizzo*.
+- **Dimensioni:** la WebView del Fire Stick mostra MAIA a circa 960×540 px CSS (densità 2):
+  testo e schede grandi, adatti alla distanza della TV.
+- **Logo:** sorgenti in `maia-tv/art/` (`mark.svg` icona, `banner.svg` banner 320×180 della home
+  di Fire TV: la scritta "maia" col puntino luminoso al posto di quello della "i").
+
+## Costruire e installare
+
+Strumenti in `%LOCALAPPDATA%\maia-android` (JDK 17, SDK Android 34; cache Gradle in
+`~/.gradle`, circa 1,7 GB in tutto), installati senza toccare il sistema.
+
+```
+npm run tv:apk        # dalla radice: APK in maia-fe/public/maia-tv.apk
+```
+
+Sul Fire Stick:
+1. *Impostazioni → La mia Fire TV → Info*: premere 7 volte sul nome del dispositivo per sbloccare
+   le *Opzioni sviluppatore*; lì consentire le app di origine sconosciuta per *Downloader*.
+2. Installare **Downloader** dall'Appstore, scrivere `http://192.168.1.6:3001/maia-tv.apk`,
+   installare. L'icona MAIA compare tra le app.
+
+Firmata con la chiave di debug di questo PC (`~/.android/debug.keystore`): gli aggiornamenti si
+installano sopra solo se costruiti qui. Per riprodurre la TV fuori casa servirà un indirizzo
+fisso (Tailscale o Cloudflare Tunnel, da decidere).
+
+## MAIA in modalità produzione sul PC
+
+```
+npm run prod:local              # migrazioni, build di maia-be e maia-fe, poi avvio
+npm run prod:local -- --no-build
+```
+
+Come in produzione: `node dist/main` (3000) e `next start` (3001), niente compilatore di
+sviluppo, quindi pagine veloci e meno memoria. Vanno prima chiusi i server di sviluppo (stesse
+porte). `next start` serve solo i file di `public/` presenti alla build: `npm run tv:apk` va
+lanciato prima.

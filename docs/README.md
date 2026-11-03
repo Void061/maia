@@ -15,6 +15,7 @@ commit di ogni modifica che cambia comportamento, struttura o decisioni (vedi `C
 | [ui.md](ui.md) | Design system, navigazione per dispositivo, schermate, telecomando |
 | [dev.md](dev.md) | Ambiente locale, Docker, porte, comandi, problemi noti |
 | [deploy.md](deploy.md) | Deploy su Coolify (VPS) |
+| [tv-app.md](tv-app.md) | App per Fire TV (guscio WebView), logo, `npm run tv:apk` e `npm run prod:local` |
 
 ## Stato attuale
 

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MAIA runs on the home PC over plain http (http://192.168.1.6:3001); the
+     address can be changed on the TV, so http is allowed everywhere. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

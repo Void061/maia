@@ -356,3 +356,16 @@ da sola all'avvio del container. Su richiesta dell'utente tolto il CDN di un sit
 nell'adapter SDM: le sue immagini ora sono percorsi (`CONFIG.paths.image`) sull'indirizzo delle
 immagini di SDM, e la migrazione `20261103220000_sdm_image_paths` toglie l'host dai link
 interi già salvati e tiene il percorso (sorgente `sdm`).
+
+**MAIA gira solo sul PC di casa** (decisione dell'utente, 2026-11-03): niente VPS. Da fuori servirà
+un indirizzo fisso (Tailscale o Cloudflare Tunnel, da scegliere; ngrok ha link che cambia e poco
+traffico).
+
+**App guscio per Fire TV** (`maia-tv/`, chiesta dall'utente: nel browser della TV MAIA si naviga
+male). App Android minima con WebView a schermo intero verso `http://192.168.1.6:3001`; tasto
+Indietro e tasti multimediali passati a MAIA, Menu per cambiare indirizzo. Non è un'app nativa:
+l'interfaccia resta la web app, coerente con la decisione "solo web app". Logo nuovo (marchio "m"
+a due archi + banner "maia" col puntino luminoso). Dettagli in docs/tv-app.md.
+
+**`npm run prod:local`** (chiesto dall'utente: il server di sviluppo è lento). Avvia MAIA sul PC come
+in produzione (`node dist/main` + `next start`), dopo migrazioni e build.
