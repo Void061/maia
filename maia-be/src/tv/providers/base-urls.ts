@@ -5,9 +5,11 @@ import { SERVICES } from './services.js';
 // panel (provider_health.base_url), and ServiceSwitches keeps this in sync in
 // every process. Adapters read it at request time, never at start.
 let overrides = new Map<string, string>(); // service id -> base URL
+let assetOverrides = new Map<string, string>(); // service id -> assets URL
 
-export function setBaseUrlOverrides(next: Map<string, string>) {
+export function setBaseUrlOverrides(next: Map<string, string>, assets = new Map<string, string>()) {
   overrides = next;
+  assetOverrides = assets;
 }
 
 export function defaultBaseUrl(service: string): string | null {
@@ -19,6 +21,24 @@ export function baseUrl(service: string): string {
   const url = overrides.get(service) ?? defaultBaseUrl(service);
   if (!url) throw new Error(`${service} has no configurable address`);
   return url;
+}
+
+export function defaultAssetsUrl(service: string): string | null {
+  const s = SERVICES.find((x) => x.id === service);
+  return s?.assetsUrl ?? null;
+}
+
+// Whether the service's pictures have an address of their own to set.
+export function hasAssets(service: string): boolean {
+  const s = SERVICES.find((x) => x.id === service);
+  return !!(s?.assetsUrl || s?.baseUrl);
+}
+
+// Where the service's pictures are read from: the admin's address, the
+// default one, or the service's address in use. No trailing slash.
+export function assetsUrl(service: string): string {
+  const url = assetOverrides.get(service) ?? defaultAssetsUrl(service);
+  return url ?? baseUrl(service);
 }
 
 // Hosts the service's requests go to: the fixed ones plus the current address's.

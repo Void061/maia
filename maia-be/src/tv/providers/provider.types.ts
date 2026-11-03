@@ -24,8 +24,9 @@ export type ProviderEpisode = ProviderVideo & {
   episode: number | null;
   title: string;
   airDate: string | null;
-  // The episode's own picture (a frame of it), not the show's artwork.
-  imageUrl: string | null;
+  // The episode's own picture (a frame of it), not the show's artwork. Like
+  // every picture here: a path on the service's asset address, or a full URL.
+  imagePath: string | null;
 };
 
 export type ProviderSeason = {
@@ -42,7 +43,7 @@ export type ProviderSeason = {
 // TMDB: they belong to the title they were found on.
 export type ExtraKind = 'HIGHLIGHTS' | 'CLIPS' | 'PREVIEWS' | 'EXTRAS';
 
-export type ProviderExtra = ProviderVideo & { externalId: string; title: string; imageUrl: string | null };
+export type ProviderExtra = ProviderVideo & { externalId: string; title: string; imagePath: string | null };
 
 export type ProviderExtraGroup = {
   externalId: string;
@@ -62,8 +63,8 @@ export type ProviderTitle = {
   genres: string[];
   description: string;
   // The service's artwork, used when TMDB has none for the title.
-  posterUrl: string | null;
-  backdropUrl: string | null;
+  posterPath: string | null;
+  backdropPath: string | null;
   // Movies only.
   video: ProviderVideo | null;
   // Series only.

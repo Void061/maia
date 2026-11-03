@@ -44,8 +44,9 @@ Frontend e backend stanno sulla VPS (Coolify); Cloudflare sta **davanti** come D
 (nuvola arancione): HTTPS, cache dei file statici, protezione da attacchi. Il frontend non può
 essere un sito statico (gateway `/api`, `proxy.ts`, pagine dinamiche). Turnstile (anti-bot) si può
 aggiungere ai moduli di registrazione e password dimenticata indipendentemente da dove gira l'app.
-I video non passano mai da qui: li scarica il dispositivo direttamente dai servizi (vedi
-[tv/catalog.md](tv/catalog.md)), quindi niente traffico video su VPS e Cloudflare.
+I video passano dal backend (`GET /tv/proxy/:itemId`, vedi docs/decisions.md 2026-11-03): ogni
+visione consuma banda del server (circa 1-2 Mbit/s a schermo), e il relinker di RaiPlay rifiuta
+film e serie a un server fuori dall'Italia.
 
 ## Immagini
 

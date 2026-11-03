@@ -8,11 +8,11 @@ import { decide, searchTitle } from '../matching/score.js';
 import { subjectOf } from '../matching/subject.js';
 import { TmdbClient, type TmdbMeta } from '../matching/tmdb.client.js';
 import { HttpError, ServiceStoppedError } from '../providers/polite-fetch.js';
+import { toAsset } from '../providers/assets.js';
 import type { ProviderAdapter, ProviderEpisode, ProviderTitle } from '../providers/provider.types.js';
 import { RaiPlayAdapter } from '../providers/raiplay/raiplay.adapter.js';
 import { SdmAdapter } from '../providers/sdm/sdm.adapter.js';
 
-const TMDB_IMAGES = 'https://image.tmdb.org/t/p';
 const DAY = 86_400_000;
 // After this many consecutive errors a service pauses (circuit breaker).
 const MAX_FAIL_STREAK = 5;
@@ -100,11 +100,13 @@ export class CatalogService {
     let title = await this.prisma.title.findUniqueOrThrow({ where: { id: titleId } });
     // Titles built from the service's data follow it (TMDB ones keep TMDB's).
     if (!title.tmdbId) {
+      const poster = title.posterPath ? null : toAsset(data.provider, data.posterPath);
+      const backdrop = title.backdropPath ? null : toAsset(data.provider, data.backdropPath);
       title = await this.prisma.title.update({
         where: { id: titleId },
         data: {
-          posterUrl: title.posterUrl ?? data.posterUrl,
-          backdropUrl: title.backdropUrl ?? data.backdropUrl,
+          ...(poster && { posterPath: poster.path, posterSource: poster.source }),
+          ...(backdrop && { backdropPath: backdrop.path, backdropSource: backdrop.source }),
           overview: data.description || title.overview,
         },
       });
@@ -153,14 +155,18 @@ export class CatalogService {
   // ─── matching ─────────────────────────────────────────────────────────────
 
   private async matchAndLink(providerTitleId: string, data: ProviderTitle): Promise<string> {
+    const poster = toAsset(data.provider, data.posterPath);
+    const backdrop = toAsset(data.provider, data.backdropPath);
     const fromProvider = {
       kind: data.kind,
       name: data.name,
       year: data.year,
       overview: data.description,
       genres: data.genres,
-      posterUrl: data.posterUrl,
-      backdropUrl: data.backdropUrl,
+      posterPath: poster.path,
+      posterSource: poster.source,
+      backdropPath: backdrop.path,
+      backdropSource: backdrop.source,
     };
     if (!this.tmdb) {
       const title = await this.prisma.title.create({ data: fromProvider });
@@ -202,7 +208,11 @@ export class CatalogService {
   }
 
   // The title for a TMDB id, created from TMDB's Italian metadata the first time.
-  private async tmdbTitle(kind: 'MOVIE' | 'SERIES', tmdbId: number, fallback: { posterUrl: string | null; backdropUrl: string | null; genres: string[] }) {
+  private async tmdbTitle(
+    kind: 'MOVIE' | 'SERIES',
+    tmdbId: number,
+    fallback: Pick<Prisma.TitleCreateInput, 'posterPath' | 'posterSource' | 'backdropPath' | 'backdropSource'> & { genres: string[] },
+  ) {
     const found = await this.prisma.title.findUnique({ where: { kind_tmdbId: { kind, tmdbId } } });
     if (found) return found.id;
     const meta = await this.tmdb!.meta(kind, tmdbId);
@@ -215,8 +225,12 @@ export class CatalogService {
           originalName: meta.originalName || null,
           year: meta.year,
           overview: meta.overview,
-          posterUrl: meta.posterPath ? `${TMDB_IMAGES}/w500${meta.posterPath}` : fallback.posterUrl,
-          backdropUrl: meta.backdropPath ? `${TMDB_IMAGES}/w1280${meta.backdropPath}` : fallback.backdropUrl,
+          ...(meta.posterPath
+            ? { posterPath: meta.posterPath, posterSource: 'tmdb' }
+            : { posterPath: fallback.posterPath, posterSource: fallback.posterSource }),
+          ...(meta.backdropPath
+            ? { backdropPath: meta.backdropPath, backdropSource: 'tmdb' }
+            : { backdropPath: fallback.backdropPath, backdropSource: fallback.backdropSource }),
           genres: meta.genres.length ? meta.genres : fallback.genres,
         },
       });
@@ -277,7 +291,10 @@ export class CatalogService {
           episodeId = await this.placeAndUpsertEpisode(titleId, season.number, ep, tmdbId ? await loadTmdbSeasons() : []);
         }
         // The service's picture of this episode (kept when the service has none).
-        if (ep.imageUrl) await this.prisma.episode.update({ where: { id: episodeId }, data: { imageUrl: ep.imageUrl } });
+        if (ep.imagePath) {
+          const image = toAsset(data.provider, ep.imagePath);
+          await this.prisma.episode.update({ where: { id: episodeId }, data: { imagePath: image.path, imageSource: image.source } });
+        }
         await this.prisma.source.upsert({
           where: { provider_externalId: { provider: data.provider, externalId: ep.externalId } },
           create: { provider: data.provider, externalId: ep.externalId, providerTitleId, episodeId, ...videoFields(ep, now) },
@@ -342,7 +359,8 @@ export class CatalogService {
           expiresAt: v.expiresAt ? new Date(v.expiresAt) : null,
           available: !v.drm,
           lastSeenAt: now,
-          imageUrl: v.imageUrl,
+          imagePath: v.imagePath,
+          imageSource: toAsset(data.provider, v.imagePath).source,
         };
         await this.prisma.extra.upsert({
           where: { groupId_externalId: { groupId: g.id, externalId: v.externalId } },

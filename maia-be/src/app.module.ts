@@ -15,6 +15,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { ProfilesController } from './profiles/profiles.controller.js';
 import { CatalogModule } from './tv/catalog/catalog.module.js';
 import { TvController } from './tv/tv.controller.js';
+import { StreamProxyService } from './tv/stream-proxy.js';
 import { TvService } from './tv/tv.service.js';
 import { TvCacheWarmer } from './tv/tv.warmer.js';
 
@@ -30,6 +31,6 @@ import { TvCacheWarmer } from './tv/tv.warmer.js';
     CatalogModule,
   ],
   controllers: [AppController, AccountController, ProfilesController, AdminController, AdminServicesController, TvController],
-  providers: [AppService, AdminGuard, TvService, TvCacheWarmer, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [AppService, AdminGuard, TvService, StreamProxyService, TvCacheWarmer, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
