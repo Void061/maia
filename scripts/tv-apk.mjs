@@ -5,8 +5,7 @@
 //   npm run tv:apk -- http://altro:3001    another default address
 //
 // Uses the JDK and Android SDK in %LOCALAPPDATA%\maia-android (docs/tv-app.md).
-// `next start` serves only files present at build time: run this before
-// `npm run prod:local` (dev serves it at once).
+// With `npm run prod:local` running, restart it to serve the new file (dev serves it at once).
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync } from 'node:fs';
 import path from 'node:path';

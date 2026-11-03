@@ -44,7 +44,7 @@ npm run prod:local              # migrazioni, build di maia-be e maia-fe, poi av
 npm run prod:local -- --no-build
 ```
 
-Come in produzione: `node dist/main` (3000) e `next start` (3001), niente compilatore di
+Come in produzione: `node dist/main` (3000) e il server standalone di Next `node server.js` (3001, come nel Dockerfile), niente compilatore di
 sviluppo, quindi pagine veloci e meno memoria. Vanno prima chiusi i server di sviluppo (stesse
-porte). `next start` serve solo i file di `public/` presenti alla build: `npm run tv:apk` va
-lanciato prima.
+porte). `public/` viene copiata a ogni avvio, quindi l'APK nuovo di `npm run tv:apk` si scarica
+dopo un riavvio (`npm run prod:local -- --no-build`).
