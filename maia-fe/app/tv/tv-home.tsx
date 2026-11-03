@@ -77,7 +77,7 @@ export default function TvHome() {
             ))}
           </Rail>
         ))}
-        <div className="h-16" />
+        <div className="tv-none h-16" />
       </div>
     </div>
   );

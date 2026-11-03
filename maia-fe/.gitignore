@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Fire TV app, built by npm run tv:apk
+/public/maia-tv.apk

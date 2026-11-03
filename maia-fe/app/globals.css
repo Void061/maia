@@ -101,6 +101,213 @@ body {
   transform: scale(0.97);
 }
 
+/* TV sticks (class set by components/spatial-nav.tsx): little CPU and GPU, and
+   most of a move's cost is repainting (docs/tv-app.md, measured). No blur behind
+   the menu; the focused item does not grow, a scaled card recomposes its whole
+   row at every move: it only gets a sharp white edge. Rows off screen are not
+   rendered at all. */
+html.tv * {
+  backdrop-filter: none !important;
+}
+html.tv .glass {
+  background: rgb(30 30 32 / 0.96);
+}
+html.tv .focusable,
+html.tv .group:focus-visible .lift {
+  transition: none !important;
+  transform: none !important;
+}
+/* Its own rule: next to `transform` the CSS minifier folds the two into
+   transform: scale(1) and Tailwind's `scale` survives. */
+html.tv .lift {
+  scale: 1 !important;
+}
+html.tv [data-row] {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--row);
+}
+html.tv .focusable:focus-visible,
+html.tv .lift:focus-visible,
+html.tv .group:focus-visible .lift {
+  box-shadow: 0 0 0 3px #ffffff !important;
+}
+html.tv .pill-focus:focus-visible {
+  box-shadow: none !important;
+}
+
+/* TV layout, like Netflix and Max: the page is 1280x720 (spatial-nav.tsx) and
+   built on a fixed grid, so nothing on screen is ever cut. A row holds a whole
+   number of cards (7 posters or 4 tiles), two rows fill the space under the
+   menu, and the focused row lines up under it. */
+html.tv {
+  --bar: 80px;
+  --pad: 64px;
+  --gap: 16px;
+  --ring: 6px;
+  --row: calc((100vh - var(--bar)) / 2);
+  --poster: calc((100vw - 2 * var(--pad) - 6 * var(--gap)) / 7);
+  --tile: calc((100vw - 2 * var(--pad) - 3 * var(--gap)) / 4);
+}
+html.tv .tv-none {
+  display: none;
+}
+html.tv header[class*="bg-black"] {
+  background: #000000;
+}
+/* Below the menu a block fills the screen, so it can reach its place. */
+html.tv [data-block] {
+  min-height: calc(100vh - var(--bar));
+  padding-bottom: 0;
+}
+html.tv [data-row] {
+  height: var(--row);
+  margin: 0;
+  padding-top: 14px;
+  overflow: hidden;
+}
+html.tv [data-row] h2 {
+  font-size: 1.25rem;
+  padding-inline: 0;
+}
+html.tv [data-row] > h2,
+html.tv [data-row] > div:first-child {
+  padding-inline: var(--pad);
+}
+/* The rail is as wide as the cards plus room for the focus edge, which is
+   narrower than the gap: the card beyond the edge never shows. */
+html.tv .rail {
+  gap: var(--gap);
+  margin-inline: calc(var(--pad) - var(--ring));
+  padding: var(--ring);
+  scroll-padding-inline: var(--ring);
+}
+html.tv [data-block] .rail {
+  margin-inline: calc(-1 * var(--ring));
+}
+html.tv .rail > .tv-poster {
+  width: var(--poster);
+}
+html.tv .rail > .tv-tile {
+  width: var(--tile);
+}
+html.tv .rail > .tv-lead {
+  width: calc(3 * var(--poster) + 2 * var(--gap));
+}
+html.tv .tv-lead > span {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+html.tv .tv-poster .font-display {
+  font-size: 0.9rem;
+}
+html.tv .tv-tile .font-display {
+  font-size: 1.25rem;
+}
+html.tv .tv-lead .font-display {
+  font-size: 1.75rem;
+}
+html.tv .tv-tile > span:not(:first-child) {
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+html.tv .tv-tile > span:nth-child(2) {
+  margin-top: 8px;
+}
+html.tv .tv-grid {
+  grid-template-columns: repeat(7, var(--poster));
+  column-gap: var(--gap);
+  row-gap: calc(var(--row) - 1.5 * var(--poster));
+  padding-bottom: var(--row);
+}
+/* Search, like Netflix: the keyboard stays on the left, the page does not
+   move, the results scroll on their own, three whole rows at a time. */
+html.tv .tv-search {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: calc(var(--bar) + 16px);
+  padding-inline: var(--pad);
+}
+html.tv .tv-search h1 {
+  display: none;
+}
+html.tv .tv-search > .grid {
+  margin-top: 0;
+}
+html.tv .tv-results {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--bar) - 16px);
+}
+html.tv .tv-results h2 {
+  height: 28px;
+}
+html.tv .tv-grid-search {
+  --results: calc(100vh - var(--bar) - 16px - 36px);
+  flex: 1;
+  min-height: 0;
+  margin-top: 8px;
+  padding: var(--ring);
+  overflow-y: auto;
+  scrollbar-width: none;
+  scroll-padding-top: var(--ring);
+  align-content: start;
+  grid-template-columns: repeat(5, 120px);
+  grid-auto-rows: 180px;
+  column-gap: 16px;
+  row-gap: calc(var(--results) / 3 - 180px);
+}
+html.tv .tv-grid-search .font-display {
+  font-size: 0.8rem;
+}
+/* Hero: on the home it fills the menu and one row, the first row comes right
+   under it; on a title page it leaves room for the tabs only. */
+html.tv [data-hero] {
+  height: calc(var(--bar) + var(--row));
+  min-height: 0;
+}
+html.tv [data-hero="title"] {
+  height: calc(100vh - 56px);
+}
+html.tv [data-hero="title"] > .relative {
+  min-height: 100%;
+  padding-top: var(--bar);
+  padding-bottom: 28px;
+}
+html.tv [data-hero] > .absolute.inset-x-0 {
+  padding-bottom: 24px;
+}
+html.tv [data-hero] > div {
+  padding-inline: var(--pad);
+}
+html.tv [data-hero] > .absolute.inset-0 {
+  padding-inline: 0;
+}
+html.tv [data-hero] h1 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 2.75rem;
+  line-height: 1.05;
+}
+html.tv [data-hero] p {
+  font-size: 0.95rem;
+}
+html.tv [data-hero] .mt-6,
+html.tv [data-hero] .mt-8 {
+  margin-top: 14px;
+}
+html.tv [data-hero] a {
+  height: 44px;
+  font-size: 1rem;
+}
+html.tv [data-hero] button[aria-label="Aggiungi ai preferiti"] {
+  width: 44px;
+  height: 44px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .focusable,
   .lift {

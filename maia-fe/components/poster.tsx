@@ -25,7 +25,7 @@ function Fallback({ seed }: { seed: string }) {
 // `eager`: the picture is the first thing on screen (hero, top of a grid).
 function Art({ src, seed, eager }: { src: string | null | undefined; seed: string; eager?: boolean }) {
   return src ? (
-    <Image src={src} alt="" fill unoptimized loading={eager ? "eager" : undefined} fetchPriority={eager ? "high" : undefined} className="object-cover" />
+    <Image src={src} alt="" fill unoptimized decoding="async" loading={eager ? "eager" : undefined} fetchPriority={eager ? "high" : undefined} className="object-cover" />
   ) : (
     <Fallback seed={seed} />
   );
@@ -34,7 +34,7 @@ function Art({ src, seed, eager }: { src: string | null | undefined; seed: strin
 // Portrait poster, Max style: the title is set inside the artwork, at the bottom.
 export default function Poster({ title, className = "", eager }: { title: TitleCard; className?: string; eager?: boolean }) {
   return (
-    <Link href={`/tv/title/${title.id}`} data-title={title.id} className={`group block shrink-0 outline-none ${className}`}>
+    <Link href={`/tv/title/${title.id}`} data-title={title.id} className={`tv-poster group block shrink-0 outline-none ${className}`}>
       <span className={`${art} aspect-[2/3]`}>
         <Art src={title.posterUrl ?? title.backdropUrl} seed={title.id} eager={eager} />
         <span className={`${scrim} h-1/2`} />
@@ -51,9 +51,9 @@ export default function Poster({ title, className = "", eager }: { title: TitleC
 // Landscape tile (Novità): 16:9 with caption below.
 export function Tile({ title, className = "", eager }: { title: TitleCard; className?: string; eager?: boolean }) {
   return (
-    <Link href={`/tv/title/${title.id}`} data-title={title.id} className={`group block shrink-0 outline-none ${className}`}>
+    <Link href={`/tv/title/${title.id}`} data-title={title.id} className={`tv-tile group block shrink-0 outline-none ${className}`}>
       <span className={`${art} aspect-video`}>
-        <Art src={title.backdropUrl ?? title.posterUrl} seed={title.id} eager={eager} />
+        <Art src={title.thumbUrl ?? title.posterUrl} seed={title.id} eager={eager} />
       </span>
       <span className="mt-3 block truncate text-sm font-semibold text-label sm:text-base">{title.name}</span>
       <span className="block text-sm text-faint">{subtitle(title)}</span>
@@ -85,7 +85,7 @@ export function Top10Card({ title, rank }: { title: TitleCard; rank: number }) {
 // "Esplora" tile: a doorway into a genre (or any menu entry stored in the DB).
 export function GenreCard({ href, name, image }: { href: string; name: string; image?: string | null }) {
   return (
-    <Link href={href} className="group block w-56 shrink-0 outline-none sm:w-72">
+    <Link href={href} className="tv-tile group block w-56 shrink-0 outline-none sm:w-72">
       <span className={`${art} aspect-video`}>
         <Art src={image} seed={name} />
         <span className="absolute inset-0 bg-gradient-to-tr from-black/90 via-black/50 to-black/10" />

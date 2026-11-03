@@ -1,0 +1,9 @@
+{
+  "name": "maia",
+  "private": true,
+  "description": "Comandi per tutto il monorepo (maia-be + maia-fe).",
+  "scripts": {
+    "prod:local": "node scripts/prod-local.mjs",
+    "tv:apk": "node scripts/tv-apk.mjs"
+  }
+}

@@ -356,3 +356,31 @@ da sola all'avvio del container. Su richiesta dell'utente tolto il CDN di un sit
 nell'adapter SDM: le sue immagini ora sono percorsi (`CONFIG.paths.image`) sull'indirizzo delle
 immagini di SDM, e la migrazione `20261103220000_sdm_image_paths` toglie l'host dai link
 interi già salvati e tiene il percorso (sorgente `sdm`).
+
+**MAIA gira solo sul PC di casa** (decisione dell'utente, 2026-11-03): niente VPS. Da fuori servirà
+un indirizzo fisso (Tailscale o Cloudflare Tunnel, da scegliere; ngrok ha link che cambia e poco
+traffico).
+
+**App guscio per Fire TV** (`maia-tv/`, chiesta dall'utente: nel browser della TV MAIA si naviga
+male). App Android minima con WebView a schermo intero verso `http://192.168.1.6:3001`; tasto
+Indietro e tasti multimediali passati a MAIA, Menu per cambiare indirizzo. Non è un'app nativa:
+l'interfaccia resta la web app, coerente con la decisione "solo web app". Logo nuovo (marchio "m"
+a due archi + banner "maia" col puntino luminoso). Dettagli in docs/tv-app.md.
+
+**`npm run prod:local`** (chiesto dall'utente: il server di sviluppo è lento). Avvia MAIA sul PC come
+in produzione (`node dist/main` + `next start`), dopo migrazioni e build.
+
+**Modalità TV leggera** (segnalato dall'utente provando l'app sul Fire Stick: navigazione a scatti,
+effetto scorrimento del browser, icona piccola). Su TV il focus si sposta senza animazione e la card
+selezionata non si ingrandisce più: si perde un effetto per guadagnare fluidità. Corretto anche Su,
+che finiva a pressioni alterne sul menu fisso. Icona 16:9 al posto di quella quadrata. Dettagli e
+misure in docs/tv-app.md.
+
+**Layout TV su griglia fissa 1280×720** (segnalato dall'utente sulla TV: tutto gigante, immagini
+tagliate, pannello admin bloccato, due tastiere; richiesta: muoversi come su Netflix o HBO). La pagina
+su TV è sempre larga 1280 px, con righe di card intere agganciate sotto il menu. Ogni modifica alla
+TV si prova con `maia-tv/test/tv-walk.cjs` su tutte le schermate. Dettagli in docs/tv-app.md.
+
+**Player navigabile col telecomando, volume solo della TV** (segnalato dall'utente: i pulsanti non si
+raggiungevano e Su e Giù cambiavano il volume interno, non quello vero). Su TV le frecce vanno ai
+comandi come su Netflix; il controllo del volume non c'è più, resta sugli altri dispositivi.

@@ -25,6 +25,7 @@ import {
   VolumeLowIcon,
 } from "@/components/icons";
 import { Art } from "@/components/poster";
+import { isTv } from "@/lib/tv-device";
 import {
   episodeLabel,
   flatEpisodes,
@@ -43,6 +44,8 @@ type Track = { index: number; label: string };
 
 const SPEEDS = [0.75, 1, 1.25, 1.5];
 // The "Prossimo episodio" card shows up this many seconds before the end.
+// Holding left or right on a TV: one jump every this many ms.
+const SEEK_REPEAT_MS = 300;
 const UP_NEXT_SECS = 15;
 const fmt = (s: number) => {
   if (!Number.isFinite(s)) return "0:00";
@@ -111,6 +114,7 @@ export default function Player({ title }: Props) {
   const lastTap = useRef(0);
   const lastPointer = useRef<string>("mouse");
   const singleTapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const lastSeek = useRef(0);
 
   // Controls fade out after 3s without input, like a TV.
   const poke = useCallback(() => {
@@ -242,8 +246,19 @@ export default function Player({ title }: Props) {
       if (!video.current?.paused) setChrome(false);
     }, 3000);
     root.current?.focus();
+    // On a TV the volume is the remote's, on the TV itself: the video stays at full.
+    if (isTv() && video.current) {
+      video.current.volume = 1;
+      video.current.muted = false;
+    }
     return () => clearTimeout(hideTimer.current);
   }, []);
+
+  // Controls gone on a TV: the focus leaves their buttons, or the next OK would
+  // press one that cannot be seen.
+  useEffect(() => {
+    if (!chrome && !panel && isTv()) root.current?.focus();
+  }, [chrome, panel]);
 
   // Track fullscreen however it was entered or left (button, F key, Esc, OS gesture).
   useEffect(() => {
@@ -374,6 +389,29 @@ export default function Player({ title }: Props) {
     [title, router],
   );
 
+  // The arrows on a TV, like Netflix. On the picture: left and right seek, down
+  // goes to the buttons. On the buttons: left and right move along them, up goes
+  // back to the picture. True when the key is dealt with here.
+  function remoteArrow(e: React.KeyboardEvent, k: string) {
+    e.preventDefault();
+    const bar = Array.from(root.current?.querySelectorAll<HTMLElement>("[data-tv-bar] button") ?? []).filter(
+      (b) => b.getClientRects().length > 0,
+    );
+    const at = bar.indexOf(e.target as HTMLElement);
+    if (at >= 0) {
+      if (k === "ArrowUp") root.current?.focus();
+      else if (k === "ArrowLeft") bar[at - 1]?.focus();
+      else if (k === "ArrowRight") bar[at + 1]?.focus();
+      return true;
+    }
+    if (k === "ArrowDown") bar[0]?.focus();
+    if (k === "ArrowUp" || k === "ArrowDown") return true;
+    // A held key repeats dozens of times a second: every seek reloads the video.
+    if (e.repeat && Date.now() - lastSeek.current < SEEK_REPEAT_MS) return true;
+    lastSeek.current = Date.now();
+    return false;
+  }
+
   // Remote keys while the controls layer is in charge (the settings panel
   // uses the normal arrow navigation instead).
   function onKeyDown(e: React.KeyboardEvent) {
@@ -381,10 +419,18 @@ export default function Player({ title }: Props) {
     poke();
     const onButton = (e.target as HTMLElement).tagName === "BUTTON";
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (isTv() && k.startsWith("Arrow") && remoteArrow(e, k)) return;
     if (k === "Enter" || k === " " || k === "k") {
       if (onButton && k !== "k") return;
       e.preventDefault();
       toggle();
+    } else if (k === "MediaPlayPause" || (k === "MediaPlay" && !playing) || (k === "MediaPause" && playing)) {
+      // The remote's media keys (Fire TV app, maia-tv/).
+      e.preventDefault();
+      toggle();
+    } else if (k === "MediaFastForward" || k === "MediaRewind") {
+      e.preventDefault();
+      seek(k === "MediaRewind" ? -10 : 10);
     } else if (k === "f") {
       e.preventDefault();
       toggleFullscreen();
@@ -496,7 +542,7 @@ export default function Player({ title }: Props) {
         <div className="pointer-events-auto bg-gradient-to-t from-black/85 via-black/50 to-transparent px-3 pb-3 pt-16 sm:px-8 sm:pb-6">
           <Scrubber time={time} duration={duration} onSeek={seekTo} onActivity={poke} />
 
-          <div className="mt-1 flex items-center justify-between gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]">
+          <div data-tv-bar className="mt-1 flex items-center justify-between gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]">
             {/* Left: transport + volume (on phones the transport sits mid-screen instead). */}
             <div className="flex items-center gap-1 sm:gap-2">
               <span className="hidden items-center gap-1 sm:flex sm:gap-2">
@@ -510,12 +556,14 @@ export default function Player({ title }: Props) {
                   <Forward10Icon />
                 </Ctl>
               </span>
-              <VolumeControl
-                level={muted ? 0 : volume}
-                onToggle={toggleMute}
-                onChange={(l) => setVolume(l)}
-                onActivity={poke}
-              />
+              <span className="tv-none contents">
+                <VolumeControl
+                  level={muted ? 0 : volume}
+                  onToggle={toggleMute}
+                  onChange={(l) => setVolume(l)}
+                  onActivity={poke}
+                />
+              </span>
             </div>
 
             {/* Centre: what is playing. */}
@@ -541,7 +589,7 @@ export default function Player({ title }: Props) {
                   <EpisodesIcon />
                 </Ctl>
               )}
-              <Ctl label="Ruota schermo" onClick={rotate} className="hidden pointer-coarse:grid">
+              <Ctl label="Ruota schermo" onClick={rotate} className="tv-none hidden pointer-coarse:grid">
                 <RotateIcon />
               </Ctl>
               <Ctl label="Audio e sottotitoli" onClick={() => setPanel("subs")}>
@@ -550,7 +598,7 @@ export default function Player({ title }: Props) {
               <Ctl label="Impostazioni" onClick={() => setPanel("settings")}>
                 <SettingsIcon />
               </Ctl>
-              <Ctl label={fullscreen ? "Esci da schermo intero" : "Schermo intero"} onClick={toggleFullscreen}>
+              <Ctl label={fullscreen ? "Esci da schermo intero" : "Schermo intero"} onClick={toggleFullscreen} className="tv-none grid">
                 {fullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
               </Ctl>
             </div>

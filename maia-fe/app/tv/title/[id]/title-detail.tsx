@@ -58,7 +58,7 @@ function TitleDetail({ title }: { title: Detail }) {
 
   return (
     <div className="bg-canvas">
-      <section className="relative min-h-[82vh] overflow-hidden">
+      <section data-hero="title" className="relative min-h-[82vh] overflow-hidden">
         <Art src={title.backdropUrl ?? title.posterUrl} seed={title.id} eager />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/40" />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/30 to-transparent" />
@@ -92,7 +92,7 @@ function TitleDetail({ title }: { title: Detail }) {
       </section>
 
       {/* Max-style tabs under the hero. */}
-      <section className="px-4 pb-20 sm:px-10 lg:px-16">
+      <section data-block className="px-4 pb-20 sm:px-10 lg:px-16">
         <div role="tablist" aria-label="Sezioni" className="flex gap-6 overflow-x-auto border-b border-hairline [scrollbar-width:none]">
           {tabs.map((t) => (
             <button
@@ -127,7 +127,7 @@ function TitleDetail({ title }: { title: Detail }) {
         {tab === "episodi" && (
           <div className="rail -mx-4 mt-4 flex gap-5 overflow-x-auto px-4 pb-6 pt-4 sm:mx-0 sm:px-0">
             {episodes.map((ep, i) => (
-              <Link key={ep.id} href={`/watch/${title.id}?ep=${ep.id}`} className="group block w-64 shrink-0 outline-none sm:w-80">
+              <Link key={ep.id} href={`/watch/${title.id}?ep=${ep.id}`} className="tv-tile group block w-64 shrink-0 outline-none sm:w-80">
                 <span className="focusable lift relative block aspect-video overflow-hidden rounded-xl bg-surface group-focus-visible:scale-[1.06] group-focus-visible:shadow-[0_0_0_2px_white,0_30px_60px_-15px_black]">
                   {/* The first ones are on screen; without a picture of its own an episode reuses the
                       hero's (already loaded, so eager costs nothing and Next stops flagging it as LCP). */}
@@ -153,7 +153,7 @@ function TitleDetail({ title }: { title: Detail }) {
                 </h3>
                 <div className="rail -mx-4 flex gap-5 overflow-x-auto px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
                   {g.items.map((x) => (
-                    <Link key={x.id} href={`/watch/${title.id}?extra=${x.id}`} className="group block w-56 shrink-0 outline-none sm:w-64">
+                    <Link key={x.id} href={`/watch/${title.id}?extra=${x.id}`} className="tv-tile group block w-56 shrink-0 outline-none sm:w-64">
                       <span className="focusable lift relative block aspect-video overflow-hidden rounded-xl bg-surface group-focus-visible:scale-[1.06] group-focus-visible:shadow-[0_0_0_2px_white,0_30px_60px_-15px_black]">
                         <Art src={x.imageUrl ?? title.backdropUrl} seed={x.id} />
                         {x.minutes && (
@@ -173,7 +173,7 @@ function TitleDetail({ title }: { title: Detail }) {
           ))}
 
         {tab === "simili" && (
-          <div className="mt-6 grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-x-6 lg:grid-cols-6 xl:grid-cols-7">
+          <div className="tv-grid mt-6 grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-x-6 lg:grid-cols-6 xl:grid-cols-7">
             {title.similar.map((t) => (
               <Poster key={t.id} title={t} />
             ))}

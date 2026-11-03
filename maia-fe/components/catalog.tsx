@@ -42,7 +42,7 @@ export function Hub({ kind }: { kind: Kind }) {
         {genres.data?.slice(0, HUB_ROWS).map((g) => (
           <GenreRow key={g.slug} kind={kind} slug={g.slug} name={g.name} />
         ))}
-        <div className="h-16" />
+        <div className="tv-none h-16" />
       </div>
     </div>
   );
@@ -82,7 +82,7 @@ export function GenrePage({ slug, kind }: { slug: string; kind?: Kind }) {
   return (
     <div className="bg-canvas">
       <Hero items={items.filter((t) => t.backdropUrl).slice(0, 3)} eyebrow={heading} short />
-      <section className="px-4 pb-20 pt-6 sm:px-10 lg:px-16">
+      <section data-block className="px-4 pb-20 pt-6 sm:px-10 lg:px-16">
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="font-display text-xl font-bold sm:text-2xl">
             Tutti i titoli <span className="text-faint">{list.data?.total ?? items.length}</span>
@@ -96,7 +96,7 @@ export function GenrePage({ slug, kind }: { slug: string; kind?: Kind }) {
             </Link>
           )}
         </div>
-        <div className="mt-6 grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-x-6 sm:gap-y-8 lg:grid-cols-5 xl:grid-cols-7">
+        <div className="tv-grid mt-6 grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-x-6 sm:gap-y-8 lg:grid-cols-5 xl:grid-cols-7">
           {/* The first rows of the grid are on screen at once: load them eagerly. */}
           {items.map((t, i) => (
             <Poster key={t.id} title={t} eager={i < 14} />
