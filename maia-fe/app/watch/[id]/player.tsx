@@ -1,5 +1,6 @@
 "use client";
 
+import type { ErrorData } from "hls.js";
 import type Hls from "hls.js";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -24,13 +25,9 @@ import {
   VolumeLowIcon,
 } from "@/components/icons";
 import { Art } from "@/components/poster";
-import { ApiError } from "@/lib/api";
 import {
   episodeLabel,
-  fetchPlayback,
-  fetchStream,
   flatEpisodes,
-  reportPlaybackFailed,
   type Episode,
   type TitleDetail,
 } from "@/lib/tv";
@@ -124,19 +121,17 @@ export default function Player({ title }: Props) {
     }, 3000);
   }, []);
 
-  // Attach the stream. Live demo channels: hls.js where MSE exists, native HLS
-  // otherwise. Catalog videos: maia-be says what to play and the link goes
-  // straight into <video src>; the browser resolves it (the services check the
-  // viewer's country there) and plays it with its own HLS support. Some
-  // playlists are rejected by native HLS (Chrome cannot parse them): then
-  // maia-be resolves the direct link and hls.js plays it. When a source does
-  // not play either way, the next one is asked for, excluding that service.
+  // Attach the stream. Catalog videos always go through maia-be
+  // (/api/tv/proxy/:itemId): it picks the source, fetches the playlist and
+  // rewrites every link so segments, keys and subtitles come back through it
+  // too. hls.js plays it where MSE exists, native HLS otherwise (iPhone before
+  // iOS 17.1).
   useEffect(() => {
     const v = video.current;
     if (!v) return;
     let cancelled = false;
-    const tried: string[] = [];
     let onError: (() => void) | null = null;
+    let onPlaying: (() => void) | null = null;
     // Back on a page that was only hidden: start where it was left.
     const startAt = resume.current?.id === playId ? resume.current.at : 0;
     setFailure(null);
@@ -148,7 +143,7 @@ export default function Player({ title }: Props) {
     const mse = "MediaSource" in window || "ManagedMediaSource" in window;
 
     // hls.js on `url`; false where MSE is missing (iPhone before iOS 17.1).
-    const attachHls = async (url: string, onFatal?: () => void) => {
+    const attachHls = async (url: string, onFatal?: (data: ErrorData) => void) => {
       const { default: HlsLib } = await import("hls.js");
       if (cancelled || !HlsLib.isSupported()) return false;
       hls.current?.destroy();
@@ -162,27 +157,8 @@ export default function Player({ title }: Props) {
         setSubs(h.subtitleTracks.map((t, index) => ({ index, label: t.name || t.lang || `Sottotitoli ${index + 1}` })));
         v.play().catch(() => {});
       });
-      if (onFatal) h.on(HlsLib.Events.ERROR, (_, data) => data.fatal && !cancelled && onFatal());
+      if (onFatal) h.on(HlsLib.Events.ERROR, (_, data) => data.fatal && !cancelled && onFatal(data));
       return true;
-    };
-
-    const nextSource = (id: string, provider: string) => {
-      if (cancelled) return;
-      hls.current?.destroy();
-      hls.current = null;
-      tried.push(provider);
-      void reportPlaybackFailed(id, provider);
-      void playCatalog(id);
-    };
-
-    const playResolved = async (id: string, provider: string) => {
-      try {
-        const s = await fetchStream(id, provider);
-        if (cancelled) return;
-        if (!(await attachHls(s.url, () => nextSource(id, provider)))) nextSource(id, provider);
-      } catch {
-        nextSource(id, provider);
-      }
     };
 
     const playCatalog = async (id: string) => {
@@ -190,32 +166,49 @@ export default function Player({ title }: Props) {
         setFailure("Questo browser non riproduce i video di MAIA. Usa Chrome, Edge o Safari.");
         return;
       }
-      try {
-        const p = await fetchPlayback(id, tried);
-        if (cancelled) return;
-        if (!nativeHls) {
-          void playResolved(id, p.provider);
-          return;
-        }
-        onError = () => {
-          if (cancelled) return;
-          v.removeAttribute("src");
-          void playResolved(id, p.provider);
-        };
+      const url = `/api/tv/proxy/${encodeURIComponent(id)}`;
+      // Not for a start that was cancelled (in development React runs the
+      // effect twice: the first attachHls returns false, the second plays).
+      const failed = (status?: number) =>
+        !cancelled && setFailure(status === 404 ? "Questo contenuto ora non è disponibile." : "Il video non parte. Riprova tra poco.");
+      // The message never stays over a video that is playing.
+      onPlaying = () => setFailure(null);
+      v.addEventListener("playing", onPlaying);
+
+      if (!mse) {
+        onError = () => failed();
         v.addEventListener("error", onError, { once: true });
-        v.src = p.url;
+        v.src = url;
         if (startAt) v.currentTime = startAt;
         v.play().catch(() => {});
-      } catch (err) {
-        if (!cancelled)
-          setFailure(err instanceof ApiError && err.code === "NO_SOURCE" ? "Questo contenuto ora non è disponibile." : "Il video non parte. Riprova tra poco.");
+        return;
       }
+
+      // A fatal hls.js error stops loading but the film is still there: resume
+      // a few times (network: load again; media: recover) before giving up.
+      // The count starts again once the video has moved on since the last error.
+      let recoveries = 0;
+      let stuckAt = -1;
+      const recover = (data: ErrorData) => {
+        console.warn("hls", data.type, data.details, data.response?.code);
+        // Before any video (the playlist itself was refused): nothing to resume.
+        if (data.details === "manifestLoadError") return failed(data.response?.code);
+        if (v.currentTime > stuckAt + 1) recoveries = 0;
+        stuckAt = v.currentTime;
+        const h = hls.current;
+        if (!h || recoveries++ >= 3) return failed();
+        if (data.type === "networkError") h.startLoad();
+        else if (data.type === "mediaError") h.recoverMediaError();
+        else failed();
+      };
+      if (!(await attachHls(url, recover))) failed();
     };
 
     if (playId) void playCatalog(playId);
     return () => {
       cancelled = true;
       if (onError) v.removeEventListener("error", onError);
+      if (onPlaying) v.removeEventListener("playing", onPlaying);
       hls.current?.destroy();
       hls.current = null;
       // Stop sound and download now: the page may only be hidden, not removed.

@@ -322,3 +322,21 @@ compatibile con `polite-fetch` e con "niente imitazioni dei servizi". Il requisi
 server di casa `192.168.1.9`, scopo originale di SDM: renderlo raggiungibile da ovunque resta il
 prossimo passo. Corretto anche docs/dev.md: `GET /tv/playback/:itemId/stream` ricava solo il link,
 il video lo scarica sempre il dispositivo.
+
+## 2026-11-03
+
+**Il video intero attraverso maia-be** (branch `feature/stream-proxy`, chiesto dall'utente). `GET /tv/proxy/:itemId` ricava la
+playlist dal relinker e la riscrive: varianti, segmenti, chiavi e sottotitoli tornano tutti allo
+stesso endpoint con un link firmato (HMAC), quindi non è un proxy aperto. Vale per ogni fonte che
+sa ricavare il flusso. È l'unico modo in cui il player riproduce il catalogo: hls.js dove c'è MSE,
+HLS nativo altrimenti; un errore a metà film viene ripreso da hls.js prima di mostrare un messaggio.
+Provato in locale con "Il fantasma di Canterville": parte e avanza, nessuna richiesta diretta a Rai.
+Limiti: dalla VPS (IP francese) il relinker rifiuta film e serie, quindi funziona solo con maia-be
+in Italia; ogni visione consuma la banda del server (circa 1-2 Mbit/s a schermo per questo titolo).
+Sostituisce la decisione "video riprodotto sempre sul dispositivo" del 2026-10-31: il player non
+chiede più il link a `GET /tv/playback/:itemId` e non passa a un'altra fonte quando una non parte
+(la sceglie maia-be).
+
+**Tolta la basic auth dal link ngrok** (chiesto dall'utente: dava problemi, anche con la prova del
+proxy video dal telefono). `npm run remote` ora inoltra direttamente a `next dev`; resta il login
+di MAIA. Corregge la decisione del 2026-10-30.

@@ -1,5 +1,7 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiCookieAuth, ApiNoContentResponse, ApiNotFoundResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { ApiCookieAuth, ApiExcludeEndpoint, ApiNoContentResponse, ApiNotFoundResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
+import type { Request, Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { ErrorDto } from '../auth/dto.js';
 import {
@@ -14,6 +16,7 @@ import {
   TitlePageDto,
   TitlesQueryDto,
 } from './tv.dto.js';
+import { StreamProxyService } from './stream-proxy.js';
 import { TvService } from './tv.service.js';
 
 // MAIA TV catalog and playback for the signed-in screens.
@@ -22,7 +25,10 @@ import { TvService } from './tv.service.js';
 @UseGuards(AuthGuard)
 @Controller('tv')
 export class TvController {
-  constructor(private readonly tv: TvService) {}
+  constructor(
+    private readonly tv: TvService,
+    private readonly streamProxy: StreamProxyService,
+  ) {}
 
   @Get('home')
   @ApiOkResponse({ type: HomeDto })
@@ -72,5 +78,20 @@ export class TvController {
   @ApiNoContentResponse()
   async playbackFailed(@Param('itemId') itemId: string, @Body() dto: PlaybackFailedDto) {
     await this.tv.playbackFailed(itemId, dto.provider);
+  }
+
+  // The whole video through maia-be (see stream-proxy.ts). One request
+  // per segment, so outside the rate limit.
+  @Get('proxy/:itemId')
+  @SkipThrottle()
+  @ApiExcludeEndpoint()
+  proxy(
+    @Param('itemId') itemId: string,
+    @Query('u') u: string | undefined,
+    @Query('s') s: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    return this.streamProxy.serve(itemId, u, s, req, res);
   }
 }
