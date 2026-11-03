@@ -88,6 +88,8 @@ class MainActivity : Activity() {
             settings.setSupportZoom(false)
             settings.builtInZoomControls = false
             settings.displayZoomControls = false
+            // Tells MAIA it is on a TV: instant moves, no blur (components/spatial-nav.tsx).
+            settings.userAgentString = "${settings.userAgentString} MaiaTV/1.0"
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             }
@@ -245,7 +247,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(16), 0, dp(32))
         }
         val logo = ImageView(this).apply {
-            setImageResource(R.drawable.banner)
+            setImageResource(R.drawable.tile)
             adjustViewBounds = true
         }
         val title = TextView(this).apply {

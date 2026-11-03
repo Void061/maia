@@ -798,6 +798,8 @@ export interface components {
             overview: string;
             posterUrl?: string | null;
             backdropUrl?: string | null;
+            /** @description The backdrop at card size */
+            thumbUrl?: string | null;
             /** @description Movies: length */
             minutes?: number | null;
             /** @description Series: seasons with something to watch */
@@ -863,6 +865,8 @@ export interface components {
             overview: string;
             posterUrl?: string | null;
             backdropUrl?: string | null;
+            /** @description The backdrop at card size */
+            thumbUrl?: string | null;
             /** @description Movies: length */
             minutes?: number | null;
             /** @description Series: seasons with something to watch */

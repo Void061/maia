@@ -15,8 +15,8 @@ android {
         // Fire OS 5 (first Fire TV Stick) is Android 5.1.
         minSdk = 22
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
         buildConfigField("String", "MAIA_URL", "\"$maiaUrl\"")
     }
 

@@ -57,6 +57,7 @@ const toCard = (t: CardRow): TitleCardDto => ({
   overview: t.overview,
   posterUrl: assetUrl(t.posterPath, t.posterSource, 'poster'),
   backdropUrl: assetUrl(t.backdropPath, t.backdropSource, 'backdrop'),
+  thumbUrl: assetUrl(t.backdropPath, t.backdropSource, 'thumb'),
   minutes:
     t.kind === 'MOVIE' && t.sources[0]?.durationSec
       ? Math.round(t.sources[0].durationSec / 60)

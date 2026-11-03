@@ -6,21 +6,33 @@ import { useEffect } from "react";
 // Remote-control navigation: arrow keys move focus to the nearest focusable
 // element in that direction, Enter activates it (native for links/buttons),
 // Backspace/Escape go back. Mouse and touch keep working as usual.
+// On a TV (html.tv, globals.css) the page jumps straight to the new position:
+// a smooth scroll on every key is what a slow TV stick cannot keep up with.
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])';
 
 type Dir = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
 
-function visible(el: HTMLElement) {
-  const r = el.getBoundingClientRect();
-  return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+// Holding a key on a TV: one move every this many ms, the rest are dropped.
+const REPEAT_MS = 120;
+const ROWS_AROUND = 2;
+const TV_BROWSER = /MaiaTV|AFT[A-Z]|SmartTV|Tizen|Web0S/;
+
+function candidates(root: Element): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE));
 }
 
-function candidates(): HTMLElement[] {
-  // A modal layer (e.g. the app switcher) traps focus inside itself.
-  const trap = document.querySelector<HTMLElement>("[data-focus-trap]");
-  const root = trap ?? document.body;
-  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(visible);
+// On a TV the rows off screen are not rendered (content-visibility, globals.css)
+// and measuring one forces it: moving up or down looks only at the rows around
+// the focus, or the first move would render the whole page at once.
+function closeRows(els: HTMLElement[], active: Element) {
+  const rows = Array.from(document.querySelectorAll("main section"));
+  const at = rows.indexOf(active.closest("section") as Element);
+  const close = new Set(rows.slice(Math.max(at - ROWS_AROUND, 0), Math.max(at, 0) + ROWS_AROUND + 1));
+  return els.filter((el) => {
+    const row = el.closest("section");
+    return !row || close.has(row);
+  });
 }
 
 function nearest(from: DOMRect, dir: Dir, els: HTMLElement[], self: Element | null) {
@@ -31,6 +43,7 @@ function nearest(from: DOMRect, dir: Dir, els: HTMLElement[], self: Element | nu
   for (const el of els) {
     if (el === self) continue;
     const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) continue;
     const ex = r.left + r.width / 2;
     const ey = r.top + r.height / 2;
     const dx = ex - cx;
@@ -45,6 +58,10 @@ function nearest(from: DOMRect, dir: Dir, els: HTMLElement[], self: Element | nu
     const score = main + Math.abs(cross) * 2.5;
     if (score < bestScore) { bestScore = score; best = el; }
   }
+  // Styles are slow to read: only the winner is checked, not every element.
+  if (best && getComputedStyle(best).visibility === "hidden") {
+    return nearest(from, dir, els.filter((el) => el !== best), self);
+  }
   return best;
 }
 
@@ -52,6 +69,10 @@ export default function SpatialNav() {
   const router = useRouter();
 
   useEffect(() => {
+    const tv = TV_BROWSER.test(navigator.userAgent);
+    document.documentElement.classList.toggle("tv", tv);
+    let lastMove = 0;
+
     function onKey(e: KeyboardEvent) {
       const active = document.activeElement as HTMLElement | null;
       const typing = active instanceof HTMLInputElement && active.type !== "range";
@@ -71,17 +92,49 @@ export default function SpatialNav() {
       if (typing && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
       if (active?.closest("[data-own-keys]")) return; // e.g. the video player
 
-      const els = candidates();
-      if (!active || active === document.body || !els.includes(active)) {
+      if (tv && e.repeat && e.timeStamp - lastMove < REPEAT_MS) {
         e.preventDefault();
-        els[0]?.focus();
         return;
       }
-      const next = nearest(active.getBoundingClientRect(), e.key as Dir, els, active);
+
+      // A modal layer (e.g. the app switcher) traps focus inside itself.
+      const root = document.querySelector("[data-focus-trap]") ?? document.body;
+      if (!active || active === document.body || !root.contains(active) || !active.matches(FOCUSABLE)) {
+        e.preventDefault();
+        candidates(root)
+          .find((el) => el.getClientRects().length > 0)
+          ?.focus();
+        return;
+      }
+      // Left and right stay in the row: only its cards are measured, and the
+      // last card does not jump to another row.
+      const across = e.key === "ArrowLeft" || e.key === "ArrowRight";
+      const rail = across ? active.closest(".rail") : null;
+      // The menu is fixed at the top, so it always looks "above": Up goes to
+      // the previous row and reaches the menu only from the first one.
+      const menu = root === document.body ? document.querySelector("header") : null;
+      const inMenu = !!menu?.contains(active);
+      const from = active.getBoundingClientRect();
+      const dir = e.key as Dir;
+      const pool = candidates(rail ?? (inMenu && across ? menu! : root));
+      const page = menu && !across ? pool.filter((el) => !menu.contains(el)) : pool;
+      let next: HTMLElement | null = null;
+      if (!(inMenu && dir === "ArrowUp")) {
+        next =
+          nearest(from, dir, across ? page : closeRows(page, active), active) ??
+          nearest(from, dir, page, active) ??
+          (dir === "ArrowUp" ? nearest(from, dir, pool, active) : null);
+      }
+      if ((rail || inMenu) && !next) e.preventDefault();
       if (next) {
         e.preventDefault();
+        lastMove = e.timeStamp;
         next.focus({ preventScroll: true });
-        next.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        next.scrollIntoView(
+          tv
+            ? { block: across ? "nearest" : "center", inline: "nearest", behavior: "instant" }
+            : { block: "nearest", inline: "nearest", behavior: "smooth" },
+        );
       }
     }
     window.addEventListener("keydown", onKey);

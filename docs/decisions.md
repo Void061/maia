@@ -369,3 +369,9 @@ a due archi + banner "maia" col puntino luminoso). Dettagli in docs/tv-app.md.
 
 **`npm run prod:local`** (chiesto dall'utente: il server di sviluppo è lento). Avvia MAIA sul PC come
 in produzione (`node dist/main` + `next start`), dopo migrazioni e build.
+
+**Modalità TV leggera** (segnalato dall'utente provando l'app sul Fire Stick: navigazione a scatti,
+effetto scorrimento del browser, icona piccola). Su TV il focus si sposta senza animazione e la card
+selezionata non si ingrandisce più: si perde un effetto per guadagnare fluidità. Corretto anche Su,
+che finiva a pressioni alterne sul menu fisso. Icona 16:9 al posto di quella quadrata. Dettagli e
+misure in docs/tv-app.md.

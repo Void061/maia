@@ -101,6 +101,43 @@ body {
   transform: scale(0.97);
 }
 
+/* TV sticks (class set by components/spatial-nav.tsx): little CPU and GPU, and
+   most of a move's cost is repainting (docs/tv-app.md, measured). No blur behind
+   the menu; the focused item does not grow, a scaled card recomposes its whole
+   row at every move: it only gets a sharp white edge. Rows off screen are not
+   rendered at all. */
+html.tv * {
+  backdrop-filter: none !important;
+}
+html.tv .glass {
+  background: rgb(30 30 32 / 0.96);
+}
+html.tv .focusable,
+html.tv .group:focus-visible .lift {
+  transition: none !important;
+  transform: none !important;
+}
+/* Its own rule: next to `transform` the CSS minifier folds the two into
+   transform: scale(1) and Tailwind's `scale` survives. */
+html.tv .lift {
+  scale: 1 !important;
+}
+html.tv main section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
+html.tv .focusable:focus-visible,
+html.tv .lift:focus-visible,
+html.tv .group:focus-visible .lift {
+  box-shadow: 0 0 0 3px #ffffff !important;
+}
+html.tv .pill-focus:focus-visible {
+  box-shadow: none !important;
+}
+html.tv .rail {
+  scroll-padding-inline: 2.5rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .focusable,
   .lift {

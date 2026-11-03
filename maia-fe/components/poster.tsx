@@ -25,7 +25,7 @@ function Fallback({ seed }: { seed: string }) {
 // `eager`: the picture is the first thing on screen (hero, top of a grid).
 function Art({ src, seed, eager }: { src: string | null | undefined; seed: string; eager?: boolean }) {
   return src ? (
-    <Image src={src} alt="" fill unoptimized loading={eager ? "eager" : undefined} fetchPriority={eager ? "high" : undefined} className="object-cover" />
+    <Image src={src} alt="" fill unoptimized decoding="async" loading={eager ? "eager" : undefined} fetchPriority={eager ? "high" : undefined} className="object-cover" />
   ) : (
     <Fallback seed={seed} />
   );
@@ -53,7 +53,7 @@ export function Tile({ title, className = "", eager }: { title: TitleCard; class
   return (
     <Link href={`/tv/title/${title.id}`} data-title={title.id} className={`group block shrink-0 outline-none ${className}`}>
       <span className={`${art} aspect-video`}>
-        <Art src={title.backdropUrl ?? title.posterUrl} seed={title.id} eager={eager} />
+        <Art src={title.thumbUrl ?? title.posterUrl} seed={title.id} eager={eager} />
       </span>
       <span className="mt-3 block truncate text-sm font-semibold text-label sm:text-base">{title.name}</span>
       <span className="block text-sm text-faint">{subtitle(title)}</span>
