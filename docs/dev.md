@@ -88,11 +88,9 @@ Le altre configurazioni aprono un terminale di VS Code e collegano il debugger a
 Node che partono da lì. **Prima va fermato lo stesso server se gira già in background** (porte
 fisse 3000 e 3001), per esempio quello avviato con `Start-Process`.
 
-Dove mettere i breakpoint per il **link video al play**: `maia-be/src/tv/tv.controller.ts`,
-`GET /tv/playback/:itemId` (sceglie la fonte e restituisce il link) e
-`GET /tv/playback/:itemId/stream` (il backend ricava il link diretto per hls.js; il video lo scarica
-comunque il dispositivo); il
-link che il worker ha salvato è in `sources.playback_url`.
+Dove mettere i breakpoint per il **video al play**: `maia-be/src/tv/stream-proxy.ts`,
+`StreamProxyService.serve` (`GET /tv/proxy/:itemId`): sceglie la fonte, ricava il link e fa passare
+playlist e segmenti dal backend. Il link che il worker ha salvato è in `sources.playback_url`.
 
 ## Variabili d'ambiente
 
@@ -133,14 +131,12 @@ Con backend e frontend accesi, da `maia-fe/`:
 npm run remote    # stampa "MAIA remote: https://….ngrok-free.app" (Ctrl+C per chiudere)
 ```
 
-Il link è **sempre protetto da basic auth**: utente `Ivan`, password `12341@` (si possono
-cambiare con `REMOTE_USER` / `REMOTE_PASSWORD`). L'URL cambia a ogni avvio (piano gratuito).
+Il link non ha basic auth (tolta il 2026-11-03): protegge solo il login di MAIA. L'URL cambia a
+ogni avvio (piano gratuito).
 
 - Lo script (`maia-fe/scripts/remote.mjs`) usa `@ngrok/ngrok`, non serve il programma `ngrok`.
   Il token si legge da `NGROK_AUTHTOKEN` o dal file di configurazione di ngrok
   (`%LOCALAPPDATA%\ngrok\ngrok.yml` o `~/.ngrok2/ngrok.yml`).
-- La basic auth la controlla un piccolo proxy dentro lo script, davanti a `next dev` (anche il
-  WebSocket del ricaricamento automatico): quella di ngrok vuole password di almeno 8 caratteri.
 - Basta esporre il frontend: il gateway `/api` porta le chiamate al backend lato server.
 - `next.config.ts` ammette i domini ngrok in `allowedDevOrigins`, altrimenti i pulsanti non
   funzionano.
