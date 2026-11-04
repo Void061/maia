@@ -47,6 +47,11 @@ Regole in `app/globals.css` (`html.tv`), come su Netflix e Max:
 - **Focus:** ogni pagina si apre con il focus sul primo elemento utile, o dove era tornando indietro.
   Logo (con una sola app attiva), pallini del carosello, "+" e "Vedi tutto" non si raggiungono.
 
+**Pagine di impostazioni su TV** (pannello admin, Account): menu a sinistra (`data-tv-side`) e schermata a
+destra (`data-tv-pane`), che scorre per conto suo. Su e Giù nel menu cambiano subito la schermata, Destra
+entra nel contenuto, Sinistra o Indietro tornano alla voce aperta, Indietro dal menu esce dalla pagina.
+Su telefono e computer le pagine restano come sono.
+
 **Player su TV**, come Netflix (`app/watch/[id]/player.tsx`): sull'immagine sinistra e destra spostano
 il video di 10 secondi, OK mette in pausa, Giù entra nella fila dei pulsanti; lì sinistra e destra
 passano da un comando all'altro e Su torna all'immagine. Niente volume né schermo intero: il volume è

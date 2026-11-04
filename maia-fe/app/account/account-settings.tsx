@@ -2,13 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Avatar from "@/components/avatar";
 import { BackIcon } from "@/components/icons";
 import Logo from "@/components/logo";
 import { Button, Field, Notice } from "@/components/ui";
 import { ME, useLogout, useMe } from "@/lib/account";
 import { api, type components } from "@/lib/api";
+import { isTv } from "@/lib/tv-device";
 
 const PASSWORD_MIN = 8;
 const SESSIONS = ["me", "sessions"];
@@ -23,40 +24,77 @@ export default function AccountSettings() {
   const router = useRouter();
   const { data: me } = useMe();
   const logout = useLogout();
+  // On a TV: a menu on the left, one section at a time on the right.
+  const [tv, setTv] = useState(false);
+  useEffect(() => setTv(isTv()), []);
+  const [voice, setVoice] = useState("data");
+  const shows = (key: string) => !tv || voice === key;
+  const voices = [
+    { key: "data", label: "Dati dell'account" },
+    { key: "password", label: "Password" },
+    { key: "profiles", label: "Profili" },
+    { key: "devices", label: "Dispositivi connessi" },
+    ...(me?.role === "ADMIN" ? [{ key: "admin", label: "Amministrazione" }] : []),
+    { key: "logout", label: "Esci" },
+  ];
 
   return (
-    <main className="night min-h-dvh px-4 pb-20 pt-8 sm:px-10">
-      <div className="mx-auto max-w-2xl">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => router.back()}
-            aria-label="Indietro"
-            className="focusable pill-focus grid size-11 place-items-center rounded-full"
-          >
-            <BackIcon />
-          </button>
-          <Logo size="sm" />
-          <span className="size-11" />
+    <main className="tv-side-page night min-h-dvh px-4 pb-20 pt-8 sm:px-10">
+      <div className="tv-side mx-auto max-w-2xl">
+        <div className="tv-side-head">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => router.back()}
+              aria-label="Indietro"
+              className="tv-none focusable pill-focus grid size-11 place-items-center rounded-full"
+            >
+              <BackIcon />
+            </button>
+            <Logo size="sm" />
+            <span className="tv-none size-11" />
+          </div>
+          <h1 className="mt-8 font-display text-4xl font-bold">Account</h1>
         </div>
-        <h1 className="mt-8 font-display text-4xl font-bold">Account</h1>
+
+        {tv && me && (
+          <div role="tablist" aria-label="Sezioni" data-tv-side>
+            {voices.map((v) => (
+              <button
+                key={v.key}
+                role="tab"
+                aria-selected={voice === v.key}
+                onClick={() => setVoice(v.key)}
+                onFocus={() => setVoice(v.key)}
+                className="focusable flex"
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {!me ? (
           <p className="mt-8 text-muted" role="status">
             Caricamento…
           </p>
         ) : (
-          <div className="mt-8 grid gap-6">
+          <div data-tv-pane className="mt-8 grid content-start gap-6">
+            {shows("data") && (
             <Section title="Dati dell'account">
               <NameForm name={me.name} />
               <div className="mt-4">
                 <Field label="Email" name="email" value={me.email} readOnly />
               </div>
             </Section>
+            )}
 
+            {shows("password") && (
             <Section title="Password">
               <PasswordForm />
             </Section>
+            )}
 
+            {shows("profiles") && (
             <Section title="Profili">
               <ul className="flex flex-wrap gap-4">
                 {me.profiles.map((p) => (
@@ -70,12 +108,15 @@ export default function AccountSettings() {
                 Gestisci profili
               </Button>
             </Section>
+            )}
 
+            {shows("devices") && (
             <Section title="Dispositivi connessi">
               <Sessions />
             </Section>
+            )}
 
-            {me.role === "ADMIN" && (
+            {me.role === "ADMIN" && shows("admin") && (
               <Section title="Amministrazione">
                 <p className="text-muted">Approva i nuovi account, sospendili o rendili amministratori.</p>
                 <Button variant="secondary" onClick={() => router.push("/admin")} className="mt-5">
@@ -84,9 +125,11 @@ export default function AccountSettings() {
               </Section>
             )}
 
+            {shows("logout") && (
             <Button variant="danger" onClick={() => logout.mutate()} disabled={logout.isPending}>
               {logout.isPending ? "Uscita…" : "Esci da MAIA"}
             </Button>
+            )}
           </div>
         )}
       </div>

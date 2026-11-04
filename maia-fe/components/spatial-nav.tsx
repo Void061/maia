@@ -38,8 +38,14 @@ function openLayer() {
 
 const shown = (el: Element | null | undefined): el is HTMLElement => !!el?.isConnected && el.getClientRects().length > 0;
 
+// The open voice of a page with a side menu (admin, account).
+const openVoice = () =>
+  Array.from(document.querySelectorAll<HTMLElement>('[data-tv-side] [aria-selected="true"]')).find(shown);
+
 // The first thing to land on in a page: the remote never starts from nothing.
 function firstOfPage() {
+  const voice = openVoice();
+  if (voice) return voice;
   const main = Array.from(document.querySelectorAll("main")).find(shown);
   return main ? candidates(main).find(shown) : undefined;
 }
@@ -139,6 +145,13 @@ export default function SpatialNav() {
         // handles the key first, and this is not a second Back.
         if (e.defaultPrevented || openLayer()) return;
         e.preventDefault();
+        // From the content of a side menu page, Back goes to the menu first.
+        const voice = tv && active?.closest("[data-tv-pane]") ? openVoice() : undefined;
+        if (voice) {
+          moveFocus(voice, true);
+          voice.focus({ preventScroll: true });
+          return;
+        }
         // In fullscreen, Back/Esc leaves fullscreen first, like every player.
         if (document.fullscreenElement) {
           document.exitFullscreen().catch(() => {});
@@ -148,7 +161,9 @@ export default function SpatialNav() {
         return;
       }
       if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
-      if (typing && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
+      // In a field left and right move the cursor; on a TV, left at the start leaves it.
+      const leavesField = tv && e.key === "ArrowLeft" && (active as HTMLInputElement | null)?.selectionStart === 0;
+      if (typing && (e.key === "ArrowLeft" || e.key === "ArrowRight") && !leavesField) return;
       if (active?.closest("[data-own-keys]")) return; // e.g. the video player
 
       // On a TV the arrows are all ours: at the end of a page the browser would
@@ -172,15 +187,21 @@ export default function SpatialNav() {
       const inMenu = !!menu?.contains(active);
       const from = active.getBoundingClientRect();
       const dir = e.key as Dir;
-      const pool = candidates(rail ?? (inMenu && across ? menu! : root));
+      // A side menu page: up and down stay in their column, right goes into the content.
+      const column = across ? null : active.closest("[data-tv-side], [data-tv-pane]");
+      const pool = candidates(rail ?? column ?? (inMenu && across ? menu! : root));
       const page = menu && !across ? pool.filter((el) => !menu.contains(el)) : pool;
       let next: HTMLElement | null = null;
       if (!(inMenu && dir === "ArrowUp")) {
         next = nearest(from, dir, page, active) ?? (dir === "ArrowUp" ? nearest(from, dir, pool, active) : null);
       }
+      if (tv && dir === "ArrowRight" && active.closest("[data-tv-side]")) {
+        const pane = Array.from(document.querySelectorAll("[data-tv-pane]")).find(shown);
+        next = pane ? (candidates(pane).find(shown) ?? null) : null;
+      }
       if ((rail || inMenu) && !next) e.preventDefault();
       if (next) {
-        if (!across) next = wayIn(next, active);
+        next = wayIn(next, active);
         e.preventDefault();
         lastMove = e.timeStamp;
         if (tv) moveFocus(next, across);

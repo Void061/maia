@@ -394,3 +394,6 @@ prima. Dettagli in docs/tv-app.md.
 disconnettono gli altri. Il controllo di accesso ora verifica che la sessione sia aperta a ogni richiesta,
 con 15 secondi di memoria: prima bastava la firma del token, e un dispositivo disconnesso sarebbe rimasto
 dentro fino a 15 minuti. Vale anche per sospensione e cambio password. Dettagli in docs/access.md.
+
+**Impostazioni su TV con menu a sinistra** (chiesto dall'utente): pannello admin e Account su TV hanno
+il menu a sinistra e la schermata a destra, come le impostazioni delle app TV. Solo su TV.

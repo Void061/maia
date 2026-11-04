@@ -14,6 +14,7 @@ import Logo from "@/components/logo";
 import { Notice } from "@/components/ui";
 import { useMe } from "@/lib/account";
 import { api, type components } from "@/lib/api";
+import { isTv } from "@/lib/tv-device";
 import LogPanel from "./log-panel";
 import ServicesPanel, { type Service } from "./services-panel";
 
@@ -107,22 +108,24 @@ export default function AdminPanel() {
 
   return (
     // overflow-x-clip: nothing in the panel (a long id, a URL in an error) can make the page wider than the screen.
-    <main className="night min-h-dvh overflow-x-clip px-4 pb-20 pt-8 sm:px-10">
-      <div className="mx-auto max-w-4xl">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => router.back()}
-            aria-label="Indietro"
-            className="focusable pill-focus grid size-11 place-items-center rounded-full"
-          >
-            <BackIcon />
-          </button>
-          <Logo size="sm" />
-          <span className="size-11" />
+    <main className="tv-side-page night min-h-dvh overflow-x-clip px-4 pb-20 pt-8 sm:px-10">
+      <div className="tv-side mx-auto max-w-4xl">
+        <div className="tv-side-head">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => router.back()}
+              aria-label="Indietro"
+              className="tv-none focusable pill-focus grid size-11 place-items-center rounded-full"
+            >
+              <BackIcon />
+            </button>
+            <Logo size="sm" />
+            <span className="tv-none size-11" />
+          </div>
+          <h1 className="mt-8 font-display text-4xl font-bold">
+            Amministrazione
+          </h1>
         </div>
-        <h1 className="mt-8 font-display text-4xl font-bold">
-          Amministrazione
-        </h1>
 
         {me && !isAdmin ? (
           <div className="mt-8">
@@ -133,6 +136,7 @@ export default function AdminPanel() {
             <div
               role="tablist"
               aria-label="Sezioni"
+              data-tv-side
               className="mt-8 flex gap-6 overflow-x-auto border-b border-hairline [scrollbar-width:none]"
             >
               {(
@@ -151,6 +155,8 @@ export default function AdminPanel() {
                   role="tab"
                   aria-selected={tab === t.key}
                   onClick={() => setTab(t.key)}
+                  // On a TV the screen on the right follows the menu.
+                  onFocus={() => isTv() && setTab(t.key)}
                   className="focusable -mb-px flex shrink-0 items-center gap-2 rounded-t-lg border-b-2 border-transparent px-1 pb-3 pt-1 text-lg font-semibold text-faint aria-selected:border-white aria-selected:text-label"
                 >
                   {t.label}
@@ -163,6 +169,7 @@ export default function AdminPanel() {
               ))}
             </div>
 
+            <div data-tv-pane>
             {tab === "services" ? (
               <ServicesPanel enabled={isAdmin} />
             ) : tab === "log" ? (
@@ -243,6 +250,7 @@ export default function AdminPanel() {
                 )}
               </>
             )}
+            </div>
           </>
         )}
       </div>
