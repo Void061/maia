@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Avatar from "@/components/avatar";
@@ -8,49 +8,99 @@ import { BackIcon } from "@/components/icons";
 import Logo from "@/components/logo";
 import { Button, Field, Notice } from "@/components/ui";
 import { ME, useLogout, useMe } from "@/lib/account";
-import { api } from "@/lib/api";
+import { api, type components } from "@/lib/api";
+import { useTv } from "@/lib/tv-device";
 
 const PASSWORD_MIN = 8;
+const SESSIONS = ["me", "sessions"];
+// Used this recently, a device counts as in use.
+const IN_USE_MS = 10 * 60_000;
 
-// Account settings: name, email (read-only for now), password, profiles, sign out.
+type Session = components["schemas"]["SessionDto"];
+
+// Account settings: name, email (read-only for now), password, profiles,
+// connected devices, sign out.
 export default function AccountSettings() {
   const router = useRouter();
   const { data: me } = useMe();
   const logout = useLogout();
+  // On a TV: a menu on the left, one section at a time on the right.
+  const tv = useTv();
+  const [voice, setVoice] = useState("data");
+  const shows = (key: string) => !tv || voice === key;
+  const voices = [
+    { key: "data", label: "Dati dell'account" },
+    { key: "password", label: "Password" },
+    { key: "two-factor", label: "Verifica in due passaggi" },
+    { key: "profiles", label: "Profili" },
+    { key: "devices", label: "Dispositivi connessi" },
+    ...(me?.role === "ADMIN" ? [{ key: "admin", label: "Amministrazione" }] : []),
+    { key: "logout", label: "Esci" },
+  ];
 
   return (
-    <main className="night min-h-dvh px-4 pb-20 pt-8 sm:px-10">
-      <div className="mx-auto max-w-2xl">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => router.back()}
-            aria-label="Indietro"
-            className="focusable pill-focus grid size-11 place-items-center rounded-full"
-          >
-            <BackIcon />
-          </button>
-          <Logo size="sm" />
-          <span className="size-11" />
+    <main className="tv-side-page night min-h-dvh px-4 pb-20 pt-8 sm:px-10">
+      <div className="tv-side mx-auto max-w-2xl">
+        <div className="tv-side-head">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => router.back()}
+              aria-label="Indietro"
+              className="tv-none focusable pill-focus grid size-11 place-items-center rounded-full"
+            >
+              <BackIcon />
+            </button>
+            <Logo size="sm" />
+            <span className="tv-none size-11" />
+          </div>
+          <h1 className="mt-8 font-display text-4xl font-bold">Account</h1>
         </div>
-        <h1 className="mt-8 font-display text-4xl font-bold">Account</h1>
+
+        {tv && me && (
+          <div role="tablist" aria-label="Sezioni" data-tv-side>
+            {voices.map((v) => (
+              <button
+                key={v.key}
+                role="tab"
+                aria-selected={voice === v.key}
+                onClick={() => setVoice(v.key)}
+                onFocus={() => setVoice(v.key)}
+                className="focusable flex"
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {!me ? (
           <p className="mt-8 text-muted" role="status">
             Caricamento…
           </p>
         ) : (
-          <div className="mt-8 grid gap-6">
+          <div data-tv-pane className="mt-8 grid content-start gap-6">
+            {shows("data") && (
             <Section title="Dati dell'account">
               <NameForm name={me.name} />
               <div className="mt-4">
                 <Field label="Email" name="email" value={me.email} readOnly />
               </div>
             </Section>
+            )}
 
+            {shows("password") && (
             <Section title="Password">
               <PasswordForm />
             </Section>
+            )}
 
+            {shows("two-factor") && (
+            <Section title="Verifica in due passaggi">
+              <TwoFactor on={me.twoFactor} />
+            </Section>
+            )}
+
+            {shows("profiles") && (
             <Section title="Profili">
               <ul className="flex flex-wrap gap-4">
                 {me.profiles.map((p) => (
@@ -64,8 +114,15 @@ export default function AccountSettings() {
                 Gestisci profili
               </Button>
             </Section>
+            )}
 
-            {me.role === "ADMIN" && (
+            {shows("devices") && (
+            <Section title="Dispositivi connessi">
+              <Sessions />
+            </Section>
+            )}
+
+            {me.role === "ADMIN" && shows("admin") && (
               <Section title="Amministrazione">
                 <p className="text-muted">Approva i nuovi account, sospendili o rendili amministratori.</p>
                 <Button variant="secondary" onClick={() => router.push("/admin")} className="mt-5">
@@ -74,9 +131,11 @@ export default function AccountSettings() {
               </Section>
             )}
 
+            {shows("logout") && (
             <Button variant="danger" onClick={() => logout.mutate()} disabled={logout.isPending}>
               {logout.isPending ? "Uscita…" : "Esci da MAIA"}
             </Button>
+            )}
           </div>
         )}
       </div>
@@ -90,6 +149,150 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2 className="mb-5 font-display text-xl font-bold">{title}</h2>
       {children}
     </section>
+  );
+}
+
+// A code by email after the password. It goes on only with a code received,
+// the proof that the emails arrive; going off asks for the password.
+function TwoFactor({ on }: { on: boolean }) {
+  const qc = useQueryClient();
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const refresh = () => qc.invalidateQueries({ queryKey: ME });
+  const start = useMutation({
+    mutationFn: () => api<{ challenge: string }>("/me/two-factor/start", { method: "POST" }),
+    onSuccess: (res) => setChallenge(res.challenge),
+  });
+  const enable = useMutation({
+    mutationFn: () => api("/me/two-factor/enable", { method: "POST", body: { challenge, code: code.trim() } }),
+    onSuccess: () => {
+      setChallenge(null);
+      setCode("");
+      return refresh();
+    },
+  });
+  const disable = useMutation({
+    mutationFn: () => api("/me/two-factor/disable", { method: "POST", body: { password } }),
+    onSuccess: () => {
+      setPassword("");
+      return refresh();
+    },
+  });
+  const failure = start.error ?? enable.error ?? disable.error;
+  const notice = failure && (
+    <div className="mt-4">
+      <Notice>{failure.message}</Notice>
+    </div>
+  );
+
+  if (on) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          disable.mutate();
+        }}
+      >
+        <p className="text-muted">Attiva: dopo la password ti chiediamo un codice che arriva per email. L&apos;accesso col QR sulla TV non lo chiede, conferma il telefono.</p>
+        <div className="mt-4">
+          <Field label="Password, per disattivarla" name="two-factor-password" type="password" autoComplete="current-password" value={password} onChange={setPassword} required />
+        </div>
+        {notice}
+        <Button type="submit" variant="secondary" disabled={disable.isPending || !password} className="mt-5">
+          Disattiva
+        </Button>
+      </form>
+    );
+  }
+  if (challenge) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          enable.mutate();
+        }}
+      >
+        <p className="text-muted">Ti abbiamo mandato un codice di 6 cifre: scrivilo qui per attivarla.</p>
+        <div className="mt-4">
+          <Field label="Codice" name="two-factor-code" autoComplete="one-time-code" value={code} onChange={setCode} required />
+        </div>
+        {notice}
+        <Button type="submit" disabled={enable.isPending || code.trim().length !== 6} className="mt-5">
+          Attiva
+        </Button>
+      </form>
+    );
+  }
+  return (
+    <>
+      <p className="text-muted">Dopo la password ti chiediamo anche un codice che arriva per email: chi scopre la password da solo non entra.</p>
+      {notice}
+      <Button variant="secondary" onClick={() => start.mutate()} disabled={start.isPending} className="mt-5">
+        {start.isPending ? "Invio…" : "Attiva"}
+      </Button>
+    </>
+  );
+}
+
+const lastUsed = (s: Session) => {
+  const at = new Date(s.lastUsedAt);
+  if (Date.now() - at.getTime() < IN_USE_MS) return "In uso ora";
+  const when = at.toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return `Ultimo uso ${when}`;
+};
+
+// Every device signed in to this account; any other one can be disconnected
+// from here. A disconnected device goes back to the login at its next request.
+function Sessions() {
+  const qc = useQueryClient();
+  const list = useQuery({ queryKey: SESSIONS, queryFn: () => api<Session[]>("/me/sessions") });
+  const close = useMutation({
+    mutationFn: (id: string | null) => api(id ? `/me/sessions/${id}` : "/me/sessions", { method: "DELETE" }),
+    onSettled: () => qc.invalidateQueries({ queryKey: SESSIONS }),
+  });
+  const sessions = list.data ?? [];
+  const others = sessions.filter((s) => !s.current).length;
+
+  if (list.isPending) {
+    return (
+      <p className="text-muted" role="status">
+        Caricamento…
+      </p>
+    );
+  }
+  if (list.isError) return <Notice>{list.error.message}</Notice>;
+  return (
+    <>
+      <ul className="grid gap-3">
+        {sessions.map((s) => (
+          <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-raised px-4 py-3">
+            <span className="min-w-0">
+              <span className="block font-medium">
+                {s.device}
+                {s.current && <span className="ml-2 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold">Questo dispositivo</span>}
+              </span>
+              <span className="block text-sm text-muted">{lastUsed(s)}</span>
+            </span>
+            {!s.current && (
+              <Button variant="secondary" onClick={() => close.mutate(s.id)} disabled={close.isPending}>
+                Disconnetti
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {others > 1 && (
+        <Button variant="danger" onClick={() => close.mutate(null)} disabled={close.isPending} className="mt-5">
+          Disconnetti tutti gli altri
+        </Button>
+      )}
+      {close.error && (
+        <div className="mt-4">
+          <Notice>{close.error.message}</Notice>
+        </div>
+      )}
+    </>
   );
 }
 

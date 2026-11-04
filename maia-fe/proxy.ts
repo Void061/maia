@@ -19,10 +19,10 @@ export function proxy(request: NextRequest) {
   if (signedIn) return NextResponse.next();
 
   const login = new URL("/login", request.url);
-  login.searchParams.set("next", pathname);
+  login.searchParams.set("next", pathname + request.nextUrl.search);
   return NextResponse.redirect(login);
 }
 
 export const config = {
-  matcher: ["/", "/login", "/profiles/:path*", "/welcome", "/account/:path*", "/admin/:path*", "/tv/:path*", "/watch/:path*"],
+  matcher: ["/", "/login", "/link", "/profiles/:path*", "/welcome", "/account/:path*", "/admin/:path*", "/tv/:path*", "/watch/:path*"],
 };

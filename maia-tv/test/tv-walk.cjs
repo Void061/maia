@@ -127,6 +127,17 @@ const report = { fail: 0 };
   const startOk = /Guarda/.test(firstFocus.name) && noise.length === 0;
   if (!startOk) report.fail++;
   console.log(`${startOk ? 'OK  ' : 'KO  '} Avvio: focus su "${firstFocus.name}", elementi inutili raggiungibili ${noise.length} ${noise.slice(0, 4)}`);
+  const ring = () => p.evaluate(() => document.getElementById('tv-ring').style.opacity !== '0');
+  const check = (ok, text) => { if (!ok) report.fail++; console.log(`${ok ? 'OK  ' : 'KO  '} ${text}`); };
+  check(!(await ring()), 'Nessun anello sul pulsante Guarda dopo il profilo');
+  await p.keyboard.press('ArrowDown'); await p.waitForTimeout(280);
+  check(await ring(), 'Anello sulla prima card');
+  for (let i = 0; i < 3; i++) { await p.keyboard.press('ArrowRight'); await p.waitForTimeout(280); }
+  await p.keyboard.press('ArrowUp'); await p.waitForTimeout(300);
+  const upTo = (await state()).name;
+  check(/Guarda/.test(upTo), `Su da destra torna a Guarda, non a Dettagli (${upTo})`);
+  const bg = await p.evaluate(() => { const g = (s) => { const e = [...document.querySelectorAll('[data-hero] a')].find((a) => a.textContent.includes(s)); return getComputedStyle(e).backgroundColor; }; return [g('Guarda'), g('Dettagli')]; });
+  check(bg[0] === 'rgb(255, 255, 255)' && bg[1] !== bg[0], `Solo il pulsante in focus è bianco (${bg.join(' / ')})`);
   await walk('Home giù', down(14), { shot: 'home-row' });
   await walk('Home destra', right(25), { shot: 'home-right' });
   await walk('Home sinistra', left(25));
@@ -157,6 +168,13 @@ const report = { fail: 0 };
   await p.screenshot({ path: path.join(out, 'walk-title.png') });
   await walk('Scheda giù', down(4), { shot: 'title-eps' });
   await walk('Scheda destra', right(8));
+  await p.keyboard.press('ArrowUp'); await p.waitForTimeout(280);
+  let tabFocus = await state();
+  for (let i = 0; i < 2 && tabFocus.tag !== 'BUTTON'; i++) { await p.keyboard.press('ArrowUp'); await p.waitForTimeout(280); tabFocus = await state(); }
+  while (tabFocus.name.startsWith('Stagione')) { await p.keyboard.press('ArrowUp'); await p.waitForTimeout(280); tabFocus = await state(); }
+  check(tabFocus.name === 'Episodi', `Su da destra torna alla scheda aperta (${tabFocus.name})`);
+  check(!(await ring()), 'Nessun anello sulle schede con la riga sotto');
+  await p.keyboard.press('ArrowDown'); await p.waitForTimeout(280); await p.keyboard.press('ArrowDown'); await p.waitForTimeout(280);
   await walk('Scheda su', up(6));
 
   // Search: one keyboard, MAIA's.
@@ -214,6 +232,13 @@ const report = { fail: 0 };
     const opened = await key('Enter', 500);
     const inside = await key('ArrowDown');
     const closed = await key('Escape', 500);
+    const ringAfter = await p.evaluate(() => { const g = document.getElementById('tv-ring'); return { on: g.style.opacity !== '0', w: Math.round(g.getBoundingClientRect().width) }; });
+    if (ringAfter.on) report.fail++;
+    console.log(`${ringAfter.on ? 'KO  ' : 'OK  '} Tornando dal pannello nessun anello (${JSON.stringify(ringAfter)})`);
+    const timeBar = await p.evaluate(() => ({ fill: getComputedStyle(document.querySelector('.tv-fill')).backgroundColor, h: getComputedStyle(document.querySelector('.tv-track')).height }));
+    const barOk = timeBar.fill === 'rgb(255, 255, 255)' && timeBar.h === '8px';
+    if (!barOk) report.fail++;
+    console.log(`${barOk ? 'OK  ' : 'KO  '} Barra del tempo bianca quando è in focus (${JSON.stringify(timeBar)})`);
     const again = await key('ArrowDown');
     const hideRoot = await key('ArrowUp');
     await p.waitForTimeout(3600);
@@ -244,7 +269,55 @@ const report = { fail: 0 };
   }
   const adminMoved = seen.size;
   await p.screenshot({ path: path.join(out, 'walk-admin.png') });
-  await p.evaluate(() => { const el = document.activeElement ?? document.body; el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); });
+  // Side menu pages: the menu drives the screen, right goes in, left and Back come out.
+  const voice = async () => p.evaluate(() => ({ focus: (document.activeElement?.getAttribute('aria-label') || document.activeElement?.textContent || document.activeElement?.tagName).trim().slice(0, 24), tab: document.activeElement?.getAttribute('role') === 'tab', open: document.querySelector('[data-tv-side] [aria-selected="true"]')?.textContent.trim().slice(0, 24), url: location.pathname + location.search, pane: !!document.activeElement?.closest('[data-tv-pane]') }));
+  const press = async (k, ms = 500) => { await p.keyboard.press(k); await p.waitForTimeout(ms); return voice(); };
+  await p.goto('http://localhost:3001/admin', { waitUntil: 'networkidle' });
+  await p.waitForTimeout(1800);
+  await p.screenshot({ path: path.join(out, 'side-admin.png') });
+  let v = await voice();
+  check(v.tab && /Account/.test(v.focus), `Admin: si parte dal menu (${v.focus})`);
+  v = await press('ArrowDown', 900);
+  check(/Servizi/.test(v.open) && /services/.test(v.url), `Admin: Giù apre Servizi a destra (${v.open}, ${v.url})`);
+  await p.screenshot({ path: path.join(out, 'side-services.png') });
+  v = await press('ArrowRight');
+  check(v.pane, `Admin: Destra entra nel contenuto (${v.focus})`);
+  const inside = new Set([v.focus]);
+  for (let i = 0; i < 6; i++) inside.add((await press('ArrowDown', 200)).focus);
+  check(inside.size >= 3, `Admin: nel contenuto ci si muove (${[...inside].slice(0, 5).join(' / ')})`);
+  v = await press('Escape');
+  check(v.tab && /Servizi/.test(v.focus), `Admin: Indietro torna alla voce aperta (${v.focus})`);
+  v = await press('ArrowRight');
+  const way = [];
+  for (let i = 0; i < 5 && !v.tab; i++) { v = await press('ArrowLeft', 250); way.push(v.focus); }
+  check(v.tab, `Admin: Sinistra torna al menu (${way.join(' > ')})`);
+  await p.goto('http://localhost:3001/account', { waitUntil: 'networkidle' });
+  await p.waitForTimeout(1800);
+  v = await voice();
+  check(v.tab && /Dati/.test(v.focus), `Account: si parte dal menu (${v.focus})`);
+  const shown = [];
+  for (let i = 0; i < 5; i++) { v = await press('ArrowDown', 300); shown.push(v.open); if (/Dispositivi/.test(v.open)) break; }
+  await p.waitForTimeout(800);
+  const sections = await p.evaluate(() => document.querySelectorAll('[data-tv-pane] section').length);
+  check(/Dispositivi/.test(v.open) && sections === 1, `Account: una sezione alla volta (${shown.join(' > ')}, sezioni ${sections})`);
+  await p.screenshot({ path: path.join(out, 'side-devices.png') });
+  v = await press('ArrowRight');
+  check(v.pane && /Disconnetti/.test(v.focus), `Account: Destra arriva su ${v.focus} (non premuto)`);
+  let low = v;
+  for (let i = 0; i < 6; i++) low = await press('ArrowDown', 200);
+  const seenOk = await p.evaluate(() => { const r = document.activeElement.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
+  check(seenOk, 'Account: scendendo nella lista il pulsante resta a schermo');
+  // Back to the first page: the walk ends on the admin check below.
+  await p.goto('http://localhost:3001/tv', { waitUntil: 'networkidle' });
+  await ready(() => document.images.length > 100);
+  await p.getByRole('button', { name: /Profilo/ }).focus();
+  await p.keyboard.press('Enter');
+  await p.waitForTimeout(500);
+  await p.getByRole('link', { name: 'Amministrazione' }).focus();
+  await p.keyboard.press('Enter');
+  await p.waitForURL(/admin/, { timeout: 15000 });
+  await p.waitForTimeout(2000);
+  await p.keyboard.press('Escape');
   await p.waitForTimeout(1500);
   const after = await state();
   const backOk = !after.path.startsWith('/admin');

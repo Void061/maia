@@ -21,6 +21,7 @@
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "account:approve": "node scripts/approve-account.mjs",
+    "account:2fa-off": "node scripts/disable-2fa.mjs",
     "db:migrate": "prisma migrate dev && prisma generate",
     "catalog": "node scripts/catalog.mjs",
     "catalog:worker": "tsc -p tsconfig.build.json --outDir .worker --incremental false && node --enable-source-maps --inspect=127.0.0.1:9230 .worker/tv/catalog/worker.main.js",

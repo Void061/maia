@@ -9,16 +9,20 @@ export const ME = ["me"] as const;
 
 // The signed-in account with its profiles. Without a session it sends the
 // user back to the login (the proxy already blocks most of these cases).
+const SESSION_CHECK_MS = 60_000;
+
 export function useMe() {
   const router = useRouter();
   const query = useQuery({
     queryKey: ME,
     queryFn: () => api<Account>("/me"),
     retry: (count, err) => !(err instanceof ApiError && err.status === 401) && count < 2,
+    // Also how a device left alone finds out it was disconnected from another one.
+    refetchInterval: SESSION_CHECK_MS,
   });
   const expired = query.error instanceof ApiError && query.error.status === 401;
   useEffect(() => {
-    if (expired) router.replace(`/login?next=${encodeURIComponent(location.pathname)}`);
+    if (expired) router.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
   }, [expired, router]);
   return query;
 }

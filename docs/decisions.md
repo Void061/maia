@@ -389,3 +389,16 @@ comandi come su Netflix; il controllo del volume non c'è più, resta sugli altr
 il movimento è `transform`, gestito dalla scheda grafica: righe e pagina scivolano, un unico riquadro
 di selezione sopra la pagina si sposta sulla card. Sostituisce lo spostamento istantaneo deciso poco
 prima. Dettagli in docs/tv-app.md.
+
+**Sessioni attive** (chiesto dall'utente): dalla pagina Account si vedono i dispositivi connessi e si
+disconnettono gli altri. Il controllo di accesso ora verifica che la sessione sia aperta a ogni richiesta,
+con 15 secondi di memoria: prima bastava la firma del token, e un dispositivo disconnesso sarebbe rimasto
+dentro fino a 15 minuti. Vale anche per sospensione e cambio password. Dettagli in docs/access.md.
+
+**Impostazioni su TV con menu a sinistra** (chiesto dall'utente): pannello admin e Account su TV hanno
+il menu a sinistra e la schermata a destra, come le impostazioni delle app TV. Solo su TV.
+
+**Login veloce sulla TV col QR e verifica in due passaggi via email** (chiesto dall'utente). La TV mostra
+QR e codice, il telefono conferma. La verifica in due passaggi è facoltativa e solo via email; si attiva
+soltanto dopo aver inserito un codice ricevuto, per non chiudere fuori nessuno se le email non arrivano.
+Dettagli in docs/access.md.

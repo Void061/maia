@@ -14,6 +14,8 @@ import type { AccessPayload } from './auth.guard.js';
 import { ACCESS_TTL_SEC, REFRESH_TTL_SEC } from './cookies.js';
 import { hashPassword, newSecret, sha256, verifyPassword } from './crypto.js';
 import { AuthError, type RegisterDto } from './dto.js';
+import { PairingService } from './pairing.service.js';
+import { TwoFactorService } from './two-factor.service.js';
 
 const HOUR = 60 * 60 * 1000;
 const TOKEN_TTL: Record<EmailTokenType, number> = {
@@ -22,6 +24,7 @@ const TOKEN_TTL: Record<EmailTokenType, number> = {
 };
 
 export type Tokens = { access: string; refresh: string };
+export type LoginResult = { tokens: Tokens } | { challenge: string };
 
 @Injectable()
 export class AuthService {
@@ -30,6 +33,8 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly mail: MailService,
     private readonly config: ConfigService,
+    private readonly twoFactor: TwoFactorService,
+    private readonly pairing: PairingService,
   ) {}
 
   // --- Sign-up and email confirmation ---------------------------------------
@@ -96,14 +101,33 @@ export class AuthService {
 
   // --- Login, sessions -------------------------------------------------------
 
-  async login(email: string, password: string, userAgent?: string): Promise<Tokens> {
+  async login(email: string, password: string, userAgent?: string): Promise<LoginResult> {
     const account = await this.prisma.account.findUnique({ where: { email } });
     if (!account || !(await verifyPassword(password, account.passwordHash))) {
       throw new UnauthorizedException({ code: AuthError.INVALID_CREDENTIALS, message: 'Email o password non corrette.' });
     }
     // Only after a correct password do we reveal the account state.
     this.assertActive(account);
+    if (account.twoFactor) return { challenge: await this.twoFactor.issue(account, 'LOGIN') };
+    return { tokens: await this.openSession(account.id, userAgent) };
+  }
+
+  // Second step of a login: the code from the email.
+  async verifyLogin(challenge: string, code: string, userAgent?: string): Promise<Tokens> {
+    const accountId = await this.twoFactor.check(challenge, code, 'LOGIN');
+    const account = await this.prisma.account.findUniqueOrThrow({ where: { id: accountId } });
+    this.assertActive(account);
     return this.openSession(account.id, userAgent);
+  }
+
+  // The TV asks; once a phone has confirmed, this is its session. The phone
+  // already passed its own login, two-step verification included.
+  async pairingResult(token: string): Promise<{ status: string; tokens?: Tokens }> {
+    const state = await this.pairing.poll(token);
+    if (state.status !== 'approved') return state;
+    const account = await this.prisma.account.findUniqueOrThrow({ where: { id: state.accountId } });
+    this.assertActive(account);
+    return { status: 'approved', tokens: await this.openSession(account.id, state.userAgent ?? undefined) };
   }
 
   async refresh(refreshToken: string | undefined): Promise<Tokens> {

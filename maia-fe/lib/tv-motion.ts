@@ -1,7 +1,8 @@
 // Movement on a TV. A TV stick cannot repaint the page at every key, but its
 // GPU moves layers for free: everything here is a CSS transform. The rows and
 // the page slide (they are not scrolled) and one ring, above everything, glides
-// to the focused item (so no row or card can ever cut it).
+// from card to card (so no row can ever cut it). Only cards, fields and what is
+// marked data-tv-ring get it: buttons turn white, tabs have their underline.
 // The layout it works on is in globals.css (html.tv).
 
 const RING_GAP = 4;
@@ -51,12 +52,16 @@ function placePage(page: HTMLElement, next: HTMLElement) {
   return -y - from;
 }
 
+export function hideRing() {
+  if (ring) ring.style.opacity = "0";
+}
+
 function drawRing(el: HTMLElement, dx = 0, dy = 0) {
   if (!ring) return;
-  const target = el.querySelector<HTMLElement>(".lift") ?? el;
-  // Pills turn white by themselves, and the player has its own look.
-  if (el.matches(".pill-focus") || el.closest("[data-own-keys], [data-tv-bar]") || !target.getClientRects().length) {
-    ring.style.opacity = "0";
+  const card = el.querySelector<HTMLElement>(".lift");
+  const target = card ?? (el.matches("input, select, [data-tv-ring]") ? el : null);
+  if (!target?.getClientRects().length) {
+    hideRing();
     return;
   }
   const r = target.getBoundingClientRect();
@@ -108,9 +113,15 @@ export function startTvMotion() {
     }
     if (e.target instanceof HTMLElement) drawRing(e.target);
   };
+  // Focus gone with nothing after it (the page changed): no ring left behind.
+  const onBlur = (e: FocusEvent) => {
+    if (!e.relatedTarget) hideRing();
+  };
   document.addEventListener("focusin", onFocus);
+  document.addEventListener("focusout", onBlur);
   return () => {
     document.removeEventListener("focusin", onFocus);
+    document.removeEventListener("focusout", onBlur);
     ring?.remove();
     ring = null;
   };

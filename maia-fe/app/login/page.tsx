@@ -1,12 +1,12 @@
 import AuthFrame from "@/components/auth-frame";
-import LoginForm from "./login-form";
+import LoginEntry from "./login-entry";
 
 export const metadata = { title: "Accedi · MAIA" };
 
 export default function LoginPage() {
   return (
     <AuthFrame>
-      <LoginForm />
+      <LoginEntry />
     </AuthFrame>
   );
 }

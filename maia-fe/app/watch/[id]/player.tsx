@@ -1019,11 +1019,11 @@ function Scrubber({
         }}
         onPointerCancel={() => setDrag(null)}
       >
-        <div className="relative h-1.5 w-full rounded-full bg-white/25">
-          <div className="absolute inset-y-0 left-0 rounded-full bg-white" style={{ width: `${pct}%` }} />
+        <div className="tv-track relative h-1.5 w-full rounded-full bg-white/25">
+          <div className="tv-fill absolute inset-y-0 left-0 rounded-full bg-white" style={{ width: `${pct}%` }} />
         </div>
         <div
-          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_2px_10px_rgb(0_0_0/0.5)] transition-[width,height] duration-150 ${
+          className={`tv-knob absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_2px_10px_rgb(0_0_0/0.5)] transition-[width,height] duration-150 ${
             drag !== null ? "size-6" : "size-4 group-hover:size-5"
           }`}
           style={{ left: `${pct}%` }}
