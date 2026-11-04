@@ -44,7 +44,11 @@ type TvDetails = {
 export class TmdbClient {
   constructor(private readonly key: string) {}
 
-  private get<T>(path: string, params: Record<string, string | number | undefined>): Promise<T> {
+  private get<T>(
+    path: string,
+    params: Record<string, string | number | undefined>,
+    options: { minGapMs?: number; serial?: boolean } = {},
+  ): Promise<T> {
     const url = new URL(API + path);
     url.searchParams.set('language', 'it-IT');
     for (const [k, v] of Object.entries(params)) if (v !== undefined) url.searchParams.set(k, String(v));
@@ -54,7 +58,14 @@ export class TmdbClient {
     return politeJson<T>(url.toString(), {
       minGapMs: 250,
       headers: isToken ? { Authorization: `Bearer ${this.key}` } : {},
+      ...options,
     });
+  }
+
+  // A read for a screen someone is waiting on (tmdb-catalog.service.ts): not
+  // queued behind catalog work, still far below TMDB's limit at 20 per second.
+  read<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
+    return this.get<T>(path, params, { minGapMs: 50, serial: false });
   }
 
   // Top candidates for a movie, with runtime (needs one details call each).
@@ -152,7 +163,7 @@ export class TmdbClient {
   }
 }
 
-function toYear(date: string | undefined): number | null {
+export function toYear(date: string | undefined): number | null {
   const y = Number.parseInt(date?.slice(0, 4) ?? '', 10);
   return Number.isFinite(y) ? y : null;
 }

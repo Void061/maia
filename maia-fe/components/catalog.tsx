@@ -34,7 +34,7 @@ export function Hub({ kind }: { kind: Kind }) {
         {genres.data && genres.data.length > 0 && (
           <Rail title="Esplora per genere">
             {genres.data.map((g) => (
-              <GenreCard key={g.slug} href={`${base[kind]}/${g.slug}`} name={g.name} />
+              <GenreCard key={g.slug} href={`${base[kind]}/${g.slug}`} name={g.name} image={g.imageUrl} />
             ))}
           </Rail>
         )}

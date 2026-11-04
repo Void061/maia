@@ -17,6 +17,7 @@ import {
   TitlesQueryDto,
 } from './tv.dto.js';
 import { StreamProxyService } from './stream-proxy.js';
+import { TmdbCatalogService } from './tmdb-catalog.service.js';
 import { TvService } from './tv.service.js';
 
 // MAIA TV catalog and playback for the signed-in screens.
@@ -27,32 +28,38 @@ import { TvService } from './tv.service.js';
 export class TvController {
   constructor(
     private readonly tv: TvService,
+    private readonly live: TmdbCatalogService,
     private readonly streamProxy: StreamProxyService,
   ) {}
+
+  // What the screens browse: the database, or TMDB live with TV_CATALOG=tmdb.
+  private get catalog() {
+    return this.live.enabled ? this.live : this.tv;
+  }
 
   @Get('home')
   @ApiOkResponse({ type: HomeDto })
   home(): Promise<HomeDto> {
-    return this.tv.home();
+    return this.catalog.home();
   }
 
   @Get('genres')
   @ApiOkResponse({ type: [GenreDto] })
   genres(@Query() q: GenresQueryDto): Promise<GenreDto[]> {
-    return this.tv.genres(q.kind);
+    return this.catalog.genres(q.kind);
   }
 
   @Get('titles')
   @ApiOkResponse({ type: TitlePageDto })
   titles(@Query() q: TitlesQueryDto): Promise<TitlePageDto> {
-    return this.tv.titles(q);
+    return this.catalog.titles(q);
   }
 
   @Get('titles/:id')
   @ApiOkResponse({ type: TitleDetailDto })
   @ApiNotFoundResponse({ type: ErrorDto, description: 'TITLE_NOT_FOUND' })
   title(@Param('id') id: string): Promise<TitleDetailDto> {
-    return this.tv.title(id);
+    return this.catalog.title(id);
   }
 
   // What to give the player. The stream URL is resolved by the device (the

@@ -402,3 +402,14 @@ il menu a sinistra e la schermata a destra, come le impostazioni delle app TV. S
 QR e codice, il telefono conferma. La verifica in due passaggi è facoltativa e solo via email; si attiva
 soltanto dopo aver inserito un codice ricevuto, per non chiudere fuori nessuno se le email non arrivano.
 Dettagli in docs/access.md.
+
+**Studio: catalogo letto dal vivo da TMDB** (spento di base: si accende con `TV_CATALOG=tmdb`). Obiettivo
+dell'utente: togliere worker e catalogo dal database. Con `TV_CATALOG=tmdb` Home, generi, liste, ricerca
+e schede arrivano da `tmdb-catalog.service.ts` con le stesse risposte di `TvService`, quindi le schermate
+non cambiano; senza la variabile tutto resta come prima. Niente viene salvato nel database: le risposte di
+TMDB passano solo dalla cache Redis, condivisa fra gli utenti. Gli id sono `movie-603`, `series-1396`,
+`series-1396-s1e2`. Per ora non si riproduce nulla: il Play risponde "non disponibile" finché non si
+decide come trovare il film sul server al click. Limiti noti: massimo 60 titoli per lista, niente Extra, il
+trailer si apre dentro MAIA in un riquadro YouTube, unica eccezione alla regola `no-referrer` (YouTube non
+parte senza referrer), con il focus su Chiudi perché Indietro resti a MAIA anche su TV. Le condizioni di
+TMDB chiedono logo e avviso di attribuzione nell'app: da aggiungere prima di tenere questa strada.
