@@ -2,7 +2,7 @@
 
 Deploy su **Coolify** nella VPS, come Yuma: due risorse con Build Pack Dockerfile più un
 database PostgreSQL e un **Redis** gestiti da Coolify (Redis senza persistenza: è solo cache).
-Il catalogo intero in cache occupa ~115 MB: dare a Redis almeno 256 MB con
+Il catalogo è letto da TMDB e passa solo dalla cache: dare a Redis almeno 256 MB con
 `maxmemory-policy allkeys-lru` (se si riempie butta le voci meno usate invece di dare errore).
 
 | Risorsa | Base directory | Porta | Variabili |
@@ -18,18 +18,8 @@ Il primo amministratore in produzione si crea dal terminale del container maia-b
 
 ## Catalogo MAIA TV
 
-Il backend in produzione esegue anche i lavori del catalogo (pg-boss, tabelle nello schema
-`pgboss` dello stesso database). Gli orari si scelgono per ogni fonte dal pannello admin (scheda
-Servizi): **manuale di base** (si aggiorna solo con "Aggiorna ora") oppure automatico (passata ogni
-giorno a un'ora scelta e controlli ogni N ore); i video scaduti si spengono ogni ora. Dopo il primo
-deploy le fonti sono quindi ferme finché non si imposta l'automatico o si preme "Aggiorna ora". Non serve un'altra risorsa. Il primo riempimento si avvia una volta dal
-terminale del container maia-be con `npm run catalog -- fill raiplay` (qualche ora; avanzamento con
-`npm run catalog -- status`). `CATALOG_WORKERS=false` li spegne.
-
-**Dopo un deploy che cambia cosa salva il catalogo** (vedi [tv/catalog.md](tv/catalog.md),
-"Rileggere tutto il catalogo"), dal terminale del container maia-be:
-`npm run catalog -- resync raiplay` (o `--episodes`). Da fare in produzione, per esempio, al primo
-deploy con le immagini delle puntate (2026-10-31): `npm run catalog -- resync raiplay --episodes`.
+Il catalogo non sta nel database: il backend lo legge da TMDB quando serve, quindi non ci sono
+lavori da eseguire né riempimenti. Basta `TMDB_API_KEY`, obbligatoria.
 
 ## Email con Resend
 
@@ -44,9 +34,8 @@ Frontend e backend stanno sulla VPS (Coolify); Cloudflare sta **davanti** come D
 (nuvola arancione): HTTPS, cache dei file statici, protezione da attacchi. Il frontend non può
 essere un sito statico (gateway `/api`, `proxy.ts`, pagine dinamiche). Turnstile (anti-bot) si può
 aggiungere ai moduli di registrazione e password dimenticata indipendentemente da dove gira l'app.
-I video passano dal backend (`GET /tv/proxy/:itemId`, vedi docs/decisions.md 2026-11-03): ogni
-visione consuma banda del server (circa 1-2 Mbit/s a schermo), e il relinker di RaiPlay rifiuta
-film e serie a un server fuori dall'Italia.
+I video passano dal backend (`GET /tv/proxy/:itemId`): ogni visione consuma banda del server
+(circa 1-2 Mbit/s a schermo).
 
 ## Immagini
 

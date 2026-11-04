@@ -15,7 +15,6 @@ import { Notice } from "@/components/ui";
 import { useMe } from "@/lib/account";
 import { api, type components } from "@/lib/api";
 import { isTv } from "@/lib/tv-device";
-import LogPanel from "./log-panel";
 import ServicesPanel, { type Service } from "./services-panel";
 
 type AdminAccount = components["schemas"]["AdminAccountDto"];
@@ -55,12 +54,11 @@ const date = (iso: string) =>
 const hueOf = (s: string) =>
   [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
 
-type Tab = "accounts" | "services" | "log";
-const TABS: Tab[] = ["accounts", "services", "log"];
+type Tab = "accounts" | "services";
+const TABS: Tab[] = ["accounts", "services"];
 
 // Admin panel, one tab per area: accounts (by status, search, the actions each
-// status allows), the outside services (on/off switches, updates) and the
-// catalog log (what the worker is doing and did).
+// status allows) and the outside services (on/off switches, streaming address).
 export default function AdminPanel() {
   const router = useRouter();
   const { data: me } = useMe();
@@ -92,7 +90,7 @@ export default function AdminPanel() {
     enabled: isAdmin,
     placeholderData: keepPreviousData,
   });
-  // Shares the cache with the Servizi tab: its badge counts the services off or paused.
+  // Shares the cache with the Servizi tab: its badge counts the services off.
   const services = useQuery({
     queryKey: ["admin", "services"],
     queryFn: () => api<Service[]>("/admin/services"),
@@ -100,7 +98,7 @@ export default function AdminPanel() {
     enabled: isAdmin,
   });
   const servicesAlert =
-    services.data?.filter((s) => !s.enabled || s.status === "DOWN").length ?? 0;
+    services.data?.filter((s) => !s.enabled).length ?? 0;
   const counts = list.data?.counts;
   const total = counts
     ? Object.values(counts).reduce((a, b) => a + b, 0)
@@ -147,7 +145,6 @@ export default function AdminPanel() {
                     badge: counts?.PENDING_APPROVAL ?? 0,
                   },
                   { key: "services", label: "Servizi", badge: servicesAlert },
-                  { key: "log", label: "Log", badge: 0 },
                 ] as const
               ).map((t) => (
                 <button
@@ -172,11 +169,9 @@ export default function AdminPanel() {
             <div data-tv-pane>
             {tab === "services" ? (
               <ServicesPanel enabled={isAdmin} />
-            ) : tab === "log" ? (
-              <LogPanel enabled={isAdmin} />
             ) : (
               <>
-                {/* They wrap on phones too, like the Log filters: a sideways row looked cut off at the edge. */}
+                {/* They wrap on phones too: a sideways row looked cut off at the edge. */}
                 <div className="mt-6 flex flex-wrap gap-2">
                   {FILTERS.map((f) => {
                     const n = f.key === "ALL" ? total : counts?.[f.key];

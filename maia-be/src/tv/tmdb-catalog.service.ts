@@ -2,16 +2,13 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CacheService } from '../cache/cache.service.js';
 import type { TitleKind } from '../generated/prisma/client.js';
-import { genreSlug } from './genre-slug.js';
-import { TmdbClient, toYear } from './matching/tmdb.client.js';
-import { assetUrl } from './providers/assets.js';
 import { HttpError } from './providers/polite-fetch.js';
+import { TmdbClient, toYear } from './tmdb.client.js';
 import type { GenreDto, HomeDto, SeasonDto, TitleCardDto, TitleDetailDto, TitlePageDto } from './tv.dto.js';
 
-// The catalog read live from TMDB, with nothing saved in the database
-// (TV_CATALOG=tmdb, docs/decisions.md): same answers as TvService, so the
-// screens do not change. Every TMDB answer goes through the cache, shared by
-// all users: a screen seen before costs TMDB nothing.
+// The catalog, read live from TMDB with nothing saved in the database
+// (docs/decisions.md). Every TMDB answer goes through the cache, shared by all
+// users: a screen seen before costs TMDB nothing.
 
 const PAGE_SIZE = 20;
 // TMDB serves at most 500 pages of any list.
@@ -26,6 +23,21 @@ const SIMILAR = 18;
 const SEASONS_PER_CALL = 20;
 // Keeps the titles nobody voted on (often duplicates or junk) out of the genres.
 const MIN_VOTES = 50;
+
+// Pictures: TMDB's address, one width per use. Thumbs: episode and card
+// pictures, up to ~320 px wide, x2 for sharp screens.
+const IMAGES = 'https://image.tmdb.org/t/p';
+const SIZES = { poster: '/w500', backdrop: '/w1280', thumb: '/w780' };
+const image = (path: string | null | undefined, size: keyof typeof SIZES) => (path ? `${IMAGES}${SIZES[size]}${path}` : null);
+
+// "Science Fiction" -> "science-fiction": stable ids for genre pages.
+const genreSlug = (name: string) =>
+  name
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 
 const PATH: Record<TitleKind, 'movie' | 'tv'> = { MOVIE: 'movie', SERIES: 'tv' };
 const ID_PREFIX: Record<TitleKind, string> = { MOVIE: 'movie', SERIES: 'series' };
@@ -113,9 +125,9 @@ function toCard(item: Item, kind: TitleKind, names: Map<number, string>): TitleC
     year: toYear(item.release_date ?? item.first_air_date),
     genres: (item.genre_ids ?? []).flatMap((id) => names.get(id) ?? []),
     overview: item.overview ?? '',
-    posterUrl: assetUrl(item.poster_path ?? null, 'tmdb', 'poster'),
-    backdropUrl: assetUrl(item.backdrop_path ?? null, 'tmdb', 'backdrop'),
-    thumbUrl: assetUrl(item.backdrop_path ?? null, 'tmdb', 'thumb'),
+    posterUrl: image(item.poster_path, 'poster'),
+    backdropUrl: image(item.backdrop_path, 'backdrop'),
+    thumbUrl: image(item.backdrop_path, 'thumb'),
     minutes: null,
     seasons: null,
   };
@@ -123,20 +135,17 @@ function toCard(item: Item, kind: TitleKind, names: Map<number, string>): TitleC
 
 @Injectable()
 export class TmdbCatalogService {
-  private readonly tmdb: TmdbClient | null;
-  readonly enabled: boolean;
+  private readonly tmdb: TmdbClient;
 
   constructor(
     config: ConfigService,
     private readonly cache: CacheService,
   ) {
-    const key = config.get<string>('TMDB_API_KEY');
-    this.tmdb = key ? new TmdbClient(key) : null;
-    this.enabled = !!key && config.get<string>('TV_CATALOG') === 'tmdb';
+    this.tmdb = new TmdbClient(config.getOrThrow<string>('TMDB_API_KEY'));
   }
 
   private read<T>(path: string, params: Params = {}): Promise<T> {
-    return this.cache.wrap(`tmdb:${path}:${JSON.stringify(params)}`, () => this.tmdb!.read<T>(path, params));
+    return this.cache.wrap(`tmdb:${path}:${JSON.stringify(params)}`, () => this.tmdb.read<T>(path, params));
   }
 
   private async genreTable(): Promise<Genres> {
@@ -319,7 +328,7 @@ export class TmdbCatalogService {
         name: e.name ?? '',
         airDate: e.air_date ?? null,
         minutes: e.runtime ?? null,
-        imageUrl: assetUrl(e.still_path ?? null, 'tmdb', 'thumb'),
+        imageUrl: image(e.still_path, 'thumb'),
       })),
     }));
   }

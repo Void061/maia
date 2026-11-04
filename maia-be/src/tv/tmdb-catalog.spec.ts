@@ -13,7 +13,7 @@ type Read = (path: string, params: Record<string, string | number>) => Promise<u
 // A service reading canned TMDB answers; `calls` records what was asked.
 function service(answers: Record<string, unknown>) {
   const calls: { path: string; params: Record<string, string | number> }[] = [];
-  const config = { get: (k: string) => ({ TMDB_API_KEY: 'key', TV_CATALOG: 'tmdb' })[k] };
+  const config = { getOrThrow: () => 'key' };
   const cache = { wrap: <T>(_: string, compute: () => Promise<T>) => compute() };
   const s = new TmdbCatalogService(config as never, cache as never);
   const tmdb: { read: Read } = {
@@ -192,10 +192,5 @@ describe('TmdbCatalogService', () => {
       'https://image.tmdb.org/t/p/w1280/hit.jpg',
       'https://image.tmdb.org/t/p/w1280/altro.jpg',
     ]);
-  });
-
-  it('stays off unless asked for', () => {
-    const config = { get: (k: string) => (k === 'TMDB_API_KEY' ? 'key' : undefined) };
-    expect(new TmdbCatalogService(config as never, {} as never).enabled).toBe(false);
   });
 });
