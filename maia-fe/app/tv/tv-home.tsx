@@ -60,7 +60,7 @@ export default function TvHome() {
                 key={g.slug}
                 href={`/tv/genre/${g.slug}`}
                 name={g.name}
-                image={rows.find((r) => r.genre === g.slug)?.items.find((t) => t.backdropUrl)?.backdropUrl}
+                image={g.imageUrl ?? rows.find((r) => r.genre === g.slug)?.items.find((t) => t.backdropUrl)?.backdropUrl}
               />
             ))}
           </Rail>
@@ -71,7 +71,7 @@ export default function TvHome() {
         )}
 
         {other.map((row) => (
-          <Rail key={row.key} title={row.name} href={row.genre ? `/tv/genre/${row.genre}` : row.key === "movies" ? "/tv/movies" : "/tv/series"}>
+          <Rail key={row.key} title={row.name} href={row.genre ? `/tv/genre/${row.genre}` : row.key.startsWith("movies") ? "/tv/movies" : "/tv/series"}>
             {row.items.map((t) => (
               <Poster key={t.id} title={t} className="w-32 sm:w-44 xl:w-52" />
             ))}

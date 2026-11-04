@@ -96,7 +96,7 @@ playlist e segmenti dal backend. Il link che il worker ha salvato è in `sources
 
 | File | Contenuto |
 |---|---|
-| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo), `CATALOG_WORKERS` (`false` = lavori del catalogo fuori dal server web), `REDIS_URL` (cache; vuota = niente cache), `CACHE_TTL_SECONDS`, `CACHE_MAX_FAILS` |
+| `maia-be/.env` | `DATABASE_URL`, `JWT_SECRET`, `APP_URL` (link nelle email), `RESEND_API_KEY` (vuota = Mailpit), `MAIL_FROM`, `ADMIN_EMAIL` (facoltativa), `TMDB_API_KEY` (catalogo), `TV_CATALOG` (`tmdb` = catalogo letto dal vivo da TMDB; vuota = dal database), `CATALOG_WORKERS` (`false` = lavori del catalogo fuori dal server web), `REDIS_URL` (cache; vuota = niente cache), `CACHE_TTL_SECONDS`, `CACHE_MAX_FAILS` |
 | `maia-fe/.env.local` | `API_URL=http://localhost:3000` (dove il gateway `/api` trova maia-be) |
 
 Sono ignorati da git; i modelli sono i rispettivi `.env.example`.

@@ -36,6 +36,7 @@ export class GenreDto {
   @ApiProperty() slug: string;
   @ApiProperty() name: string;
   @ApiProperty() count: number;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'A picture for the genre card' }) imageUrl?: string | null;
 }
 
 export class TitlePageDto {
@@ -77,6 +78,7 @@ export class ExtraGroupDto {
 
 export class TitleDetailDto extends TitleCardDto {
   @ApiPropertyOptional({ nullable: true, type: String }) originalName: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: 'YouTube player address, for an iframe' }) trailerUrl: string | null;
   @ApiProperty({ type: [SeasonDto] }) seasonList: SeasonDto[];
   @ApiProperty({ type: [ExtraGroupDto] }) extras: ExtraGroupDto[];
   @ApiProperty({ type: [TitleCardDto] }) similar: TitleCardDto[];

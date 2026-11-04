@@ -1037,6 +1037,8 @@ export interface components {
             slug: string;
             name: string;
             count: number;
+            /** @description A picture for the genre card */
+            imageUrl?: string | null;
         };
         TitlePageDto: {
             items: components["schemas"]["TitleCardDto"][];
@@ -1089,6 +1091,8 @@ export interface components {
             /** @description Series: seasons with something to watch */
             seasons?: number | null;
             originalName?: string | null;
+            /** @description YouTube player address, for an iframe */
+            trailerUrl?: string | null;
             seasonList: components["schemas"]["SeasonDto"][];
             extras: components["schemas"]["ExtraGroupDto"][];
             similar: components["schemas"]["TitleCardDto"][];

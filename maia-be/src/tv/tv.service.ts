@@ -4,6 +4,7 @@ import { Prisma, type TitleKind } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CatalogService } from './catalog/catalog.service.js';
 import { presentExtras } from './extras.js';
+import { genreSlug } from './genre-slug.js';
 import { assetUrl } from './providers/assets.js';
 import type {
   GenreDto,
@@ -67,15 +68,6 @@ const toCard = (t: CardRow): TitleCardDto => ({
 
 const minutes = (sec: number | null | undefined) =>
   sec ? Math.round(sec / 60) : null;
-
-// "Giallo and Crime" -> "giallo-and-crime": stable ids for genre pages.
-export const genreSlug = (name: string) =>
-  name
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
 
 const ROW_SIZE = 20;
 const HOME_GENRES = 8;
@@ -358,6 +350,7 @@ export class TvService {
       ...toCard(t),
       seasons: t.kind === 'SERIES' ? seasonList.length : null,
       originalName: t.originalName,
+      trailerUrl: null,
       seasonList,
       extras: presentExtras(
         t.extraGroups

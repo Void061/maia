@@ -9,7 +9,7 @@ export const CACHE_PREFIX = 'MAIA_APP_';
 // DTO, a cached internal type) or how it is computed (e.g. how extras are
 // grouped). Entries written by the previous code are then never read, and the
 // next invalidation (which matches every MAIA_APP_ key) clears them.
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const ns = (key: string) => `${CACHE_PREFIX}${CACHE_VERSION}:${key}`;
 const FAILS = 'fails:';
 // Failure counters forget isolated errors after this long.
