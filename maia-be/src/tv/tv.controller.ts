@@ -1,23 +1,12 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
-import { ApiCookieAuth, ApiExcludeEndpoint, ApiNoContentResponse, ApiNotFoundResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Param, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { ApiCookieAuth, ApiExcludeEndpoint, ApiNotFoundResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthGuard } from '../auth/auth.guard.js';
 import { ErrorDto } from '../auth/dto.js';
-import {
-  GenreDto,
-  GenresQueryDto,
-  HomeDto,
-  PlaybackDto,
-  PlaybackFailedDto,
-  PlaybackQueryDto,
-  StreamQueryDto,
-  TitleDetailDto,
-  TitlePageDto,
-  TitlesQueryDto,
-} from './tv.dto.js';
+import { GenreDto, GenresQueryDto, HomeDto, TitleDetailDto, TitlePageDto, TitlesQueryDto } from './tv.dto.js';
 import { StreamProxyService } from './stream-proxy.js';
-import { TvService } from './tv.service.js';
+import { TmdbCatalogService } from './tmdb-catalog.service.js';
 
 // MAIA TV catalog and playback for the signed-in screens.
 @ApiTags('tv')
@@ -26,58 +15,33 @@ import { TvService } from './tv.service.js';
 @Controller('tv')
 export class TvController {
   constructor(
-    private readonly tv: TvService,
+    private readonly catalog: TmdbCatalogService,
     private readonly streamProxy: StreamProxyService,
   ) {}
 
   @Get('home')
   @ApiOkResponse({ type: HomeDto })
   home(): Promise<HomeDto> {
-    return this.tv.home();
+    return this.catalog.home();
   }
 
   @Get('genres')
   @ApiOkResponse({ type: [GenreDto] })
   genres(@Query() q: GenresQueryDto): Promise<GenreDto[]> {
-    return this.tv.genres(q.kind);
+    return this.catalog.genres(q.kind);
   }
 
   @Get('titles')
   @ApiOkResponse({ type: TitlePageDto })
   titles(@Query() q: TitlesQueryDto): Promise<TitlePageDto> {
-    return this.tv.titles(q);
+    return this.catalog.titles(q);
   }
 
   @Get('titles/:id')
   @ApiOkResponse({ type: TitleDetailDto })
   @ApiNotFoundResponse({ type: ErrorDto, description: 'TITLE_NOT_FOUND' })
   title(@Param('id') id: string): Promise<TitleDetailDto> {
-    return this.tv.title(id);
-  }
-
-  // What to give the player. The stream URL is resolved by the device (the
-  // services check the viewer's country), never by the server.
-  @Get('playback/:itemId')
-  @ApiOkResponse({ type: PlaybackDto })
-  @ApiNotFoundResponse({ type: ErrorDto, description: 'NO_SOURCE' })
-  playback(@Param('itemId') itemId: string, @Query() q: PlaybackQueryDto): Promise<PlaybackDto> {
-    return this.tv.playback(itemId, q.exclude?.split(',').filter(Boolean) ?? []);
-  }
-
-  // Fallback when the device's native HLS rejects the source: the direct
-  // playlist URL for hls.js, resolved by the server (see TvService.stream).
-  @Get('playback/:itemId/stream')
-  @ApiOkResponse({ type: PlaybackDto })
-  @ApiNotFoundResponse({ type: ErrorDto, description: 'NO_SOURCE' })
-  stream(@Param('itemId') itemId: string, @Query() q: StreamQueryDto): Promise<PlaybackDto> {
-    return this.tv.stream(itemId, q.provider);
-  }
-
-  @Post('playback/:itemId/failed')
-  @HttpCode(204)
-  @ApiNoContentResponse()
-  async playbackFailed(@Param('itemId') itemId: string, @Body() dto: PlaybackFailedDto) {
-    await this.tv.playbackFailed(itemId, dto.provider);
+    return this.catalog.title(id);
   }
 
   // The whole video through maia-be (see stream-proxy.ts). One request

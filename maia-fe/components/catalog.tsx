@@ -24,7 +24,7 @@ export function Hub({ kind }: { kind: Kind }) {
 
       <div className="relative">
         {latest.data && latest.data.items.length > 0 && (
-          <Rail title={kind === "MOVIE" ? "Ultimi film arrivati" : "Ultime serie arrivate"}>
+          <Rail title={kind === "MOVIE" ? "Film popolari" : "Serie popolari"}>
             {latest.data.items.map((t) => (
               <Poster key={t.id} title={t} className="w-32 sm:w-44 xl:w-52" />
             ))}
@@ -34,7 +34,7 @@ export function Hub({ kind }: { kind: Kind }) {
         {genres.data && genres.data.length > 0 && (
           <Rail title="Esplora per genere">
             {genres.data.map((g) => (
-              <GenreCard key={g.slug} href={`${base[kind]}/${g.slug}`} name={g.name} />
+              <GenreCard key={g.slug} href={`${base[kind]}/${g.slug}`} name={g.name} image={g.imageUrl} />
             ))}
           </Rail>
         )}

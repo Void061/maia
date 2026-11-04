@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PlayIcon, PlusIcon } from "@/components/icons";
 import Poster, { Art } from "@/components/poster";
+import Trailer from "@/components/trailer";
 import { episodeLabel, flatEpisodes, useTitle, type ExtraGroup, type TitleDetail as Detail } from "@/lib/tv";
 
 const extraKind: Record<ExtraGroup["kind"], string> = {
@@ -39,6 +40,8 @@ function TitleDetail({ title }: { title: Detail }) {
     { key: "dettagli", label: "Dettagli" },
   ];
   const [tab, setTab] = useState(tabs[0].key);
+  const [trailer, setTrailer] = useState(false);
+  const closeTrailer = useCallback(() => setTrailer(false), []);
 
   // Land on the main action, ready for OK on the remote.
   useEffect(() => play.current?.focus(), []);
@@ -58,6 +61,7 @@ function TitleDetail({ title }: { title: Detail }) {
 
   return (
     <div className="bg-canvas">
+      {trailer && title.trailerUrl && <Trailer url={title.trailerUrl} name={title.name} onClose={closeTrailer} />}
       <section data-hero="title" className="relative min-h-[82vh] overflow-hidden">
         <Art src={title.backdropUrl ?? title.posterUrl} seed={title.id} eager />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/40" />
@@ -81,6 +85,14 @@ function TitleDetail({ title }: { title: Detail }) {
             >
               <PlayIcon /> Guarda
             </Link>
+            {title.trailerUrl && (
+              <button
+                onClick={() => setTrailer(true)}
+                className="focusable pill-focus inline-flex h-14 items-center rounded-full bg-white/[0.15] px-8 text-lg font-semibold"
+              >
+                Trailer
+              </button>
+            )}
             <button
               aria-label="Aggiungi ai preferiti"
               className="tv-none focusable pill-focus glass grid size-12 shrink-0 place-items-center rounded-full sm:size-14"

@@ -11,7 +11,7 @@ describe('base URLs', () => {
   });
 
   it('counts the current address among the hosts', () => {
-    expect(serviceHosts('raiplay')).toEqual(['mediapolisvod.rai.it', 'www.raiplay.it']);
+    expect(serviceHosts('sdm')).toEqual(['192.168.1.9']);
     setBaseUrlOverrides(new Map([['sdm', 'http://10.0.0.5:8080']]));
     expect(serviceHosts('sdm')).toEqual(['10.0.0.5:8080']);
     expect(serviceHosts('tmdb')).toEqual(['api.themoviedb.org']);

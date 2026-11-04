@@ -22,10 +22,7 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "account:approve": "node scripts/approve-account.mjs",
     "account:2fa-off": "node scripts/disable-2fa.mjs",
-    "db:migrate": "prisma migrate dev && prisma generate",
-    "catalog": "node scripts/catalog.mjs",
-    "catalog:worker": "tsc -p tsconfig.build.json --outDir .worker --incremental false && node --enable-source-maps --inspect=127.0.0.1:9230 .worker/tv/catalog/worker.main.js",
-    "catalog:probe": "tsc -p tsconfig.build.json --outDir .probe/dist --incremental false && node .probe/dist/tv/probe.js"
+    "db:migrate": "prisma migrate dev && prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -44,7 +41,6 @@
     "ioredis": "^6.0.0",
     "nodemailer": "^10.3.1",
     "pg": "^8.23.1",
-    "pg-boss": "^12.38.0",
     "prisma": "^7.10.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"

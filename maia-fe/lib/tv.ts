@@ -10,10 +10,9 @@ export type Episode = components["schemas"]["EpisodeDto"];
 export type ExtraGroup = components["schemas"]["ExtraGroupDto"];
 export type Genre = components["schemas"]["GenreDto"];
 export type Home = components["schemas"]["HomeDto"];
-export type Playback = components["schemas"]["PlaybackDto"];
 export type Kind = TitleCard["kind"];
 
-// The catalog changes a few times a day: a few minutes of cache is plenty.
+// TMDB lists change slowly: a few minutes of cache is plenty.
 const STALE = 5 * 60_000;
 
 export const useHome = () => useQuery({ queryKey: ["tv", "home"], queryFn: () => api<Home>("/tv/home"), staleTime: STALE });
@@ -41,19 +40,6 @@ export const useTitles = (query: TitlesQuery, enabled = true) =>
 
 export const useTitle = (id: string) =>
   useQuery({ queryKey: ["tv", "title", id], queryFn: () => api<TitleDetail>(`/tv/titles/${id}`), staleTime: STALE });
-
-// What to give the player for a movie, an episode or an extra; `exclude` skips
-// the services that just failed on this device.
-export const fetchPlayback = (itemId: string, exclude: string[] = []) =>
-  api<Playback>(`/tv/playback/${itemId}${exclude.length ? `?exclude=${exclude.join(",")}` : ""}`);
-
-// The same source as a direct playlist link for hls.js, resolved by maia-be,
-// for when the device's native HLS rejects it.
-export const fetchStream = (itemId: string, provider: string) =>
-  api<Playback>(`/tv/playback/${itemId}/stream?provider=${encodeURIComponent(provider)}`);
-
-export const reportPlaybackFailed =(itemId: string, provider: string) =>
-  api(`/tv/playback/${itemId}/failed`, { method: "POST", body: { provider } }).catch(() => {});
 
 // Episodes of a series in watching order, across seasons.
 export const flatEpisodes = (t: TitleDetail): Episode[] => t.seasonList.flatMap((s) => s.episodes);

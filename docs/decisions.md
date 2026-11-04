@@ -402,3 +402,16 @@ il menu a sinistra e la schermata a destra, come le impostazioni delle app TV. S
 QR e codice, il telefono conferma. La verifica in due passaggi è facoltativa e solo via email; si attiva
 soltanto dopo aver inserito un codice ricevuto, per non chiudere fuori nessuno se le email non arrivano.
 Dettagli in docs/access.md.
+
+**Catalogo letto dal vivo da TMDB, niente più catalogo locale.** Obiettivo dell'utente: togliere worker
+e catalogo dal database. Home, generi, liste, ricerca e schede arrivano da `tmdb-catalog.service.ts`.
+Le risposte di TMDB passano solo dalla cache Redis, condivisa fra gli utenti. Gli id sono `movie-603`,
+`series-1396`, `series-1396-s1e2`. Tolti worker, pg-boss, abbinamento, adapter RaiPlay e SDM, scheda Log,
+aggiornamenti e indirizzo delle immagini del pannello: delle fonti resta solo l'indirizzo della
+sorgente dello streaming. Le tabelle del catalogo restano nel database, non usate: contengono
+l'unico legame fra titoli TMDB e video del server (`titles.tmdb_id`, `sources`), e si tolgono con una
+migrazione solo su decisione esplicita dell'utente. Il Play risponde "non disponibile" finché non si
+decide come trovare il film sul server. Limiti noti: massimo 60 titoli per lista. Il trailer si apre
+dentro MAIA in un riquadro YouTube, unica eccezione alla regola `no-referrer` (YouTube non parte senza
+referrer), con il focus su Chiudi perché Indietro resti a MAIA anche su TV. Le condizioni di TMDB
+chiedono logo e avviso di attribuzione nell'app: da aggiungere.

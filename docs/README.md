@@ -11,7 +11,6 @@ commit di ogni modifica che cambia comportamento, struttura o decisioni (vedi `C
 | [decisions.md](decisions.md) | Registro delle decisioni, in ordine cronologico, con il motivo |
 | [architecture.md](architecture.md) | Monorepo, stack, app di MAIA come moduli, tipi FE generati dal BE |
 | [access.md](access.md) | Account, stati, amministratori, profili, permessi sulle app, login |
-| [tv/catalog.md](tv/catalog.md) | MAIA TV: servizi e vincolo geografico, riproduzione sul dispositivo, catalogo unico e suo aggiornamento, fonti multiple, generi, menu |
 | [ui.md](ui.md) | Design system, navigazione per dispositivo, schermate, telecomando |
 | [dev.md](dev.md) | Ambiente locale, Docker, porte, comandi, problemi noti |
 | [deploy.md](deploy.md) | Deploy su Coolify (VPS) |
@@ -23,5 +22,4 @@ commit di ogni modifica che cambia comportamento, struttura o decisioni (vedi `C
   dati finti; **account e profili veri** (registrazione, conferma email, approvazione da terminale,
   login con sessioni, password dimenticata, guida iniziale, profili, impostazioni account,
   pannello admin per approvare e gestire gli account).
-- **Non ancora fatto:** permessi sulle app, login TV con codice, schema Prisma del
-  catalogo, adapter dei servizi (MAIA TV usa ancora i dati finti).
+- **Non ancora fatto:** far partire i film dal server di streaming (il Play risponde "non disponibile").
