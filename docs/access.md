@@ -144,7 +144,10 @@ Impostazioni account, Esci.
 
 Oggi l'elenco delle app è fisso nel frontend (`maia-fe/lib/apps.ts`).
 
-## Login sulla TV
+## Login col telefono (TV e computer)
+
+Sul computer si arriva allo stesso QR con "Entra col telefono" nella pagina di login, che compare solo con
+un mouse: un telefono non può inquadrare il proprio schermo.
 
 Sulla TV la pagina di login parte da un QR e da un codice di 6 caratteri, senza scrivere nulla col
 telecomando. Il QR apre `/link?code=…` sul telefono (senza QR si apre `/link` e si scrive il codice), che

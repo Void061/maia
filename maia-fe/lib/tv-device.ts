@@ -13,3 +13,8 @@ const never = () => () => {};
 export function useTv() {
   return useSyncExternalStore(never, isTv, () => false);
 }
+
+// A mouse or trackpad: a computer rather than a phone or a tablet.
+export function useMouse() {
+  return useSyncExternalStore(never, () => matchMedia("(pointer: fine)").matches, () => false);
+}
