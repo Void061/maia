@@ -402,3 +402,8 @@ decide come trovare il film sul server. Limiti noti: massimo 60 titoli per lista
 dentro MAIA in un riquadro YouTube, unica eccezione alla regola `no-referrer` (YouTube non parte senza
 referrer), con il focus su Chiudi perché Indietro resti a MAIA anche su TV. Le condizioni di TMDB
 chiedono logo e avviso di attribuzione nell'app: da aggiungere.
+
+**Immagini solo da TMDB, tolto l'indirizzo delle immagini** (2026-11-05, chiesto dall'utente): nessuna
+immagine si legge più dall'indirizzo di una fonte. La migrazione `20261105090000_drop_assets_url` toglie
+`provider_health.assets_url`. Dal database locale sono stati tolti anche i percorsi delle immagini con
+sorgente `sdm` (`titles`, `episodes`) e le righe di log con il dominio della vecchia fonte.

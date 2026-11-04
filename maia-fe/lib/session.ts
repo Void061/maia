@@ -36,6 +36,12 @@ function subscribe(l: () => void) {
 
 export const selectProfile = (id: string | null) => write(PROFILE_KEY, id);
 
+// Where a login lands: the page that sent to the login, or the profiles.
+export function afterLogin() {
+  const next = new URLSearchParams(location.search).get("next");
+  return next?.startsWith("/") && !next.startsWith("//") ? next : "/profiles";
+}
+
 export function useSelectedProfileId() {
   return useSyncExternalStore(subscribe, () => read(PROFILE_KEY), () => null);
 }
