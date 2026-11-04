@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Poster from "@/components/poster";
 import { useTitles } from "@/lib/tv";
-import { isTv } from "@/lib/tv-device";
+import { useTv } from "@/lib/tv-device";
 
 const KEYS = "abcdefghijklmnopqrstuvwxyz1234567890".split("");
 
@@ -27,8 +27,7 @@ export default function Search() {
   const firstKey = useRef<HTMLButtonElement>(null);
   const focusKeys = useRef(false);
   // On a TV the field is read-only, or the device's keyboard opens on top of this one.
-  const [tv, setTv] = useState(false);
-  useEffect(() => setTv(isTv()), []);
+  const tv = useTv();
   useEffect(() => {
     // Opened from the remote: straight to the letters.
     if (keyboard && focusKeys.current) firstKey.current?.focus();

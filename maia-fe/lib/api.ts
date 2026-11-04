@@ -36,11 +36,12 @@ const refresh = () =>
 
 // Calls maia-be through the same-origin /api gateway. An expired access token
 // (401) is refreshed once and the call retried; if that fails too the session
-// is over and the caller gets UNAUTHENTICATED.
+// is over: the caller gets UNAUTHENTICATED and the device goes to the login.
 export async function api<T = void>(path: string, options: Options = {}): Promise<T> {
   let res = await raw(path, options);
   if (res.status === 401 && !path.startsWith("/auth/")) {
     if (await refresh()) res = await raw(path, options);
+    else if (location.pathname !== "/login") location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
   }
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { code?: string; message?: string | string[] };

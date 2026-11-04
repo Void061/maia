@@ -39,8 +39,18 @@ Regole in `app/globals.css` (`html.tv`), come su Netflix e Max:
   e pari in pixel (a x1,5 su 1080p cadono su pixel esatti, i decimali sporcano gli angoli);
   `thumbUrl` per le card. Niente `content-visibility`: renderizzava le righe tutte insieme al primo
   movimento, un blocco di circa 400 ms.
+- **Selezione:** il riquadro `#tv-ring` è solo per card, campi e ciò che ha `data-tv-ring` (l'avatar).
+  I pulsanti diventano bianchi (quello principale è bianco solo quando è in focus), le schede
+  mostrano solo la riga sotto. Sulla TV `:hover` non conta: una card rimasta in hover sembrava un
+  secondo focus. Entrando in una hero o in una fila di schede si va sempre sul primo pulsante o
+  sulla scheda aperta, da qualunque colonna si arrivi.
 - **Focus:** ogni pagina si apre con il focus sul primo elemento utile, o dove era tornando indietro.
   Logo (con una sola app attiva), pallini del carosello, "+" e "Vedi tutto" non si raggiungono.
+
+**Pagine di impostazioni su TV** (pannello admin, Account): menu a sinistra (`data-tv-side`) e schermata a
+destra (`data-tv-pane`), che scorre per conto suo. Su e Giù nel menu cambiano subito la schermata, Destra
+entra nel contenuto, Sinistra o Indietro tornano alla voce aperta, Indietro dal menu esce dalla pagina.
+Su telefono e computer le pagine restano come sono.
 
 **Player su TV**, come Netflix (`app/watch/[id]/player.tsx`): sull'immagine sinistra e destra spostano
 il video di 10 secondi, OK mette in pausa, Giù entra nella fila dei pulsanti; lì sinistra e destra

@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsString, Length, MaxLength, MinLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -26,6 +26,42 @@ export class RegisterDto {
   @MinLength(PASSWORD_MIN)
   @MaxLength(200)
   password: string;
+}
+
+export class LoginResultDto {
+  @ApiProperty({ description: 'true: no session yet, a code was sent by email' }) twoFactor: boolean;
+  @ApiPropertyOptional({ description: 'For /auth/login/verify and /auth/login/resend' }) challenge?: string;
+}
+
+export class VerifyCodeDto {
+  @ApiProperty() @IsString() @MaxLength(100) challenge: string;
+  @ApiProperty({ example: '123456' }) @Transform(trim) @IsString() @Length(6, 6) code: string;
+}
+
+export class ChallengeDto {
+  @ApiProperty() @IsString() @MaxLength(100) challenge: string;
+}
+
+export class PairingStartDto {
+  @ApiProperty({ description: 'Secret of this TV, to ask for the answer' }) token: string;
+  @ApiProperty({ description: 'What the phone confirms: in the QR and on screen' }) code: string;
+  @ApiProperty() expiresAt: string;
+}
+
+export class PairingPollDto {
+  @ApiProperty() @IsString() @MaxLength(100) token: string;
+}
+
+export class PairingStatusDto {
+  @ApiProperty({ enum: ['pending', 'approved', 'rejected', 'expired'] }) status: string;
+}
+
+export class PairingCodeDto {
+  @ApiProperty() @IsString() @MaxLength(20) code: string;
+}
+
+export class PairingInfoDto {
+  @ApiProperty({ description: 'The device asking to sign in' }) device: string;
 }
 
 export class LoginDto {
