@@ -22,7 +22,7 @@ export function useMe() {
   });
   const expired = query.error instanceof ApiError && query.error.status === 401;
   useEffect(() => {
-    if (expired) router.replace(`/login?next=${encodeURIComponent(location.pathname)}`);
+    if (expired) router.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
   }, [expired, router]);
   return query;
 }

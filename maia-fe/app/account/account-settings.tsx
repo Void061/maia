@@ -2,14 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Avatar from "@/components/avatar";
 import { BackIcon } from "@/components/icons";
 import Logo from "@/components/logo";
 import { Button, Field, Notice } from "@/components/ui";
 import { ME, useLogout, useMe } from "@/lib/account";
 import { api, type components } from "@/lib/api";
-import { isTv } from "@/lib/tv-device";
+import { useTv } from "@/lib/tv-device";
 
 const PASSWORD_MIN = 8;
 const SESSIONS = ["me", "sessions"];
@@ -25,13 +25,13 @@ export default function AccountSettings() {
   const { data: me } = useMe();
   const logout = useLogout();
   // On a TV: a menu on the left, one section at a time on the right.
-  const [tv, setTv] = useState(false);
-  useEffect(() => setTv(isTv()), []);
+  const tv = useTv();
   const [voice, setVoice] = useState("data");
   const shows = (key: string) => !tv || voice === key;
   const voices = [
     { key: "data", label: "Dati dell'account" },
     { key: "password", label: "Password" },
+    { key: "two-factor", label: "Verifica in due passaggi" },
     { key: "profiles", label: "Profili" },
     { key: "devices", label: "Dispositivi connessi" },
     ...(me?.role === "ADMIN" ? [{ key: "admin", label: "Amministrazione" }] : []),
@@ -94,6 +94,12 @@ export default function AccountSettings() {
             </Section>
             )}
 
+            {shows("two-factor") && (
+            <Section title="Verifica in due passaggi">
+              <TwoFactor on={me.twoFactor} />
+            </Section>
+            )}
+
             {shows("profiles") && (
             <Section title="Profili">
               <ul className="flex flex-wrap gap-4">
@@ -143,6 +149,89 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2 className="mb-5 font-display text-xl font-bold">{title}</h2>
       {children}
     </section>
+  );
+}
+
+// A code by email after the password. It goes on only with a code received,
+// the proof that the emails arrive; going off asks for the password.
+function TwoFactor({ on }: { on: boolean }) {
+  const qc = useQueryClient();
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const refresh = () => qc.invalidateQueries({ queryKey: ME });
+  const start = useMutation({
+    mutationFn: () => api<{ challenge: string }>("/me/two-factor/start", { method: "POST" }),
+    onSuccess: (res) => setChallenge(res.challenge),
+  });
+  const enable = useMutation({
+    mutationFn: () => api("/me/two-factor/enable", { method: "POST", body: { challenge, code: code.trim() } }),
+    onSuccess: () => {
+      setChallenge(null);
+      setCode("");
+      return refresh();
+    },
+  });
+  const disable = useMutation({
+    mutationFn: () => api("/me/two-factor/disable", { method: "POST", body: { password } }),
+    onSuccess: () => {
+      setPassword("");
+      return refresh();
+    },
+  });
+  const failure = start.error ?? enable.error ?? disable.error;
+  const notice = failure && (
+    <div className="mt-4">
+      <Notice>{failure.message}</Notice>
+    </div>
+  );
+
+  if (on) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          disable.mutate();
+        }}
+      >
+        <p className="text-muted">Attiva: dopo la password ti chiediamo un codice che arriva per email. L&apos;accesso col QR sulla TV non lo chiede, conferma il telefono.</p>
+        <div className="mt-4">
+          <Field label="Password, per disattivarla" name="two-factor-password" type="password" autoComplete="current-password" value={password} onChange={setPassword} required />
+        </div>
+        {notice}
+        <Button type="submit" variant="secondary" disabled={disable.isPending || !password} className="mt-5">
+          Disattiva
+        </Button>
+      </form>
+    );
+  }
+  if (challenge) {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          enable.mutate();
+        }}
+      >
+        <p className="text-muted">Ti abbiamo mandato un codice di 6 cifre: scrivilo qui per attivarla.</p>
+        <div className="mt-4">
+          <Field label="Codice" name="two-factor-code" autoComplete="one-time-code" value={code} onChange={setCode} required />
+        </div>
+        {notice}
+        <Button type="submit" disabled={enable.isPending || code.trim().length !== 6} className="mt-5">
+          Attiva
+        </Button>
+      </form>
+    );
+  }
+  return (
+    <>
+      <p className="text-muted">Dopo la password ti chiediamo anche un codice che arriva per email: chi scopre la password da solo non entra.</p>
+      {notice}
+      <Button variant="secondary" onClick={() => start.mutate()} disabled={start.isPending} className="mt-5">
+        {start.isPending ? "Invio…" : "Attiva"}
+      </Button>
+    </>
   );
 }
 

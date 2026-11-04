@@ -397,3 +397,8 @@ dentro fino a 15 minuti. Vale anche per sospensione e cambio password. Dettagli 
 
 **Impostazioni su TV con menu a sinistra** (chiesto dall'utente): pannello admin e Account su TV hanno
 il menu a sinistra e la schermata a destra, come le impostazioni delle app TV. Solo su TV.
+
+**Login veloce sulla TV col QR e verifica in due passaggi via email** (chiesto dall'utente). La TV mostra
+QR e codice, il telefono conferma. La verifica in due passaggi è facoltativa e solo via email; si attiva
+soltanto dopo aver inserito un codice ricevuto, per non chiudere fuori nessuno se le email non arrivano.
+Dettagli in docs/access.md.

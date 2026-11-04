@@ -1,7 +1,9 @@
-import { Body, Controller, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
+  ApiCookieAuth,
+  ApiNotFoundResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiOkResponse,
@@ -10,9 +12,27 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
+import { AuthGuard, CurrentUser, type AuthUser } from './auth.guard.js';
 import { AuthService } from './auth.service.js';
 import { clearAuthCookies, REFRESH_COOKIE, setAuthCookies } from './cookies.js';
-import { EmailDto, ErrorDto, LoginDto, RegisterDto, ResetPasswordDto, TokenDto } from './dto.js';
+import {
+  ChallengeDto,
+  EmailDto,
+  ErrorDto,
+  LoginDto,
+  LoginResultDto,
+  PairingCodeDto,
+  PairingInfoDto,
+  PairingPollDto,
+  PairingStartDto,
+  PairingStatusDto,
+  RegisterDto,
+  ResetPasswordDto,
+  TokenDto,
+  VerifyCodeDto,
+} from './dto.js';
+import { PairingService } from './pairing.service.js';
+import { TwoFactorService } from './two-factor.service.js';
 import { ApiProperty } from '@nestjs/swagger';
 
 class VerifyEmailResponse {
@@ -28,7 +48,11 @@ const refreshCookie = (req: Request) => (req.cookies as Record<string, string> |
 @Throttle({ default: { limit: 10, ttl: 60_000 } })
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly twoFactor: TwoFactorService,
+    private readonly pairing: PairingService,
+  ) {}
 
   @Post('register')
   @HttpCode(204)
@@ -54,13 +78,82 @@ export class AuthController {
   }
 
   @Post('login')
-  @HttpCode(204)
-  @ApiNoContentResponse({ description: 'Accesso eseguito: cookie di sessione impostati.' })
+  @HttpCode(200)
+  @ApiOkResponse({ type: LoginResultDto, description: 'Cookie di sessione impostati, oppure codice inviato per email.' })
   @ApiUnauthorizedResponse({ type: ErrorDto, description: 'INVALID_CREDENTIALS' })
   @ApiForbiddenResponse({ type: ErrorDto, description: 'EMAIL_NOT_VERIFIED, PENDING_APPROVAL, SUSPENDED' })
-  async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.auth.login(dto.email, dto.password, req.get('user-agent'));
+  async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<LoginResultDto> {
+    const result = await this.auth.login(dto.email, dto.password, req.get('user-agent'));
+    if ('challenge' in result) return { twoFactor: true, challenge: result.challenge };
+    setAuthCookies(res, result.tokens.access, result.tokens.refresh);
+    return { twoFactor: false };
+  }
+
+  @Post('login/verify')
+  @HttpCode(204)
+  @ApiNoContentResponse({ description: 'Codice giusto: cookie di sessione impostati.' })
+  @ApiBadRequestResponse({ type: ErrorDto, description: 'CODE_WRONG, CODE_EXPIRED' })
+  async verifyLogin(@Body() dto: VerifyCodeDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const tokens = await this.auth.verifyLogin(dto.challenge, dto.code, req.get('user-agent'));
     setAuthCookies(res, tokens.access, tokens.refresh);
+  }
+
+  @Post('login/resend')
+  @HttpCode(204)
+  @ApiNoContentResponse({ description: 'Nuovo codice inviato.' })
+  @ApiBadRequestResponse({ type: ErrorDto, description: 'CODE_EXPIRED, CODE_TOO_SOON' })
+  resendCode(@Body() dto: ChallengeDto) {
+    return this.twoFactor.resend(dto.challenge);
+  }
+
+  // Login on a TV from a phone (docs/access.md): the TV starts and asks...
+  @Post('pair/start')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @ApiOkResponse({ type: PairingStartDto })
+  async startPairing(@Req() req: Request): Promise<PairingStartDto> {
+    const { token, code, expiresAt } = await this.pairing.start(req.get('user-agent'));
+    return { token, code, expiresAt: expiresAt.toISOString() };
+  }
+
+  @Post('pair/poll')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @ApiOkResponse({ type: PairingStatusDto, description: 'approved: cookie di sessione impostati.' })
+  async pollPairing(@Body() dto: PairingPollDto, @Res({ passthrough: true }) res: Response): Promise<PairingStatusDto> {
+    const { status, tokens } = await this.auth.pairingResult(dto.token);
+    if (tokens) setAuthCookies(res, tokens.access, tokens.refresh);
+    return { status };
+  }
+
+  // ...and a phone with a session answers.
+  @Get('pair/:code')
+  @UseGuards(AuthGuard)
+  @ApiCookieAuth()
+  @ApiOkResponse({ type: PairingInfoDto })
+  @ApiNotFoundResponse({ type: ErrorDto, description: 'PAIRING_NOT_FOUND' })
+  describePairing(@Param('code') code: string): Promise<PairingInfoDto> {
+    return this.pairing.describe(code);
+  }
+
+  @Post('pair/approve')
+  @HttpCode(204)
+  @UseGuards(AuthGuard)
+  @ApiCookieAuth()
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse({ type: ErrorDto, description: 'PAIRING_NOT_FOUND' })
+  approvePairing(@CurrentUser() user: AuthUser, @Body() dto: PairingCodeDto) {
+    return this.pairing.approve(dto.code, user.accountId);
+  }
+
+  @Post('pair/reject')
+  @HttpCode(204)
+  @UseGuards(AuthGuard)
+  @ApiCookieAuth()
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse({ type: ErrorDto, description: 'PAIRING_NOT_FOUND' })
+  rejectPairing(@Body() dto: PairingCodeDto) {
+    return this.pairing.reject(dto.code);
   }
 
   @Post('refresh')

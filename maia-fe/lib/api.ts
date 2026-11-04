@@ -41,7 +41,7 @@ export async function api<T = void>(path: string, options: Options = {}): Promis
   let res = await raw(path, options);
   if (res.status === 401 && !path.startsWith("/auth/")) {
     if (await refresh()) res = await raw(path, options);
-    else if (location.pathname !== "/login") location.replace(`/login?next=${encodeURIComponent(location.pathname)}`);
+    else if (location.pathname !== "/login") location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`);
   }
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { code?: string; message?: string | string[] };

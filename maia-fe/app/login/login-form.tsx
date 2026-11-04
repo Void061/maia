@@ -4,8 +4,10 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Field, Notice, TextLink } from "@/components/ui";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, type components } from "@/lib/api";
 import { rememberPendingEmail } from "@/lib/session";
+
+const CODE_DIGITS = 6;
 
 // Login refusals that have their own screen (see /status/[state]).
 const STATE_PAGE: Record<string, string> = {
@@ -14,16 +16,25 @@ const STATE_PAGE: Record<string, string> = {
   SUSPENDED: "/status/suspended",
 };
 
+type LoginResult = components["schemas"]["LoginResultDto"];
+
 export default function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Set when the account uses two-step verification: the code is on its way.
+  const [challenge, setChallenge] = useState<string | null>(null);
+
+  const enter = () => {
+    const next = new URLSearchParams(location.search).get("next");
+    router.replace(next?.startsWith("/") && !next.startsWith("//") ? next : "/profiles");
+  };
 
   const login = useMutation({
-    mutationFn: () => api("/auth/login", { method: "POST", body: { email, password } }),
-    onSuccess: () => {
-      const next = new URLSearchParams(location.search).get("next");
-      router.replace(next?.startsWith("/") ? next : "/profiles");
+    mutationFn: () => api<LoginResult>("/auth/login", { method: "POST", body: { email, password } }),
+    onSuccess: (result) => {
+      if (result.twoFactor && result.challenge) setChallenge(result.challenge);
+      else enter();
     },
     onError: (err) => {
       if (err instanceof ApiError && STATE_PAGE[err.code]) {
@@ -34,6 +45,8 @@ export default function LoginForm() {
   });
 
   const failed = login.error instanceof ApiError && !STATE_PAGE[login.error.code] ? login.error : null;
+
+  if (challenge) return <CodeStep challenge={challenge} onDone={enter} onRestart={() => setChallenge(null)} />;
 
   return (
     <form
@@ -70,6 +83,52 @@ export default function LoginForm() {
       <p className="mt-8 text-center text-muted">
         Non hai un account? <TextLink href="/signup">Registrati</TextLink>
       </p>
+    </form>
+  );
+}
+
+// Second step of the login: the code that just went out by email.
+function CodeStep({ challenge, onDone, onRestart }: { challenge: string; onDone: () => void; onRestart: () => void }) {
+  const [code, setCode] = useState("");
+  const verify = useMutation({
+    mutationFn: () => api("/auth/login/verify", { method: "POST", body: { challenge, code: code.trim() } }),
+    onSuccess: onDone,
+  });
+  const resend = useMutation({
+    mutationFn: () => api("/auth/login/resend", { method: "POST", body: { challenge } }),
+  });
+  const expired = verify.error instanceof ApiError && verify.error.code === "CODE_EXPIRED";
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        verify.mutate();
+      }}
+    >
+      <h1 className="text-center font-display text-4xl font-bold">Controlla l&apos;email</h1>
+      <p className="mt-3 text-center text-lg text-muted">Ti abbiamo mandato un codice di 6 cifre. Vale 10 minuti.</p>
+      <div className="mt-8">
+        <Field label="Codice" name="code" autoComplete="one-time-code" value={code} onChange={setCode} required />
+      </div>
+      {(verify.error || resend.error) && (
+        <div className="mt-4">
+          <Notice>{(verify.error ?? resend.error)?.message}</Notice>
+        </div>
+      )}
+      {resend.isSuccess && !verify.error && <p className="mt-4 text-center text-muted">Codice nuovo inviato.</p>}
+      {expired ? (
+        <Button onClick={onRestart} className="mt-6 w-full">
+          Ricomincia
+        </Button>
+      ) : (
+        <Button type="submit" disabled={verify.isPending || code.trim().length !== CODE_DIGITS} className="mt-6 w-full">
+          {verify.isPending ? "Controllo…" : "Entra"}
+        </Button>
+      )}
+      <Button variant="secondary" onClick={() => resend.mutate()} disabled={resend.isPending} className="mt-3 w-full">
+        Invia di nuovo
+      </Button>
     </form>
   );
 }

@@ -38,7 +38,8 @@ export class MailService {
     this.appUrl = config.get<string>('APP_URL', 'http://localhost:3001').replace(/\/$/, '');
   }
 
-  async send({ to, subject, lines, action }: Mail) {
+  // False when the mail did not leave: most callers carry on, a code by email cannot.
+  async send({ to, subject, lines, action }: Mail): Promise<boolean> {
     const text = [...lines, ...(action ? ['', `${action.label}: ${action.url}`] : [])].join('\n');
     const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5;color:#111;max-width:520px">
 ${lines.map((l) => `<p>${escape(l)}</p>`).join('\n')}
@@ -51,9 +52,11 @@ ${
 </div>`;
     try {
       await this.transport.sendMail({ from: this.from, to, subject, text, html });
+      return true;
     } catch (err) {
       // Never break the request because the mail server is down: log it.
       this.logger.error(`Email "${subject}" not sent: ${(err as Error).message}`);
+      return false;
     }
   }
 }

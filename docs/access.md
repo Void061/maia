@@ -152,11 +152,26 @@ Impostazioni account, Esci.
 
 Oggi l'elenco delle app è fisso nel frontend (`maia-fe/lib/apps.ts`).
 
-## Login sulla TV (da fare)
+## Login sulla TV
 
-QR code e codice di 6 caratteri confermati dal telefono. Il pulsante "Accedi con il telefono" è
-stato tolto dalla pagina di login: comparirà solo sulla TV quando la funzione esiste (su telefono e
-computer non ha senso, lì si usano email e password).
+Sulla TV la pagina di login parte da un QR e da un codice di 6 caratteri, senza scrivere nulla col
+telecomando. Il QR apre `/link?code=…` sul telefono (senza QR si apre `/link` e si scrive il codice), che
+deve avere già una sessione: mostra quale dispositivo chiede di entrare, e con "Conferma" la TV riceve
+la sua sessione. La TV tiene un token segreto e chiede la risposta ogni 2 secondi
+(`/auth/pair/poll`): il codice da solo non fa entrare nessuno. Il codice dura 5 minuti e poi la TV ne prende
+uno nuovo da sola; resta il pulsante "Usa email e password". Il telefono ha già superato il suo login,
+quindi la verifica in due passaggi non viene chiesta di nuovo.
+
+## Verifica in due passaggi
+
+Solo via email, facoltativa, da Account. Dopo la password arriva un codice di 6 cifre: vale 10 minuti e
+5 tentativi, ed è legato a un token di sfida (`auth/two-factor.service.ts`, tabella `email_codes`).
+Per attivarla bisogna inserire un codice ricevuto, così è dimostrato che le email arrivano; per
+disattivarla serve la password. Reimpostare la password non la salta. Se le email non arrivano più:
+`npm run account:2fa-off -- <email>` in `maia-be`.
+Se l'email non parte l'app lo dice (`MAIL_FAILED`) invece di aspettare un codice mai spedito. Con il mittente
+di prova di Resend (`onboarding@resend.dev`) le email arrivano solo al proprietario dell'account Resend: per
+gli altri account serve un dominio verificato.
 
 ## Modello dati
 
@@ -183,6 +198,10 @@ Documentazione interattiva su `http://localhost:3000/docs` (JSON su `/docs-json`
 | POST | `/auth/login` | `{email, password}` → cookie |
 | POST | `/auth/refresh` | cookie → nuovi cookie |
 | POST | `/auth/logout` | chiude la sessione |
+| POST | `/auth/login/verify`, `/auth/login/resend` | secondo passaggio del login |
+| POST | `/auth/pair/start`, `/auth/pair/poll` | login sulla TV: QR e attesa della risposta |
+| GET, POST | `/auth/pair/:code`, `/auth/pair/approve`, `/auth/pair/reject` | la risposta dal telefono |
+| POST | `/me/two-factor/start`, `/enable`, `/disable` | attiva e disattiva la verifica |
 | GET | `/me/sessions` | dispositivi connessi |
 | DELETE | `/me/sessions/:id` | disconnette un altro dispositivo |
 | DELETE | `/me/sessions` | disconnette tutti gli altri |

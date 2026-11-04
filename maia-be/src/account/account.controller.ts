@@ -27,6 +27,7 @@ import { hashPassword, verifyPassword } from '../auth/crypto.js';
 import { deviceOf } from '../auth/device.js';
 import { ErrorDto, PASSWORD_MIN } from '../auth/dto.js';
 import { SessionCheck } from '../auth/session-check.js';
+import { TwoFactorService } from '../auth/two-factor.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProfileDto, toProfileDto } from '../profiles/profiles.controller.js';
 
@@ -35,8 +36,22 @@ class AccountDto {
   @ApiProperty() email: string;
   @ApiProperty() name: string;
   @ApiProperty({ enum: ['USER', 'ADMIN'] }) role: string;
+  @ApiProperty({ description: 'A code by email after the password' }) twoFactor: boolean;
   @ApiProperty() createdAt: string;
   @ApiProperty({ type: [ProfileDto] }) profiles: ProfileDto[];
+}
+
+class TwoFactorChallengeDto {
+  @ApiProperty() challenge: string;
+}
+
+class EnableTwoFactorDto {
+  @ApiProperty() @IsString() @MaxLength(100) challenge: string;
+  @ApiProperty({ example: '123456' }) @IsString() @Length(6, 6) code: string;
+}
+
+class DisableTwoFactorDto {
+  @ApiProperty() @IsString() @MaxLength(200) password: string;
 }
 
 class SessionDto {
@@ -70,6 +85,7 @@ export class AccountController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sessions: SessionCheck,
+    private readonly twoFactor: TwoFactorService,
   ) {}
 
   @Get()
@@ -84,6 +100,7 @@ export class AccountController {
       email: a.email,
       name: a.name,
       role: a.role,
+      twoFactor: a.twoFactor,
       createdAt: a.createdAt.toISOString(),
       profiles: a.profiles.map(toProfileDto),
     };
@@ -116,6 +133,40 @@ export class AccountController {
         data: { revokedAt: new Date() },
       }),
     ]);
+  }
+
+  // Two-step verification goes on only with a code received: proof that the
+  // emails arrive, or the next login would lock the account out.
+  @Post('two-factor/start')
+  @HttpCode(200)
+  @ApiOkResponse({ type: TwoFactorChallengeDto })
+  async startTwoFactor(@CurrentUser() user: AuthUser): Promise<TwoFactorChallengeDto> {
+    const account = await this.prisma.account.findUniqueOrThrow({ where: { id: user.accountId } });
+    return { challenge: await this.twoFactor.issue(account, 'ENABLE_2FA') };
+  }
+
+  @Post('two-factor/enable')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  @ApiBadRequestResponse({ type: ErrorDto, description: 'CODE_WRONG, CODE_EXPIRED' })
+  async enableTwoFactor(@CurrentUser() user: AuthUser, @Body() dto: EnableTwoFactorDto) {
+    const accountId = await this.twoFactor.check(dto.challenge, dto.code, 'ENABLE_2FA');
+    if (accountId !== user.accountId) {
+      throw new BadRequestException({ code: 'CODE_EXPIRED', message: 'Codice scaduto. Richiedine uno nuovo.' });
+    }
+    await this.prisma.account.update({ where: { id: accountId }, data: { twoFactor: true } });
+  }
+
+  @Post('two-factor/disable')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  @ApiBadRequestResponse({ type: ErrorDto, description: 'WRONG_PASSWORD' })
+  async disableTwoFactor(@CurrentUser() user: AuthUser, @Body() dto: DisableTwoFactorDto) {
+    const account = await this.prisma.account.findUniqueOrThrow({ where: { id: user.accountId } });
+    if (!(await verifyPassword(dto.password, account.passwordHash))) {
+      throw new BadRequestException({ code: 'WRONG_PASSWORD', message: 'La password non è corretta.' });
+    }
+    await this.prisma.account.update({ where: { id: account.id }, data: { twoFactor: false } });
   }
 
   // The devices signed in to this account: this one first, then the latest used.
