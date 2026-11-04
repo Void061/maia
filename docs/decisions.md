@@ -311,18 +311,6 @@ schermo.
 backend si avvia sempre con il debugger aperto (porta 9229), così VS Code ci si aggancia
 ("MAIA: aggancia il backend già avviato") senza fermarlo e riavviarlo.
 
-**SDM deve funzionare da ovunque; con l'indirizzo attuale non è possibile** (2026-11-02, requisito
-dell'utente dopo le prove da ngrok): SDM va riprodotto anche fuori dalla rete di casa. L'indirizzo
-SDM oggi punta a un sito di streaming pubblico, non al server di casa, e le prove (docs/tv/catalog.md,
-"SDM", "Stato al 2026-11-02") mostrano che il link della playlist vale solo per la rete che l'ha
-chiesto e che il browser non può ricavarlo da solo (niente CORS su pagina del player ed embed).
-L'unica strada tecnica sarebbe far passare playlist, chiave e segmenti dal backend: **esclusa**,
-perché ridistribuirebbe i video di un sito senza licenza aggirando il suo controllo di rete e non è
-compatibile con `polite-fetch` e con "niente imitazioni dei servizi". Il requisito vale per il
-server di casa `192.168.1.9`, scopo originale di SDM: renderlo raggiungibile da ovunque resta il
-prossimo passo. Corretto anche docs/dev.md: `GET /tv/playback/:itemId/stream` ricava solo il link,
-il video lo scarica sempre il dispositivo.
-
 ## 2026-11-03
 
 **Il video intero attraverso maia-be** (branch `feature/stream-proxy`, chiesto dall'utente). `GET /tv/proxy/:itemId` ricava la
@@ -352,9 +340,8 @@ cambia dal pannello admin (scheda Servizi, `provider_health.assets_url`): predef
 Cambiare l'indirizzo della fonte sposta ancora solo i link dei video. La migrazione
 `20261103210000_asset_paths` converte i dati esistenti (TMDB e RaiPlay); i link con
 `source` vuoto restano link interi e passano così come sono. Niente resync: la migrazione parte
-da sola all'avvio del container. Su richiesta dell'utente tolto il CDN di un sito esterno scritto
-nell'adapter SDM: le sue immagini ora sono percorsi (`CONFIG.paths.image`) sull'indirizzo delle
-immagini di SDM, e la migrazione `20261103220000_sdm_image_paths` toglie l'host dai link
+da sola all'avvio del container. Anche le immagini di SDM ora sono percorsi (`CONFIG.paths.image`)
+sull'indirizzo delle immagini di SDM, e la migrazione `20261103220000_sdm_image_paths` toglie l'host dai link
 interi già salvati e tiene il percorso (sorgente `sdm`).
 
 **MAIA gira solo sul PC di casa** (decisione dell'utente, 2026-11-03): niente VPS. Da fuori servirà
