@@ -4,15 +4,17 @@ import QRCode from "qrcode";
 import { useCallback, useEffect, useState } from "react";
 import { Button, Notice } from "@/components/ui";
 import { api, type components } from "@/lib/api";
+import { afterLogin } from "@/lib/session";
 
 type Pairing = components["schemas"]["PairingStartDto"];
 type Status = components["schemas"]["PairingStatusDto"];
 
 const ASK_EVERY_MS = 2000;
 
-// Login on a TV: nothing to type with the remote. The TV shows a QR and a code,
-// a phone already signed in confirms them on /link, and the TV gets its session.
-export default function TvLogin({ onPassword }: { onPassword: () => void }) {
+// Login from a phone: nothing to type here. This device shows a QR and a code, a
+// phone already signed in confirms them on /link, and this device gets its
+// session. A TV starts here, a computer gets here from the login form.
+export default function PhoneLogin({ tv, onPassword }: { tv: boolean; onPassword: () => void }) {
   const [pairing, setPairing] = useState<Pairing | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export default function TvLogin({ onPassword }: { onPassword: () => void }) {
       const { status } = await api<Status>("/auth/pair/poll", { method: "POST", body: { token: pairing.token } }).catch(() => ({ status: "pending" }));
       if (status === "approved") {
         clearInterval(timer);
-        location.replace("/profiles");
+        location.replace(afterLogin());
       } else if (status === "rejected") {
         setNotice("Accesso rifiutato dal telefono.");
         setPairing(null);
@@ -55,11 +57,11 @@ export default function TvLogin({ onPassword }: { onPassword: () => void }) {
   }, [pairing, start]);
 
   return (
-    <div className="tv-login">
-      <div className="tv-login-qr">
+    <div className={tv ? "tv-login" : "text-center"}>
+      <div className={tv ? "tv-login-qr" : "mx-auto mb-6 size-56 overflow-hidden rounded-2xl bg-white"}>
         {/* A data URL made here, nothing for next/image to optimise. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {qr ? <img src={qr} alt="QR code per accedere col telefono" /> : <span className="block size-full animate-pulse bg-white/20" />}
+        {qr ? <img src={qr} alt="QR code per accedere col telefono" className="size-full" /> : <span className="block size-full animate-pulse bg-white/20" />}
       </div>
       <div>
         <h1 className="font-display text-3xl font-bold">Accedi col telefono</h1>
@@ -71,7 +73,7 @@ export default function TvLogin({ onPassword }: { onPassword: () => void }) {
             <Notice>{notice}</Notice>
           </div>
         )}
-        <Button variant="secondary" onClick={onPassword} className="mt-6">
+        <Button variant="secondary" onClick={onPassword} className={tv ? "mt-6" : "mt-6 w-full"}>
           Usa email e password
         </Button>
       </div>

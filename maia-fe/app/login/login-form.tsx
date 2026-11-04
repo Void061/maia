@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Field, Notice, TextLink } from "@/components/ui";
 import { api, ApiError, type components } from "@/lib/api";
-import { rememberPendingEmail } from "@/lib/session";
+import { afterLogin, rememberPendingEmail } from "@/lib/session";
 
 const CODE_DIGITS = 6;
 
@@ -18,7 +18,7 @@ const STATE_PAGE: Record<string, string> = {
 
 type LoginResult = components["schemas"]["LoginResultDto"];
 
-export default function LoginForm() {
+export default function LoginForm({ onPhone }: { onPhone?: () => void }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,8 +26,7 @@ export default function LoginForm() {
   const [challenge, setChallenge] = useState<string | null>(null);
 
   const enter = () => {
-    const next = new URLSearchParams(location.search).get("next");
-    router.replace(next?.startsWith("/") && !next.startsWith("//") ? next : "/profiles");
+    router.replace(afterLogin());
   };
 
   const login = useMutation({
@@ -80,6 +79,11 @@ export default function LoginForm() {
       <Button type="submit" disabled={login.isPending} className="mt-6 w-full">
         {login.isPending ? "Accesso in corso…" : "Accedi"}
       </Button>
+      {onPhone && (
+        <Button variant="secondary" onClick={onPhone} className="mt-3 w-full">
+          Entra col telefono
+        </Button>
+      )}
       <p className="mt-8 text-center text-muted">
         Non hai un account? <TextLink href="/signup">Registrati</TextLink>
       </p>

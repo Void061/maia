@@ -391,9 +391,6 @@ model ProviderHealth {
   /// Catalog sources only: the address set in the admin panel; null = the
   /// default in services.ts.
   baseUrl       String?        @map("base_url")
-  /// Where the service's pictures are read from (admin panel); null = the
-  /// default in services.ts, or baseUrl.
-  assetsUrl     String?        @map("assets_url")
   /// Catalog sources only, MANUAL by default. AUTO: full pass every day at syncAt (Rome time,
   /// "HH:MM") and checks every syncEveryHours hours (null = none in between).
   syncMode       SyncMode  @default(MANUAL) @map("sync_mode")
