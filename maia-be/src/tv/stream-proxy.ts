@@ -1,20 +1,16 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Readable } from 'node:stream';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
-import { BadGatewayException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { BadGatewayException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
-import { TvService } from './tv.service.js';
 
-// The whole video through maia-be instead of the device reading the service
-// directly: the only way the player plays the catalog. Playlists are rewritten
-// so that every link (variants, segments, keys, subtitles) comes back here,
-// signed, so the endpoint only fetches what a playlist it served pointed to:
-// not an open proxy.
-// No polite-fetch: these are the requests the device would make while watching.
-// Every service with resolveStream.
-// The relinker checks the server's country, so from the VPS (France) films and
-// series are refused: this only works with maia-be running in Italy.
+// The whole video through maia-be instead of the device reading the source
+// directly: the only way the player plays. Playlists are rewritten so that
+// every link (variants, segments, keys, subtitles) comes back here, signed, so
+// the endpoint only fetches what a playlist it served pointed to: not an open
+// proxy. No polite-fetch: these are the requests the device would make while
+// watching.
 
 const PASS_HEADERS = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'last-modified', 'etag'];
 
@@ -49,27 +45,18 @@ export function rewritePlaylist(body: string, baseUrl: string, link: (absolute: 
 
 @Injectable()
 export class StreamProxyService {
-  private readonly log = new Logger('StreamProxy');
   private readonly secret: string;
 
-  constructor(
-    config: ConfigService,
-    private readonly tv: TvService,
-  ) {
+  constructor(config: ConfigService) {
     this.secret = `${config.getOrThrow<string>('JWT_SECRET')}:stream-proxy`;
   }
 
   // Without `u`: the item's playlist. With `u` + `s`: a link from a playlist served here.
   async serve(itemId: string, u: string | undefined, s: string | undefined, req: Request, res: Response) {
-    let url: string;
-    if (u) {
-      if (!s || !validSignature(this.secret, u, s)) throw new ForbiddenException();
-      url = u;
-    } else {
-      const { provider } = await this.tv.playback(itemId);
-      url = (await this.tv.stream(itemId, provider)).url;
-      this.log.log(`${itemId}: ${new URL(url).host}`);
-    }
+    // Nothing yet finds a title on the streaming source: no item has a playlist.
+    if (!u) throw new NotFoundException({ code: 'NO_SOURCE', message: 'Nessuna fonte per questo titolo.' });
+    if (!s || !validSignature(this.secret, u, s)) throw new ForbiddenException();
+    const url = u;
 
     const abort = new AbortController();
     res.on('close', () => !res.writableFinished && abort.abort());
