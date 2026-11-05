@@ -17,6 +17,8 @@ import { ServiceSwitches } from './tv/providers/service-switches.js';
 import { TvController } from './tv/tv.controller.js';
 import { StreamProxyService } from './tv/stream-proxy.js';
 import { TmdbCatalogService } from './tv/tmdb-catalog.service.js';
+import { SdmAdapter } from './tv/providers/sdm/sdm.adapter.js';
+import { PlaybackResolverService } from './tv/services/playback-resolver.js';
 
 @Module({
   imports: [
@@ -29,6 +31,6 @@ import { TmdbCatalogService } from './tv/tmdb-catalog.service.js';
     AuthModule,
   ],
   controllers: [AppController, AccountController, ProfilesController, AdminController, AdminServicesController, TvController],
-  providers: [AppService, AdminGuard, ServiceSwitches, TmdbCatalogService, StreamProxyService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [AppService, AdminGuard, ServiceSwitches, TmdbCatalogService, SdmAdapter, PlaybackResolverService, StreamProxyService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
