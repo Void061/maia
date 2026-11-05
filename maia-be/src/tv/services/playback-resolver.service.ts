@@ -150,7 +150,7 @@ export class PlaybackResolverService {
       return { season: item.season, episode: item.episode };
     const { seasonList } = await this.catalog.title(item.titleId);
     const first = seasonList.find((s) => s.episodes.length)?.episodes[0];
-    if (!first) throw noSource();
+    if (first?.number == null) throw noSource();
     return { season: first.season, episode: first.number };
   }
 
