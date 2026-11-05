@@ -18,7 +18,7 @@ import { TvController } from './tv/tv.controller.js';
 import { StreamProxyService } from './tv/stream-proxy.js';
 import { TmdbCatalogService } from './tv/tmdb-catalog.service.js';
 import { SdmAdapter } from './tv/providers/sdm/sdm.adapter.js';
-import { PlaybackResolverService } from './tv/services/playback-resolver.js';
+import { PlaybackResolverService } from './tv/services/playback-resolver.service.js';
 
 @Module({
   imports: [
