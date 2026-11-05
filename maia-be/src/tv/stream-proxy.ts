@@ -62,7 +62,7 @@ export class StreamProxyService {
     }
     else {
     try {
-        url = await this.playbackResolver.resolve(itemId);
+        url = (await this.playbackResolver.resolve(itemId)).hlsUrl;
       }
     catch (error) { 
         if (error instanceof NotFoundException) throw error;
