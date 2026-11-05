@@ -4,6 +4,7 @@ import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { BadGatewayException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
+import { PlaybackResolverService } from './services/playback-resolver.service.js';
 
 // The whole video through maia-be instead of the device reading the source
 // directly: the only way the player plays. Playlists are rewritten so that
@@ -47,16 +48,30 @@ export function rewritePlaylist(body: string, baseUrl: string, link: (absolute: 
 export class StreamProxyService {
   private readonly secret: string;
 
-  constructor(config: ConfigService) {
+  constructor(config: ConfigService, private readonly playbackResolver: PlaybackResolverService) {
     this.secret = `${config.getOrThrow<string>('JWT_SECRET')}:stream-proxy`;
   }
 
   // Without `u`: the item's playlist. With `u` + `s`: a link from a playlist served here.
   async serve(itemId: string, u: string | undefined, s: string | undefined, req: Request, res: Response) {
-    // Nothing yet finds a title on the streaming source: no item has a playlist.
-    if (!u) throw new NotFoundException({ code: 'NO_SOURCE', message: 'Nessuna fonte per questo titolo.' });
-    if (!s || !validSignature(this.secret, u, s)) throw new ForbiddenException();
-    const url = u;
+    let url: string;
+    if (u) {
+      if (!s || !validSignature(this.secret, u, s)) { throw new ForbiddenException(); }
+
+      url = u;
+    }
+    else {
+    try {
+        url = await this.playbackResolver.resolve(itemId);
+      }
+    catch (error) { 
+        if (error instanceof NotFoundException) throw error;
+        throw new BadGatewayException({
+          code: 'STREAM_RESOLUTION_FAILED', 
+          message: 'Impossibile risolvere lo streaming.',
+        })
+      }
+    }
 
     const abort = new AbortController();
     res.on('close', () => !res.writableFinished && abort.abort());
